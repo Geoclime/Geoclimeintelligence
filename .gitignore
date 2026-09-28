@@ -1,0 +1,34 @@
+# Dependencies — npm workspaces hoist to the repository root, but a package
+# can still keep a local tree when a version cannot be hoisted.
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment — never commit real secrets (spec section 47)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Service account keys. Generated to a temp file, moved into env config, then
+# deleted — one must never reach the repository.
+*serviceAccount*.json
+*firebase-adminsdk*.json
+
+# Logs and coverage
+*.log
+npm-debug.log*
+coverage/
+
+# Cypress run artefacts
+client/cypress/screenshots
+client/cypress/videos
+client/cypress/downloads
+
+# Editor and OS
+.DS_Store
+Thumbs.db
+.vite/

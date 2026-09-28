@@ -1,0 +1,65 @@
+import { ForbiddenError } from "../errors/app-error";
+import type { AuthUser } from "./auth-user";
+
+/** Answers "is admin unit X inside admin unit Y?" by walking `admin_units.parent_id`. */
+export interface RegionHierarchy {
+  isDescendantOrSelf(targetAdminUnitId: string, ancestorAdminUnitId: string): Promise<boolean>;
+  /** The root admin unit plus every descendant of it. */
+  subtreeIds(rootAdminUnitId: string): Promise<string[]>;
+}
+
+/**
+ * Phase 1 stand-in until `admin_units` exists (Phase 2). It fails closed: a scoped user
+ * matches only their exact admin unit, never a descendant, so it can deny legitimate access
+ * but can never grant access outside the scope.
+ *
+ * Phase 2: replace with AdminUnitRepository.Instance (recursive CTE over parent_id).
+ */
+export class SelfOnlyRegionHierarchy implements RegionHierarchy {
+  async isDescendantOrSelf(targetAdminUnitId: string, ancestorAdminUnitId: string): Promise<boolean> {
+    return targetAdminUnitId === ancestorAdminUnitId;
+  }
+
+  async subtreeIds(rootAdminUnitId: string): Promise<string[]> {
+    return [rootAdminUnitId];
+  }
+}
+
+export type RegionScoped<Q> = Q & {
+  /** undefined = unrestricted; otherwise repositories filter `admin_unit_id IN (...)`. */
+  scopeAdminUnitIds?: string[];
+};
+
+/**
+ * The region half of access control (section 7). The role half is `authorise()`, which runs
+ * first on the route; this runs in the service because it needs a hierarchy lookup.
+ */
+export class RegionAccess {
+  private static _instance?: RegionAccess;
+  static get Instance(): RegionAccess {
+    return (this._instance ??= new RegionAccess(new SelfOnlyRegionHierarchy()));
+  }
+
+  constructor(private readonly hierarchy: RegionHierarchy) {}
+
+  /** For single-record reads/writes: throws 403 if the target is outside the user's scope. */
+  async assert(user: AuthUser, targetAdminUnitId: string): Promise<void> {
+    if (!user.scopeAdminUnitId) return;
+    const allowed = await this.hierarchy.isDescendantOrSelf(targetAdminUnitId, user.scopeAdminUnitId);
+    if (!allowed) throw new ForbiddenError();
+  }
+
+  /** For lists/searches: never throws, narrows results to the user's scope instead. */
+  async scope<Q extends object>(query: Q, user: AuthUser): Promise<RegionScoped<Q>> {
+    if (!user.scopeAdminUnitId) return { ...query };
+    return { ...query, scopeAdminUnitIds: await this.hierarchy.subtreeIds(user.scopeAdminUnitId) };
+  }
+}
+
+export function assertRegionAccess(user: AuthUser, targetAdminUnitId: string): Promise<void> {
+  return RegionAccess.Instance.assert(user, targetAdminUnitId);
+}
+
+export function applyRegionScope<Q extends object>(query: Q, user: AuthUser): Promise<RegionScoped<Q>> {
+  return RegionAccess.Instance.scope(query, user);
+}
