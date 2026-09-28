@@ -26,6 +26,12 @@ export interface IdentityClient {
   signUp(email: string, password: string): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
   sendEmailVerification(): Promise<void>;
+  /**
+   * Re-reads an unverified account from the provider, and fires onSessionChanged if its email
+   * has been verified since (for example, from the link in another tab or on a phone).
+   * Does nothing when signed out or already verified.
+   */
+  refreshSession(): Promise<void>;
   signOut(): Promise<void>;
 }
 

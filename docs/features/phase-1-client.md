@@ -26,6 +26,7 @@ Read these in order. Each one covers one layer of the app:
 4. [admin-user-management-ui.md](admin-user-management-ui.md): the Users page, paging, and the access form.
 5. [client-testing.md](client-testing.md): the unit tests and the Cypress suite, and how Cypress signs in without Firebase.
 6. [client-deployment-vercel.md](client-deployment-vercel.md): putting the client on Vercel.
+7. [auth-email-templates.md](auth-email-templates.md): the Firebase console settings behind the verification and password-reset emails.
 
 **Checked before handing over:** typecheck (the app and the Cypress specs), ESLint, 25 unit tests and 27 Cypress end-to-end tests all pass, and so does the production build. The production bundle was searched to confirm the test-only fake sign-in code isn't in it. The screens were also reviewed in light and dark themes, on desktop and on a 390px-wide phone.
 

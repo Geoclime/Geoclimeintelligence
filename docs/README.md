@@ -36,6 +36,7 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 18. [features/admin-user-management-ui.md](features/admin-user-management-ui.md): the Administrator Users page.
 19. [features/client-testing.md](features/client-testing.md): unit tests and the offline Cypress suite.
 20. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
+21. [features/auth-email-templates.md](features/auth-email-templates.md): the verification and password-reset emails, and the Firebase console settings behind them.
 
 ## Adding a new doc
 

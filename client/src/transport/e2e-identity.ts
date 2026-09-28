@@ -21,6 +21,7 @@ export const E2E_ID_TOKEN = "e2e-id-token";
 
 export function createE2eIdentity(): IdentityClient {
   const listeners = new Set<(session: IdentitySession | null) => void>();
+  let lastNotified: IdentitySession | null = null;
 
   const read = (): IdentitySession | null => {
     const raw = window.localStorage.getItem(E2E_SESSION_KEY);
@@ -30,6 +31,7 @@ export function createE2eIdentity(): IdentityClient {
   const write = (session: IdentitySession | null) => {
     if (session) window.localStorage.setItem(E2E_SESSION_KEY, JSON.stringify(session));
     else window.localStorage.removeItem(E2E_SESSION_KEY);
+    lastNotified = session;
     listeners.forEach((listener) => listener(session));
   };
 
@@ -43,7 +45,10 @@ export function createE2eIdentity(): IdentityClient {
     onSessionChanged(listener) {
       listeners.add(listener);
       // Like Firebase, report the restored session asynchronously, not during subscribe.
-      queueMicrotask(() => listener(read()));
+      queueMicrotask(() => {
+        lastNotified = read();
+        listener(lastNotified);
+      });
       return () => listeners.delete(listener);
     },
     async getIdToken() {
@@ -59,6 +64,15 @@ export function createE2eIdentity(): IdentityClient {
     },
     async sendPasswordReset() {},
     async sendEmailVerification() {},
+    async refreshSession() {
+      // Specs "verify" an email by editing the stored session; like Firebase, notify only when
+      // an unverified session has become verified.
+      const session = read();
+      if (session?.emailVerified && lastNotified && !lastNotified.emailVerified) {
+        listeners.forEach((listener) => listener(session));
+        lastNotified = session;
+      }
+    },
     async signOut() {
       write(null);
     },

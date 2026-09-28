@@ -91,6 +91,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [resolveUser],
   );
 
+  // Someone who verifies their email from the inbox, in another tab or on their phone, comes
+  // back to a session the SDK still thinks is unverified until its next hourly token refresh.
+  // While unverified, re-check on load and whenever this tab regains focus.
+  const awaitingVerification = state.session !== null && !state.session.emailVerified;
+  useEffect(() => {
+    if (!awaitingVerification) return;
+    let inFlight = false;
+    const check = () => {
+      if (inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      // Best effort: a failed check just leaves the notice up until the next one.
+      void identity
+        .refreshSession()
+        .catch(() => undefined)
+        .finally(() => {
+          inFlight = false;
+        });
+    };
+    check();
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [awaitingVerification]);
+
   const retry = useCallback(() => void resolveUser(latestSession.current), [resolveUser]);
 
   const value = useMemo<AuthContextValue>(

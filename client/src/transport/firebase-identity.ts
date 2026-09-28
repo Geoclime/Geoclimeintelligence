@@ -11,6 +11,7 @@ import {
 } from "firebase/auth";
 import { env } from "../config/env";
 import type { IdentitySession } from "../types/auth.types";
+import { CONTINUE_PATHS, continueSettings, sendWithContinueUrl } from "./email-actions";
 import type { IdentityClient } from "./identity";
 import { toIdentityError } from "./identity-error";
 
@@ -27,8 +28,10 @@ export function createFirebaseIdentity(): IdentityClient {
     appId: env.VITE_FIREBASE_APP_ID,
   });
   const auth = getAuth(app);
-  // Verification and password-reset emails go out in the browser's language.
-  auth.useDeviceLanguage();
+  // Account emails always go out in English: the app and our customised email templates are
+  // English-only, and another language code could make Firebase send its own generic
+  // translation instead (docs/features/auth-email-templates.md).
+  auth.languageCode = "en";
 
   const toSession = (user: User | null): IdentitySession | null =>
     user ? { uid: user.uid, email: user.email, emailVerified: user.emailVerified } : null;
@@ -59,12 +62,18 @@ export function createFirebaseIdentity(): IdentityClient {
     async signUp(email, password) {
       const { user } = await call(() => createUserWithEmailAndPassword(auth, email, password));
       // Best effort: the account exists either way, and the user can resend from the overview.
-      await sendEmailVerification(user).catch(() => undefined);
+      await sendWithContinueUrl(
+        (settings) => sendEmailVerification(user, settings),
+        continueSettings(CONTINUE_PATHS.verifyEmail),
+      ).catch(() => undefined);
     },
 
     async sendPasswordReset(email) {
       try {
-        await sendPasswordResetEmail(auth, email);
+        await sendWithContinueUrl(
+          (settings) => sendPasswordResetEmail(auth, email, settings),
+          continueSettings(CONTINUE_PATHS.resetPassword),
+        );
       } catch (error) {
         const identityError = toIdentityError(error);
         // Never reveal whether an account exists: an unknown email looks exactly like success.
@@ -75,7 +84,22 @@ export function createFirebaseIdentity(): IdentityClient {
 
     async sendEmailVerification() {
       const user = auth.currentUser;
-      if (user) await call(() => sendEmailVerification(user));
+      if (!user) return;
+      await call(() =>
+        sendWithContinueUrl(
+          (settings) => sendEmailVerification(user, settings),
+          continueSettings(CONTINUE_PATHS.verifyEmail),
+        ),
+      );
+    },
+
+    async refreshSession() {
+      const user = auth.currentUser;
+      if (!user || user.emailVerified) return;
+      await call(() => user.reload());
+      // reload() updates the user object but notifies no listener. Forcing a new ID token does
+      // (onIdTokenChanged), which is how AuthContext learns the email is now verified.
+      if (user.emailVerified) await call(() => user.getIdToken(true));
     },
 
     async signOut() {

@@ -30,6 +30,10 @@ Missing or invalid settings show a "This app isn't configured yet" screen that l
 To make yourself an Administrator: create an account in the app, then follow "Your first administrator"
 in the server README and reload.
 
+The verification and password-reset emails are Firebase templates, configured in the Firebase console. Apply
+the settings in [`docs/features/auth-email-templates.md`](../docs/features/auth-email-templates.md) to any new
+Firebase project.
+
 ## Scripts
 
 | Script | What it does |
