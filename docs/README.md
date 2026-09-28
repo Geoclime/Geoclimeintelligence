@@ -1,6 +1,6 @@
-# Backend Documentation
+# Documentation
 
-Plain-language documentation for the Climate Intelligence & Disaster Management Platform backend ([`server/`](../server/)). It's written for someone who can read code but may be new to this stack. Every doc follows the same four parts, from section 18 of *Backend Engineering Standards*: **What was built**, **How it works**, **Resources to read**, and **Explain it like I'm new to this**.
+Plain-language documentation for the Climate Intelligence & Disaster Management Platform: the backend ([`server/`](../server/)) and the web client ([`client/`](../client/)). It's written for someone who can read code but may be new to this stack. Every doc follows the same four parts, from section 18 of *Backend Engineering Standards* (section 22 of the frontend one): **What was built**, **How it works**, **Resources to read**, and **Explain it like I'm new to this**.
 
 ## Suggested reading order
 
@@ -25,6 +25,18 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 **Deployment**
 13. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
 
+## Web client ([`client/`](../client/))
+
+Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engineering Standards*. They use the same four parts.
+
+14. [features/phase-1-client.md](features/phase-1-client.md): the client's Phase 1 overview. Start here for the frontend.
+15. [features/client-architecture.md](features/client-architecture.md): layers, folders, configuration, and the lint rules that enforce the standard.
+16. [features/signing-in-with-firebase.md](features/signing-in-with-firebase.md): sign-in, sign-up, password reset, `AuthContext` and the route guards.
+17. [features/ui-foundations.md](features/ui-foundations.md): design tokens, light/dark theme, shared components, Modal and toasts.
+18. [features/admin-user-management-ui.md](features/admin-user-management-ui.md): the Administrator Users page.
+19. [features/client-testing.md](features/client-testing.md): unit tests and the offline Cypress suite.
+20. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
+
 ## Adding a new doc
 
-Every feature, endpoint or migration ships with its own `docs/<feature-name>.md` in the four-part format above. It isn't finished without one (standard sections 12, 13 and 18). Add it to this list, and link to it from any related doc.
+Every feature, endpoint or migration ships with its own `docs/<feature-name>.md` (backend) or `docs/features/<feature-name>.md` (client) in the four-part format above. It isn't finished without one (standard sections 12, 13 and 18). Add it to this list, and link to it from any related doc.

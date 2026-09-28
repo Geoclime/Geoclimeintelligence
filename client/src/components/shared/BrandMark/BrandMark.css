@@ -1,0 +1,28 @@
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand-mark__logo {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.brand-mark__name-accent {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.brand-mark--light,
+.brand-mark--light .brand-mark__name-accent {
+  color: #fff;
+}
+
+.brand-mark--light .brand-mark__name-accent {
+  opacity: 0.75;
+}

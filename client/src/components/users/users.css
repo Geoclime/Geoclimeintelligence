@@ -1,0 +1,271 @@
+/* ---------- Access summary (overview page) ---------- */
+
+.access-summary {
+  padding: var(--space-5);
+}
+
+.access-summary__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.access-summary__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.access-summary__title {
+  font-size: var(--text-lg);
+}
+
+.access-summary__list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.access-summary__list > div {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.access-summary__list dt {
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.access-summary__list dd {
+  margin: 0;
+}
+
+.access-summary__value {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.access-summary__note {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+@media (min-width: 640px) {
+  .access-summary__list > div {
+    grid-template-columns: 120px 1fr;
+    gap: var(--space-4);
+  }
+}
+
+/* ---------- User table (admin) ---------- */
+
+.user-table__scroll {
+  overflow-x: auto;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.user-table th {
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.user-table td {
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.user-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.user-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-primary-soft) 45%, transparent);
+}
+
+.user-table__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.user-table__you {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.user-table__email {
+  display: block;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.user-table__muted {
+  color: var(--color-text-subtle);
+}
+
+.user-table__scope {
+  color: var(--color-text-muted);
+}
+
+.user-table__actions {
+  text-align: right;
+}
+
+/* Phones: each row becomes a small card with inline labels. */
+@media (max-width: 639px) {
+  .user-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .user-table,
+  .user-table tbody,
+  .user-table tr,
+  .user-table td {
+    display: block;
+  }
+
+  .user-table tr {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .user-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-1) 0;
+    border: 0;
+  }
+
+  .user-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--color-text-subtle);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+
+  .user-table td[data-label="Account"] {
+    display: block;
+  }
+
+  .user-table td[data-label="Account"]::before {
+    content: none;
+  }
+
+  .user-table__actions {
+    justify-content: flex-end;
+  }
+}
+
+/* ---------- Access form (dialog) ---------- */
+
+.access-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.access-form__note {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.mono-input .field__input {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.role-picker {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.role-picker__legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.role-picker__option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.role-picker__option:hover {
+  border-color: var(--color-border-strong);
+}
+
+.role-picker__option:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.role-picker__option input {
+  margin-top: 3px;
+  accent-color: var(--color-primary);
+}
+
+.role-picker__text {
+  display: grid;
+  gap: 2px;
+}
+
+.role-picker__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.role-picker__description {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}

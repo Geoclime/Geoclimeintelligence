@@ -1,6 +1,6 @@
 # Phase 1: Foundation & Authentication
 
-> This is the Phase 1 overview. Each building block has its own detailed doc; see [the docs index](README.md), starting with [architecture.md](architecture.md).
+> This is the Phase 1 overview. Each building block has its own detailed doc; see [the docs index](README.md), starting with [architecture.md](architecture.md). The web client's side of Phase 1 (the sign-in screens and the admin Users page) is in [features/phase-1-client.md](features/phase-1-client.md).
 
 ## What was built
 

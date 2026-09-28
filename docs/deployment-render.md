@@ -20,7 +20,7 @@ A configuration file that lets **Render**, a cloud hosting service, run the back
 **2. Settings (environment variables).** These are the same ones as in [configuration-and-logging.md](configuration-and-logging.md). `render.yaml` sets the non-secret ones directly: `NODE_VERSION=22`, `NODE_ENV=production`, `LOG_LEVEL=info` and `DATABASE_SSL=true`. The secret or deployment-specific ones are marked `sync: false`, which means Render asks for them in its dashboard and they're never written into the repository:
 - `DATABASE_URL`: the Aiven Service URI.
 - `FIREBASE_PROJECT_ID`
-- `CORS_ORIGINS`: the frontend's web address once it's deployed. It can stay empty until then.
+- `CORS_ORIGINS`: the web client's address on Vercel once it's deployed (see [features/client-deployment-vercel.md](features/client-deployment-vercel.md)). It can stay empty until then.
 
 **3. The database certificate.** The API needs Aiven's CA certificate to connect securely (see [database-connection-ssl.md](database-connection-ssl.md)). The certificate isn't in git, so it's uploaded to Render as a **Secret File** named `aiven-ca.pem`. Render places secret files at `/etc/secrets/<filename>`, which is why `render.yaml` sets `DATABASE_SSL_CA=/etc/secrets/aiven-ca.pem`.
 

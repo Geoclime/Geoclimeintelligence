@@ -1,0 +1,37 @@
+{
+  "success": true,
+  "message": "OK",
+  "meta": { "page": 1, "pageSize": 25, "total": 3 },
+  "data": [
+    {
+      "id": "00000000-0000-4000-8000-000000009000",
+      "firebaseUid": "firebase-uid-9000",
+      "email": "administrator@example.com",
+      "displayName": "Ada Admin",
+      "role": "administrator",
+      "scopeAdminUnitId": null,
+      "createdAt": "2026-09-01T09:00:00.000Z",
+      "updatedAt": "2026-09-01T09:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "firebaseUid": "firebase-uid-2",
+      "email": "responder@example.com",
+      "displayName": null,
+      "role": "general_public",
+      "scopeAdminUnitId": null,
+      "createdAt": "2026-09-10T12:30:00.000Z",
+      "updatedAt": "2026-09-10T12:30:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "firebaseUid": "firebase-uid-3",
+      "email": "official@example.com",
+      "displayName": "Tamuno Official",
+      "role": "government_official",
+      "scopeAdminUnitId": "8b0f7c1e-3f5a-4d2b-9c61-2f7e4a1b9d30",
+      "createdAt": "2026-09-12T08:15:00.000Z",
+      "updatedAt": "2026-09-20T16:45:00.000Z"
+    }
+  ]
+}
