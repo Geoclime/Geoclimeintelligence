@@ -2,6 +2,54 @@
 
 Entity-relationship diagram for the PostgreSQL/PostGIS schema. Rendered natively by GitHub/GitLab from the `mermaid` block below.
 
+This README is written for someone opening a database diagram for the first time — no prior database experience assumed.
+
+## How to Read This Diagram
+
+An ERD (Entity Relationship Diagram) is just a map of the tables in the database and the lines that connect them. Each box is a table (a spreadsheet, basically — rows and columns). Each line between two boxes says "rows in this table can be linked to rows in that table." The rest of this section explains exactly what the letters and symbols on those lines and columns mean.
+
+### The letters next to a column name
+
+| Symbol | Name | Plain-English meaning |
+|---|---|---|
+| `PK` | Primary Key | This column is the row's unique ID — like a national ID number. No two rows in the table can ever share one, and every table has exactly one. |
+| `FK` | Foreign Key | This column stores the ID of a row in *another* table. It's the actual "pointer" that draws the connecting line on the diagram — if `DISASTER_EVENTS` has `admin_unit_id FK`, that means every disaster event row is stamped with which admin unit (LGA/ward) it happened in. |
+| `UK` | Unique Key | Like a PK in that no two rows can share the value — but it's not the row's official ID. `USERS.firebase_uid UK` means two different platform accounts can never share the same Firebase login, even though `user_id` (the `PK`) is still the ID everything else points to. |
+
+### The symbols on the connecting lines
+
+Every line has a little mark at *each* end, and you read the mark closest to a box as describing that box's side of the relationship. There are only two ideas combined:
+
+| Mark | Meaning |
+|---|---|
+| `\|\|` | **exactly one** — required, and never more than one |
+| `o{` | **zero or many** — optional, could be none, could be a lot |
+
+So take this line from the diagram:
+
+```
+COUNTRIES ||--o{ ADMIN_UNITS : has
+```
+
+Read it in two halves, one for each end:
+
+- The `\|\|` sits next to `COUNTRIES`, so it describes **how many `ADMIN_UNITS` rows can point back to one `COUNTRIES` row** — the answer here is irrelevant to that end; instead flip it: the `\|\|` actually tells you that *each* `ADMIN_UNITS` row belongs to **exactly one** country. An admin unit (an LGA, say) can't belong to two countries, and it can't belong to none.
+- The `o{` sits next to `ADMIN_UNITS`, so it tells you **how many `ADMIN_UNITS` rows one `COUNTRIES` row can have**: **zero or many**. Nigeria can have many admin units; a brand-new country row with no admin units loaded yet is also fine.
+
+In plain English, the whole line says: *"Every admin unit belongs to exactly one country. A country can have zero, one, or many admin units."* Every other line in the diagram reads the same way — find the mark next to each box, and it tells you the rule for that box's side.
+
+### The words in `{ }` under a table name
+
+These are the table's columns — its "spreadsheet headers." Before each column name is its data type:
+
+- `uuid` — a long, randomly generated ID (safer than counting 1, 2, 3 when data from many sources gets merged together, since two different sources can never accidentally generate the same one).
+- `text` — ordinary words or short phrases.
+- `geometry` — a shape on a map (a point, a line, or an area) that PostGIS can use to answer questions like "what's inside this boundary?" or "how far apart are these?"
+- `smallint` / `int` / `numeric` — whole numbers, whole numbers, and numbers with decimals, respectively.
+- `date` — a calendar date.
+
+A short phrase in quotes after a column (like `"nullable, self-referencing"`) is just a plain-English note about that column — not part of the database itself.
+
 ## Entity Relationship Diagram
 
 ```mermaid
@@ -159,6 +207,32 @@ erDiagram
         text email
     }
 ```
+
+## How the Tables Work Together — A User Story
+
+Symbols are easier to hold onto once you've watched them do something. Here's one flow through the diagram, start to finish: **Amara, an Emergency Responder, reports a flash flood in Oyigbo.**
+
+**1. Who is Amara? →  `ROLES`, `USERS`, `ADMIN_UNITS`**
+Before Amara can do anything, her account needs to exist. Her row in `USERS` has a `role_id FK` pointing at the `ROLES` row named "Emergency Responder" — that's what tells the app what she's allowed to do. Her `scope_admin_unit_id FK` (also pointing at `ADMIN_UNITS`) can restrict her to only seeing data for her assigned area — or be left blank (`nullable`) if her role isn't region-restricted.
+
+**2. Where is Oyigbo? →  `ADMIN_UNITS`, `COUNTRIES`**
+Oyigbo is a row in `ADMIN_UNITS` — `level_name = "LGA"`. That row's `country_code FK` points to the `COUNTRIES` row for Nigeria, and its `parent_id FK` (the self-referencing line, `ADMIN_UNITS ||--o{ ADMIN_UNITS`) points to the `ADMIN_UNITS` row for Rivers State itself. That's the whole Nigeria → Rivers State → Oyigbo chain, built from just two columns.
+
+**3. What kind of disaster is this? →  `DISASTER_TYPES`**
+"Flash Flood" is a row in `DISASTER_TYPES`, and its own `parent_type_id FK` points back to the broader "Flood" row (the self-referencing line again) — so the app can group every kind of flood together when someone wants the bigger picture.
+
+**4. Amara logs the event →  `DISASTER_EVENTS`**
+This is the row that ties everything above together. When Amara submits the report, one new row is created in `DISASTER_EVENTS`, and it carries:
+- `admin_unit_id FK` → Oyigbo (from step 2)
+- `disaster_type_id FK` → Flash Flood (from step 3)
+- `geom` → the actual GPS point she marked on the map
+- `data_type = "OBSERVED"` → because she saw it herself, not a model's guess
+- `source_id FK` → pointing at a `DATA_SOURCES` row describing *this platform's own field reports* as the source
+
+**5. Someone else checks the rainfall that caused it →  `RAINFALL_OBSERVATIONS`**
+A Data Analyst later pulls up Oyigbo's rainfall history. `RAINFALL_OBSERVATIONS` also has an `admin_unit_id FK` — the *same* Oyigbo row from step 2. Because both `DISASTER_EVENTS` and `RAINFALL_OBSERVATIONS` point at the same `ADMIN_UNITS` row, the app can join them together and show "here's the flood, and here's the rainfall that came before it," without those two tables needing to know anything about each other directly.
+
+That's the whole point of the lines on the diagram: they're not decoration, they're literally the `FK` columns that let the app reconstruct a full story — who reported what, where, of what kind, from which source — out of small, separate tables instead of one giant, repetitive one.
 
 ## Notes
 
