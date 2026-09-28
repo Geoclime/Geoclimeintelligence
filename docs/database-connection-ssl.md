@@ -46,6 +46,7 @@ For a local PostgreSQL without SSL, set `DATABASE_SSL=false` and leave `DATABASE
 |---|---|---|
 | `self-signed certificate in certificate chain` | Node doesn't trust the server's CA | Set `DATABASE_SSL_CA` to the provider's CA certificate |
 | `ENOENT: no such file or directory` (at startup) | `DATABASE_SSL_CA` points to a file that isn't there | Check the path, which is relative to `server/` |
+| `ENOENT: no such file or directory, open 'certs/aiven-ca.pem'` (during `npm test` / a build) | `data-source.ts` reads `DATABASE_SSL_CA` off disk as soon as it's imported, before any test runs. Away from the machine that has `server/certs/aiven-ca.pem` (CI, Render's build step, a different working directory) that relative path resolves to nothing | Should not happen: [`vitest.config.mts`](../server/vitest.config.mts) pins `DATABASE_SSL=false` for the whole test run for exactly this reason (see [testing.md](testing.md)). If you see this in tests, check that override wasn't removed |
 | `The server does not support SSL connections` | `DATABASE_SSL=true` against a local database with no SSL | Set `DATABASE_SSL=false` |
 | `no pg_hba.conf entry ... no encryption` / connection reset | `DATABASE_SSL=false` against a server that requires SSL (Aiven always does) | Set `DATABASE_SSL=true` |
 

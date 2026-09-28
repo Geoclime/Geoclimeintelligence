@@ -15,7 +15,7 @@ npm test            # run everything once
 npm run test:watch  # re-run on every file save
 ```
 
-The runner is **Vitest**, configured in [`vitest.config.mts`](../server/vitest.config.mts). It picks up `tests/**/*.test.ts` and sets dummy settings, such as a fake database URL, so the app's startup checks pass without real credentials.
+The runner is **Vitest**, configured in [`vitest.config.mts`](../server/vitest.config.mts). It picks up `tests/**/*.test.ts` and sets dummy settings, such as a fake database URL, so the app's startup checks pass without real credentials. It also pins `DATABASE_SSL=false`, overriding whatever a developer's own `.env` says: [`data-source.ts`](../server/src/config/data-source.ts) reads the `DATABASE_SSL_CA` certificate file the moment it's imported, not when it connects, and that path (see [database-connection-ssl.md](database-connection-ssl.md)) only ever resolves on the machine that wrote `.env`. Without this override, tests would pass by accident on a developer's own machine and fail in CI or on Render with `ENOENT`, because the certificate file is gitignored and the app under test is imported before any fake is swapped in.
 
 **Fakes instead of real services.** [`tests/fakes.ts`](../server/tests/fakes.ts) provides stand-ins:
 - `InMemoryUserRepository` is a `users` table kept in memory. It implements the same `IUserRepository` interface as the real repository.
