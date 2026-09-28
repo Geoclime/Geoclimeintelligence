@@ -1,0 +1,35 @@
+# Render Blueprint for the backend API. See docs/deployment-render.md.
+# Secrets are never written here: `sync: false` values are entered in the Render dashboard.
+services:
+  - type: web
+    name: geoclime-api
+    runtime: node
+    # Only server/ is built, and only commits touching server/ trigger a deploy.
+    rootDir: server
+    # Match this to the Aiven service's cloud region to keep database round-trips short.
+    region: frankfurt
+    plan: free
+    # Dev dependencies are needed at runtime: everything runs through tsx (standard section 2).
+    # A deploy is blocked unless the typecheck and tests pass.
+    buildCommand: npm ci --include=dev && npm run typecheck && npm test
+    # Pending migrations are applied before the API starts accepting traffic.
+    startCommand: npm run migration:run && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: "true"
+      # Upload the Aiven CA certificate as a Secret File named aiven-ca.pem.
+      - key: DATABASE_SSL_CA
+        value: /etc/secrets/aiven-ca.pem
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

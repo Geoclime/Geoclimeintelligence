@@ -22,6 +22,9 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 11. [testing.md](testing.md): running and writing tests.
 12. [postman-collection.md](postman-collection.md): trying the API by hand.
 
+**Deployment**
+13. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
+
 ## Adding a new doc
 
 Every feature, endpoint or migration ships with its own `docs/<feature-name>.md` in the four-part format above. It isn't finished without one (standard sections 12, 13 and 18). Add it to this list, and link to it from any related doc.

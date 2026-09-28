@@ -29,6 +29,10 @@ provider's CA certificate. See [`docs/database-connection-ssl.md`](../docs/datab
 `FIREBASE_PROJECT_ID` is in the Firebase console under *Project settings → General*. Verifying ID
 tokens needs nothing else: no service-account key.
 
+## Deployment
+
+The API deploys to Render from [`../render.yaml`](../render.yaml): see [`docs/deployment-render.md`](../docs/deployment-render.md).
+
 ## Your first administrator
 
 Every account starts as `general_public`, so bootstrap the first admin from the command line:
