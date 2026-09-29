@@ -32,3 +32,7 @@ client/cypress/downloads
 .DS_Store
 Thumbs.db
 .vite/
+
+# Internal engineering standards docs — not part of the codebase
+Backend Engineering Standards — Climate & Disaster Platform.pdf
+Frontend Engineering Standards — Climate & Disaster Platform.pdf
