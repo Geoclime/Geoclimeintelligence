@@ -18,5 +18,7 @@ export interface AuthUser {
 export interface VerifiedIdentity {
   uid: string;
   email: string | null;
+  /** Firebase has confirmed the person controls this email address. */
+  emailVerified: boolean;
   name: string | null;
 }

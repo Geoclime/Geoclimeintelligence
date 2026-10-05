@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { envProblems } from "./config/env";
 import "./styles/globals.css";
+import "./styles/dashboard.css";
 
 const root = createRoot(document.getElementById("root")!);
 

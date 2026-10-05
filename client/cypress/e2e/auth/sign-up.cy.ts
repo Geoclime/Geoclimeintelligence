@@ -31,7 +31,7 @@ describe("Creating an account", () => {
 
     cy.wait("@getMe");
     cy.dataCy("toast-success").should("contain", "verification link");
-    cy.dataCy("home-page").should("be.visible");
+    cy.dataCy("map-page").should("be.visible");
     cy.dataCy("verify-email-notice").should("be.visible");
   });
 });

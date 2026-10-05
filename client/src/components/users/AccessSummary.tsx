@@ -1,11 +1,19 @@
+import type { AdminUnitRef } from "../../types/admin-unit.types";
 import type { AuthUser } from "../../types/auth.types";
 import { ROLE_INFO, isRegionScopable } from "../../utils/roles";
 import { Icon } from "../shared/Icon";
 import { RoleBadge } from "./RoleBadge";
 import "./users.css";
 
+interface AccessSummaryProps {
+  user: AuthUser;
+  /** The area a scoped account is limited to, looked up by the page; null until known. */
+  region?: AdminUnitRef | null;
+  regionLoading?: boolean;
+}
+
 /** "What can I do, and where?" for the signed-in user, straight from GET /api/v1/auth/me. */
-export function AccessSummary({ user }: { user: AuthUser }) {
+export function AccessSummary({ user, region = null, regionLoading = false }: AccessSummaryProps) {
   return (
     <section className="card access-summary" aria-labelledby="access-summary-title" data-cy="access-summary">
       <header className="access-summary__header">
@@ -30,10 +38,16 @@ export function AccessSummary({ user }: { user: AuthUser }) {
           <dd data-cy="access-region">
             {user.scopeAdminUnitId ? (
               <>
-                <span className="access-summary__value">Limited to one region</span>
+                <span className="access-summary__value">
+                  Limited to one region
+                  {region ? `: ${region.unitName} (${region.levelName})` : ""}
+                </span>
                 <p className="access-summary__note">
-                  Region ID <code>{user.scopeAdminUnitId}</code>. Region names will show here once administrative
-                  boundaries are loaded.
+                  {region
+                    ? `This account can act on records in ${region.unitName} and the areas inside it.`
+                    : regionLoading
+                      ? "Looking up the region name…"
+                      : `Region ID ${user.scopeAdminUnitId}. Its name isn't available.`}
                 </p>
               </>
             ) : (

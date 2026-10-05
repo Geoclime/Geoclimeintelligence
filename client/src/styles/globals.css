@@ -232,6 +232,8 @@ code,
 
 .page__title {
   font-size: var(--text-2xl);
+  /* File names and codes can be one long word; never let them push a phone screen sideways. */
+  overflow-wrap: anywhere;
 }
 
 .page__lead {

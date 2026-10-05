@@ -39,6 +39,13 @@ export class NotFoundError extends AppError {
   }
 }
 
+/** The request is valid but clashes with what is already stored (a duplicate, or a run already promoted). */
+export class ConflictError extends AppError {
+  constructor(message: string) {
+    super(409, message);
+  }
+}
+
 export class UnprovenDataError extends AppError {
   constructor() {
     super(422, "Write rejected: missing or invalid dataType/sourceId");

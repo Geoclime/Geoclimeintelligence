@@ -14,10 +14,9 @@ describe("Signing in", () => {
 
     cy.wait("@getMe").its("request.headers.authorization").should("eq", "Bearer e2e-id-token");
     cy.location("pathname").should("eq", "/");
-    cy.dataCy("home-page").should("be.visible");
-    cy.dataCy("access-summary").within(() => {
-      cy.dataCy("role-badge").should("have.text", "General Public");
-    });
+    cy.dataCy("map-page").should("be.visible");
+    cy.dataCy("user-menu-trigger").click();
+    cy.dataCy("user-menu").find('[data-cy="role-badge"]').should("have.text", "General Public");
   });
 
   it("returns the user to the page they originally asked for", () => {

@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { Link } from "react-router";
 import type { AuthUser } from "../../types/auth.types";
 import { Icon } from "../shared/Icon";
 import { RoleBadge } from "../users/RoleBadge";
@@ -37,6 +38,15 @@ export function UserMenu({ user, onSignOut }: UserMenuProps) {
           {user.displayName && user.email && <p className="user-menu__email">{user.email}</p>}
           <RoleBadge role={user.role} />
         </div>
+        <Link
+          to="/account"
+          className="user-menu__link"
+          onClick={() => document.getElementById(menuId)?.hidePopover()}
+          data-cy="account-link"
+        >
+          <Icon name="user" size={16} />
+          Your account and access
+        </Link>
         <div className="user-menu__section">
           <p className="user-menu__label">Theme</p>
           <ThemeToggle />

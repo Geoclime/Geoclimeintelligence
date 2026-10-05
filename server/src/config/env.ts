@@ -15,6 +15,13 @@ const envSchema = z.object({
   // Path to a PEM CA certificate for hosts signed by a private CA (e.g. Aiven's project CA).
   DATABASE_SSL_CA: z.string().optional(),
   FIREBASE_PROJECT_ID: z.string().min(1, "FIREBASE_PROJECT_ID is required"),
+  // Bootstraps the very first Administrator (Phase 2 decision 4). Optional; empty = off.
+  BOOTSTRAP_ADMIN_EMAIL: z
+    .string()
+    .trim()
+    .default("")
+    .transform((value) => value.toLowerCase())
+    .refine((value) => value === "" || z.email().safeParse(value).success, "BOOTSTRAP_ADMIN_EMAIL must be an email address"),
   CORS_ORIGINS: z
     .string()
     .default("")

@@ -23,6 +23,9 @@ const envSchema = z
     VITE_API_URL: z
       .url("VITE_API_URL must be a full URL, e.g. http://localhost:4000")
       .transform((url) => url.replace(/\/+$/, "")),
+    // Public Mapbox token (pk.*). Optional: without it the app still runs, and every map shows a
+    // "map unavailable" notice instead (components/map/ClimateMap.tsx).
+    VITE_MAPBOX_TOKEN: z.string().trim().optional(),
   })
   .and(IS_E2E ? firebaseSchema.partial() : firebaseSchema);
 

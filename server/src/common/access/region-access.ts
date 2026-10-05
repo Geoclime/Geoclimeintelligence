@@ -1,28 +1,16 @@
+import { AdminUnitRepository } from "../../modules/admin-units/admin-unit.repository";
 import { ForbiddenError } from "../errors/app-error";
 import type { AuthUser } from "./auth-user";
 
 /** Answers "is admin unit X inside admin unit Y?" by walking `admin_units.parent_id`. */
 export interface RegionHierarchy {
   isDescendantOrSelf(targetAdminUnitId: string, ancestorAdminUnitId: string): Promise<boolean>;
-  /** The root admin unit plus every descendant of it. */
+  /**
+   * The root admin unit plus every descendant of it. Empty when the root doesn't exist, so a
+   * stale scope matches nothing rather than everything. Repositories must treat an empty list
+   * as "no rows", never as "no filter".
+   */
   subtreeIds(rootAdminUnitId: string): Promise<string[]>;
-}
-
-/**
- * Phase 1 stand-in until `admin_units` exists (Phase 2). It fails closed: a scoped user
- * matches only their exact admin unit, never a descendant, so it can deny legitimate access
- * but can never grant access outside the scope.
- *
- * Phase 2: replace with AdminUnitRepository.Instance (recursive CTE over parent_id).
- */
-export class SelfOnlyRegionHierarchy implements RegionHierarchy {
-  async isDescendantOrSelf(targetAdminUnitId: string, ancestorAdminUnitId: string): Promise<boolean> {
-    return targetAdminUnitId === ancestorAdminUnitId;
-  }
-
-  async subtreeIds(rootAdminUnitId: string): Promise<string[]> {
-    return [rootAdminUnitId];
-  }
 }
 
 export type RegionScoped<Q> = Q & {
@@ -37,7 +25,8 @@ export type RegionScoped<Q> = Q & {
 export class RegionAccess {
   private static _instance?: RegionAccess;
   static get Instance(): RegionAccess {
-    return (this._instance ??= new RegionAccess(new SelfOnlyRegionHierarchy()));
+    // Phase 2: the real hierarchy, via recursive CTEs over admin_units.parent_id.
+    return (this._instance ??= new RegionAccess(AdminUnitRepository.Instance));
   }
 
   constructor(private readonly hierarchy: RegionHierarchy) {}

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Climate Platform API",
-    "description": "Climate Intelligence & Disaster Management Platform backend. Phase 1: Foundation & Authentication.\n\nRun **Auth > Firebase: sign in** first; its post-response script stores the Firebase ID token in `{{accessToken}}`, which every API request sends as a Bearer token. No request contains a hardcoded token.\n\nExample responses were captured by running each request against the real Express app with the database and Firebase replaced by in-memory fakes.",
+    "description": "Climate Intelligence & Disaster Management Platform backend. Phase 1: Foundation & Authentication. Phase 2: Admin Geography.\n\nRun **Auth > Firebase: sign in** first; its post-response script stores the Firebase ID token in `{{accessToken}}`, which every API request sends as a Bearer token. No request contains a hardcoded token.\n\nExample responses were captured by running each request against the real Express app with the database and Firebase replaced by in-memory fakes.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1195,6 +1195,2890 @@
                 }
               ],
               "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Something went wrong\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin Geography",
+      "description": "Phase 2: countries, admin units (state, LGAs, wards), data sources and the import pipeline. Example responses were captured from the real app against a scratch PostGIS database loaded with the real Phase 2 files (Firebase token checks stubbed). Long GeoJSON examples use a small bbox.",
+      "item": [
+        {
+          "name": "Countries",
+          "description": "Countries and the names of their levels (Nigeria: State, LGA, Ward). Reads: any signed-in user. Writes: Administrator only.",
+          "item": [
+            {
+              "name": "List countries",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/countries",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "countries"
+                  ]
+                },
+                "description": "Every country with its levels and how many areas each level has."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"countryCode\": \"NGA\",\n      \"countryName\": \"Nigeria\",\n      \"levels\": [\n        {\n          \"level\": 1,\n          \"name\": \"State\",\n          \"unitCount\": 1\n        },\n        {\n          \"level\": 2,\n          \"name\": \"LGA\",\n          \"unitCount\": 23\n        },\n        {\n          \"level\": 3,\n          \"name\": \"Ward\",\n          \"unitCount\": 317\n        }\n      ],\n      \"bbox\": [\n        2.5,\n        4,\n        14.8,\n        14\n      ],\n      \"createdAt\": \"2026-10-05T15:18:46.824Z\",\n      \"updatedAt\": \"2026-10-05T15:18:48.055Z\"\n    }\n  ],\n  \"message\": \"OK\",\n  \"meta\": {\n    \"total\": 1\n  }\n}"
+                },
+                {
+                  "name": "401 Missing bearer token",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries"
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Missing bearer token\"\n}"
+                },
+                {
+                  "name": "500 Internal error",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries"
+                      ]
+                    }
+                  },
+                  "status": "Internal Server Error",
+                  "code": 500,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Something went wrong\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get country",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/countries/{{countryCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "countries",
+                    "{{countryCode}}"
+                  ]
+                },
+                "description": "One country with its per-level area counts. The code is ISO 3166-1 alpha-3 and is case-insensitive."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/NGA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "NGA"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"countryCode\": \"NGA\",\n    \"countryName\": \"Nigeria\",\n    \"levels\": [\n      {\n        \"level\": 1,\n        \"name\": \"State\",\n        \"unitCount\": 1\n      },\n      {\n        \"level\": 2,\n        \"name\": \"LGA\",\n        \"unitCount\": 23\n      },\n      {\n        \"level\": 3,\n        \"name\": \"Ward\",\n        \"unitCount\": 317\n      }\n    ],\n    \"bbox\": [\n      2.5,\n      4,\n      14.8,\n      14\n    ],\n    \"createdAt\": \"2026-10-05T15:18:46.824Z\",\n    \"updatedAt\": \"2026-10-05T15:18:48.055Z\"\n  },\n  \"message\": \"OK\"\n}"
+                },
+                {
+                  "name": "400 Validation failed",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/N1",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "N1"
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"code\",\n      \"message\": \"Use the 3-letter ISO 3166-1 code, e.g. NGA\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "404 Country not found",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/GHA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "GHA"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Country not found\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Create country",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/countries",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "countries"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"countryCode\": \"NGA\",\n  \"countryName\": \"Nigeria\",\n  \"levelNames\": [\n    \"State\",\n    \"LGA\",\n    \"Ward\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Administrator only. Creates a country with its level names, top first. `bbox` [minLon, minLat, maxLon, maxLat] is optional: when set, imported shapes outside it fail their checks. No areas are created here; they arrive through Imports."
+              },
+              "response": [
+                {
+                  "name": "201 Country created",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"countryCode\": \"NGA\",\n  \"countryName\": \"Nigeria\",\n  \"levelNames\": [\n    \"State\",\n    \"LGA\",\n    \"Ward\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"countryCode\": \"NGA\",\n    \"countryName\": \"Nigeria\",\n    \"levels\": [\n      {\n        \"level\": 1,\n        \"name\": \"State\",\n        \"unitCount\": 0\n      },\n      {\n        \"level\": 2,\n        \"name\": \"LGA\",\n        \"unitCount\": 0\n      },\n      {\n        \"level\": 3,\n        \"name\": \"Ward\",\n        \"unitCount\": 0\n      }\n    ],\n    \"bbox\": null,\n    \"createdAt\": \"2026-10-05T15:18:46.824Z\",\n    \"updatedAt\": \"2026-10-05T15:18:46.824Z\"\n  },\n  \"message\": \"Country created\"\n}"
+                },
+                {
+                  "name": "400 Validation failed",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"countryCode\": \"NG\",\n  \"countryName\": \"\",\n  \"levelNames\": [\n    \"State\",\n    \"state\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"countryCode\",\n      \"message\": \"Use the 3-letter ISO 3166-1 code, e.g. NGA\"\n    },\n    {\n      \"field\": \"countryName\",\n      \"message\": \"Country name is required\"\n    },\n    {\n      \"field\": \"levelNames\",\n      \"message\": \"Each level needs a different name\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "403 Role not permitted",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"countryCode\": \"GHA\",\n  \"countryName\": \"Nigeria\",\n  \"levelNames\": [\n    \"State\",\n    \"LGA\",\n    \"Ward\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Your role is not permitted to perform this action\"\n}"
+                },
+                {
+                  "name": "409 Country already exists",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"countryCode\": \"NGA\",\n  \"countryName\": \"Nigeria\",\n  \"levelNames\": [\n    \"State\",\n    \"LGA\",\n    \"Ward\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Conflict",
+                  "code": 409,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"A country with code NGA already exists\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Update country",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/countries/{{countryCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "countries",
+                    "{{countryCode}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bbox\": [\n    2.5,\n    4,\n    14.8,\n    14\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Administrator only. Change countryName, levelNames (rename, add, or reorder) and/or bbox. A level that already holds areas can be renamed but never removed; renaming updates every area's level_name in the same transaction."
+              },
+              "response": [
+                {
+                  "name": "200 Country updated",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/NGA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "NGA"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"bbox\": [\n    2.5,\n    4,\n    14.8,\n    14\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"countryCode\": \"NGA\",\n    \"countryName\": \"Nigeria\",\n    \"levels\": [\n      {\n        \"level\": 1,\n        \"name\": \"State\",\n        \"unitCount\": 0\n      },\n      {\n        \"level\": 2,\n        \"name\": \"LGA\",\n        \"unitCount\": 0\n      },\n      {\n        \"level\": 3,\n        \"name\": \"Ward\",\n        \"unitCount\": 0\n      }\n    ],\n    \"bbox\": [\n      2.5,\n      4,\n      14.8,\n      14\n    ],\n    \"createdAt\": \"2026-10-05T15:18:46.824Z\",\n    \"updatedAt\": \"2026-10-05T15:18:48.055Z\"\n  },\n  \"message\": \"Country updated\"\n}"
+                },
+                {
+                  "name": "400 Level already has areas",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/NGA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "NGA"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"levelNames\": [\n    \"State\",\n    \"LGA\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"levelNames\",\n      \"message\": \"Ward (level 3) already has areas, so the country needs at least 3 levels\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "403 Role not permitted",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/NGA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "NGA"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"countryName\": \"X\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Your role is not permitted to perform this action\"\n}"
+                },
+                {
+                  "name": "404 Country not found",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/GHA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "GHA"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"countryName\": \"Ghana\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Country not found\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin units",
+          "description": "The state, its LGAs and wards. Read-only for any signed-in user; areas are only ever written by promoting an import. Lists never carry shapes (standard section 10).",
+          "item": [
+            {
+              "name": "List admin units",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const json = pm.response.json();",
+                      "if (json.success) pm.environment.set(\"adminUnitId\", json.data[0] && json.data[0].id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/admin-units?level=2&q=&page=1&pageSize=25",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin-units"
+                  ],
+                  "query": [
+                    {
+                      "key": "level",
+                      "value": "2"
+                    },
+                    {
+                      "key": "q",
+                      "value": ""
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "25"
+                    }
+                  ]
+                },
+                "description": "Paged list of names, codes and levels with a bbox/centroid summary and child count. No shapes. Filters: countryCode, level, parentId, q (name contains). Stores the first row's id in {{adminUnitId}}."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units?level=2&q=port&page=1&pageSize=25",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units"
+                      ],
+                      "query": [
+                        {
+                          "key": "level",
+                          "value": "2"
+                        },
+                        {
+                          "key": "q",
+                          "value": "port"
+                        },
+                        {
+                          "key": "page",
+                          "value": "1"
+                        },
+                        {
+                          "key": "pageSize",
+                          "value": "25"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n      \"countryCode\": \"NGA\",\n      \"level\": 2,\n      \"levelName\": \"LGA\",\n      \"unitName\": \"Port Harcourt\",\n      \"unitCode\": \"NG033022\",\n      \"parentId\": \"0dba883d-9e23-4043-902a-e89899650b4d\",\n      \"sourceId\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n      \"childCount\": 20,\n      \"bbox\": [\n        6.95788,\n        4.735028,\n        7.069533,\n        4.830877\n      ],\n      \"centroid\": [\n        7.017657,\n        4.785733\n      ]\n    }\n  ],\n  \"message\": \"OK\",\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 25,\n    \"total\": 1\n  }\n}"
+                },
+                {
+                  "name": "400 Validation failed",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units?level=9&pageSize=1000",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units"
+                      ],
+                      "query": [
+                        {
+                          "key": "level",
+                          "value": "9"
+                        },
+                        {
+                          "key": "pageSize",
+                          "value": "1000"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"pageSize\",\n      \"message\": \"Too big: expected number to be <=100\"\n    },\n    {\n      \"field\": \"level\",\n      \"message\": \"level is at most 6\"\n    }\n  ]\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get admin unit",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/admin-units/{{adminUnitId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin-units",
+                    "{{adminUnitId}}"
+                  ]
+                },
+                "description": "One area with its parent, source, child count and full shape (the only reply besides the map layer that carries one)."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/4867fa34-b881-44bf-9f77-7efb97b43ea8",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "4867fa34-b881-44bf-9f77-7efb97b43ea8"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n    \"countryCode\": \"NGA\",\n    \"level\": 2,\n    \"levelName\": \"LGA\",\n    \"unitName\": \"Port Harcourt\",\n    \"unitCode\": \"NG033022\",\n    \"parentId\": \"0dba883d-9e23-4043-902a-e89899650b4d\",\n    \"sourceId\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n    \"childCount\": 20,\n    \"bbox\": [\n      6.95788,\n      4.735028,\n      7.069533,\n      4.830877\n    ],\n    \"centroid\": [\n      7.017657,\n      4.785733\n    ],\n    \"parent\": {\n      \"id\": \"0dba883d-9e23-4043-902a-e89899650b4d\",\n      \"countryCode\": \"NGA\",\n      \"level\": 1,\n      \"levelName\": \"State\",\n      \"unitName\": \"Rivers\",\n      \"unitCode\": \"NG-RI\"\n    },\n    \"source\": {\n      \"id\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n      \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n      \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\",\n      \"url\": \"https://www.geoboundaries.org\",\n      \"license\": \"CC BY 4.0\",\n      \"downloadedOn\": \"2026-09-22\",\n      \"notes\": \"Mirrored from the wmgeolab/geoBoundaries GitHub release; geometry unmodified.\",\n      \"createdAt\": \"2026-10-05T15:18:44.076Z\"\n    },\n    \"geometry\": {\n      \"type\": \"MultiPolygon\",\n      \"coordinates\": [\n        [\n          [\n            [\n              6.988256,\n              4.76111\n            ],\n            [\n              6.988869,\n              4.760771\n            ],\n            [\n              6.997976,\n              4.754653\n            ],\n            [\n              7.002597,\n              4.743407\n            ],\n            [\n              7.006603,\n              4.735767\n            ],\n            [\n              7.010191,\n              4.735028\n            ],\n            [\n              7.012206,\n              4.738589\n            ],\n            [\n              7.011535,\n              4.747409\n            ],\n            [\n              7.012799,\n              4.749895\n            ],\n            [\n              7.025004,\n              4.755804\n            ],\n            [\n              7.027734,\n              4.756099\n            ],\n            [\n              7.030742,\n              4.755394\n            ],\n            [\n              7.033263,\n              4.754758\n            ],\n            [\n              7.035614,\n              4.753762\n            ],\n            [\n              7.036128,\n              4.752534\n            ],\n            [\n              7.03772,\n              4.752059\n            ],\n            [\n              7.038539,\n              4.751363\n            ],\n            [\n              7.03905,\n              4.750737\n            ],\n            [\n              7.038944,\n              4.750113\n            ],\n            [\n              7.038674,\n              4.748931\n            ],\n            [\n              7.039926,\n              4.748736\n            ],\n            [\n              7.041531,\n              4.748899\n            ],\n            [\n              7.042775,\n              4.748897\n            ],\n            [\n              7.04301,\n              4.748772\n            ],\n            [\n              7.043108,\n              4.747262\n            ],\n            [\n              7.044748,\n              4.748001\n            ],\n            [\n              7.043527,\n              4.750442\n            ],\n            [\n              7.0459,\n              4.751463\n            ],\n            [\n              7.054881,\n              4.753161\n            ],\n            [\n              7.05397,\n              4.757022\n            ],\n            [\n              7.055599,\n              4.763288\n            ],\n            [\n              7.055811,\n              4.766082\n            ],\n            [\n              7.058264,\n              4.768725\n            ],\n            [\n              7.063346,\n              4.770347\n            ],\n            [\n              7.068219,\n              4.772005\n            ],\n            [\n              7.069122,\n              4.774729\n            ],\n            [\n              7.069533,\n              4.776637\n            ],\n            [\n              7.06811,\n              4.779938\n            ],\n            [\n              7.066154,\n              4.781401\n            ],\n            [\n              7.061385,\n              4.785954\n            ],\n            [\n              7.062479,\n              4.791145\n            ],\n            [\n              7.069484,\n              4.795054\n            ],\n            [\n              7.068898,\n              4.802396\n            ],\n            [\n              7.060908,\n              4.80726\n            ],\n            [\n              7.058653,\n              4.808766\n            ],\n            [\n              7.057876,\n              4.811085\n            ],\n            [\n              7.057079,\n              4.812318\n            ],\n            [\n              7.053431,\n              4.813708\n            ],\n            [\n              7.04982,\n              4.81286\n            ],\n            [\n              7.047772,\n              4.81286\n            ],\n            [\n              7.046599,\n              4.81468\n            ],\n            [\n              7.045788,\n              4.813882\n            ],\n            [\n              7.045501,\n              4.813599\n            ],\n            [\n              7.042094,\n              4.810466\n            ],\n            [\n              7.037418,\n              4.806881\n            ],\n            [\n              7.035848,\n              4.809819\n            ],\n            [\n              7.035076,\n              4.811286\n            ],\n            [\n              7.034585,\n              4.812302\n            ],\n            [\n              7.033587,\n              4.814098\n            ],\n            [\n              7.032616,\n              4.815953\n            ],\n            [\n              7.031744,\n              4.81771\n            ],\n            [\n              7.031546,\n              4.818022\n            ],\n            [\n              7.031378,\n              4.818448\n            ],\n            [\n              7.031293,\n              4.819044\n            ],\n            [\n              7.031284,\n              4.819907\n            ],\n            [\n              7.029814,\n              4.817714\n            ],\n            [\n              7.02956,\n              4.818077\n            ],\n            [\n              7.029585,\n              4.819448\n            ],\n            [\n              7.029575,\n              4.820004\n            ],\n            [\n              7.029543,\n              4.820166\n            ],\n            [\n              7.02939,\n              4.820435\n            ],\n            [\n              7.02907,\n              4.821033\n            ],\n            [\n              7.028584,\n              4.821887\n            ],\n            [\n              7.028134,\n              4.822692\n            ],\n            [\n              7.027924,\n              4.823052\n            ],\n            [\n              7.027872,\n              4.823226\n            ],\n            [\n              7.027851,\n              4.823741\n            ],\n            [\n              7.027842,\n              4.82427\n            ],\n            [\n              7.027832,\n              4.824614\n            ],\n            [\n              7.027773,\n              4.824831\n            ],\n            [\n              7.027568,\n              4.825395\n            ],\n            [\n              7.027442,\n              4.825495\n            ],\n            [\n              7.026412,\n              4.825508\n            ],\n            [\n              7.025459,\n              4.825481\n            ],\n            [\n              7.025326,\n              4.82542\n            ],\n            [\n              7.025093,\n              4.824277\n            ],\n            [\n              7.024672,\n              4.82438\n            ],\n            [\n              7.025008,\n              4.825716\n            ],\n            [\n              7.024914,\n              4.827474\n            ],\n            [\n              7.024957,\n              4.828486\n            ],\n            [\n              7.025044,\n              4.829151\n            ],\n            [\n              7.023845,\n              4.828905\n            ],\n            [\n              7.023347,\n              4.828884\n            ],\n            [\n              7.023069,\n              4.828935\n            ],\n            [\n              7.022572,\n              4.829143\n            ],\n            [\n              7.019453,\n              4.829522\n            ],\n            [\n              7.017022,\n              4.829772\n            ],\n            [\n              7.014164,\n              4.830169\n            ],\n            [\n              7.010276,\n              4.830523\n            ],\n            [\n              7.007572,\n              4.830747\n            ],\n            [\n              7.005127,\n              4.830844\n            ],\n            [\n              7.004305,\n              4.830877\n            ],\n            [\n              7.004206,\n              4.83037\n            ],\n            [\n              7.00411,\n              4.829841\n            ],\n            [\n              7.004225,\n              4.828618\n            ],\n            [\n              7.004631,\n              4.827355\n            ],\n            [\n              7.005978,\n              4.82441\n            ],\n            [\n              7.004888,\n              4.824074\n            ],\n            [\n              7.005235,\n              4.823198\n            ],\n            [\n              7.005647,\n              4.82224\n            ],\n            [\n              7.005781,\n              4.821814\n            ],\n            [\n              7.005698,\n              4.821644\n            ],\n            [\n              7.004179,\n              4.821155\n            ],\n            [\n              7.002728,\n              4.820673\n            ],\n            [\n              7.002336,\n              4.820634\n            ],\n            [\n              7.001898,\n              4.820767\n            ],\n            [\n              7.001456,\n              4.820944\n            ],\n            [\n              7.001068,\n              4.820956\n            ],\n            [\n              7.000968,\n              4.820808\n            ],\n            [\n              7.001197,\n              4.820346\n            ],\n            [\n              7.001062,\n              4.819746\n            ],\n            [\n              6.999317,\n              4.820249\n            ],\n            [\n              6.997855,\n              4.820495\n            ],\n            [\n              6.996941,\n              4.820606\n            ],\n            [\n              6.995607,\n              4.820574\n            ],\n            [\n              6.994409,\n              4.820228\n            ],\n            [\n              6.994667,\n              4.819511\n            ],\n            [\n              6.994957,\n              4.818412\n            ],\n            [\n              6.995117,\n              4.817293\n            ],\n            [\n              6.995158,\n              4.816032\n            ],\n            [\n              6.992943,\n              4.815538\n            ],\n            [\n              6.992828,\n              4.815513\n            ],\n            [\n              6.989823,\n              4.814878\n            ],\n            [\n              6.987461,\n              4.814351\n            ],\n            [\n              6.98447,\n              4.813706\n            ],\n            [\n              6.983975,\n              4.813579\n            ],\n            [\n              6.983922,\n              4.813779\n            ],\n            [\n              6.983765,\n              4.813839\n            ],\n            [\n              6.982935,\n              4.813582\n            ],\n            [\n              6.982368,\n              4.813091\n            ],\n            [\n              6.980779,\n              4.811489\n            ],\n            [\n              6.978707,\n              4.809498\n            ],\n            [\n              6.977449,\n              4.808326\n            ],\n            [\n              6.97631,\n              4.807122\n            ],\n            [\n              6.976143,\n              4.804861\n            ],\n            [\n              6.975991,\n              4.802266\n            ],\n            [\n              6.976017,\n              4.799976\n            ],\n            [\n              6.975978,\n              4.798674\n            ],\n            [\n              6.976,\n              4.797896\n            ],\n            [\n              6.975997,\n              4.797497\n            ],\n            [\n              6.975564,\n              4.79714\n            ],\n            [\n              6.975206,\n              4.796396\n            ],\n            [\n              6.973397,\n              4.794907\n            ],\n            [\n              6.971234,\n              4.795113\n            ],\n            [\n              6.971789,\n              4.79368\n            ],\n            [\n              6.974462,\n              4.789789\n            ],\n            [\n              6.974249,\n              4.789338\n            ],\n            [\n              6.972979,\n              4.783838\n            ],\n            [\n              6.968208,\n              4.780202\n            ],\n            [\n              6.961802,\n              4.778352\n            ],\n            [\n              6.96043,\n              4.777195\n            ],\n            [\n              6.95788,\n              4.774509\n            ],\n            [\n              6.960354,\n              4.774254\n            ],\n            [\n              6.963752,\n              4.771317\n            ],\n            [\n              6.96502,\n              4.768741\n            ],\n            [\n              6.964682,\n              4.764442\n            ],\n            [\n              6.965893,\n              4.764526\n            ],\n            [\n              6.979794,\n              4.765122\n            ],\n            [\n              6.985038,\n              4.764824\n            ],\n            [\n              6.988112,\n              4.761431\n            ],\n            [\n              6.988256,\n              4.76111\n            ]\n          ]\n        ]\n      ]\n    }\n  },\n  \"message\": \"OK\"\n}"
+                },
+                {
+                  "name": "400 Validation failed",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/port-harcourt",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "port-harcourt"
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"id\",\n      \"message\": \"Not a valid area id\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "404 Admin unit not found",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/99999999-9999-4999-8999-999999999999",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "99999999-9999-4999-8999-999999999999"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Admin unit not found\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "List children",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/admin-units/{{adminUnitId}}/children?page=1&pageSize=25",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin-units",
+                    "{{adminUnitId}}",
+                    "children"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "25"
+                    }
+                  ]
+                },
+                "description": "The wards of an LGA, or the LGAs of the state. No shapes."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/4867fa34-b881-44bf-9f77-7efb97b43ea8/children?page=1&pageSize=5",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "4867fa34-b881-44bf-9f77-7efb97b43ea8",
+                        "children"
+                      ],
+                      "query": [
+                        {
+                          "key": "page",
+                          "value": "1"
+                        },
+                        {
+                          "key": "pageSize",
+                          "value": "5"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"040cbbe1-76a4-4ad7-9fd7-10ff044d5e28\",\n      \"countryCode\": \"NGA\",\n      \"level\": 3,\n      \"levelName\": \"Ward\",\n      \"unitName\": \"Phward 1\",\n      \"unitCode\": \"RVSPHC01\",\n      \"parentId\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n      \"sourceId\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n      \"childCount\": 0,\n      \"bbox\": [\n        7.018705,\n        4.766082,\n        7.069533,\n        4.81468\n      ],\n      \"centroid\": [\n        7.047712,\n        4.788658\n      ]\n    },\n    {\n      \"id\": \"deceaf0f-f9a1-407b-9345-aed2c1da8429\",\n      \"countryCode\": \"NGA\",\n      \"level\": 3,\n      \"levelName\": \"Ward\",\n      \"unitName\": \"Phward 10\",\n      \"unitCode\": \"RVSPHC10\",\n      \"parentId\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n      \"sourceId\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n      \"childCount\": 0,\n      \"bbox\": [\n        6.982807,\n        4.785703,\n        6.990759,\n        4.79614\n      ],\n      \"centroid\": [\n        6.986193,\n        4.790631\n      ]\n    },\n    {\n      \"id\": \"3e84bc28-c2b5-4d67-95da-5b2939ce7434\",\n      \"countryCode\": \"NGA\",\n      \"level\": 3,\n      \"levelName\": \"Ward\",\n      \"unitName\": \"Phward 11\",\n      \"unitCode\": \"RVSPHC11\",\n      \"parentId\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n      \"sourceId\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n      \"childCount\": 0,\n      \"bbox\": [\n        7.00411,\n        4.794426,\n        7.038237,\n        4.830877\n      ],\n      \"centroid\": [\n        7.022563,\n        4.813012\n      ]\n    },\n    {\n      \"id\": \"69215c9b-f7b0-418f-8190-9aae6e62c269\",\n      \"countryCode\": \"NGA\",\n      \"level\": 3,\n      \"levelName\": \"Ward\",\n      \"unitName\": \"Phward 12\",\n      \"unitCode\": \"RVSPHC12\",\n      \"parentId\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n      \"sourceId\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n      \"childCount\": 0,\n      \"bbox\": [\n        6.990507,\n        4.789344,\n        6.99582,\n        4.795137\n      ],\n      \"centroid\": [\n        6.993244,\n        4.792238\n      ]\n    },\n    {\n      \"id\": \"9b8a2aa4-10b8-47ea-a358-24e3e0e0e679\",\n      \"countryCode\": \"NGA\",\n      \"level\": 3,\n      \"levelName\": \"Ward\",\n      \"unitName\": \"Phward 13\",\n      \"unitCode\": \"RVSPHC13\",\n      \"parentId\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n      \"sourceId\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n      \"childCount\": 0,\n      \"bbox\": [\n        6.987654,\n        4.788634,\n        6.992265,\n        4.793353\n      ],\n      \"centroid\": [\n        6.989865,\n        4.791202\n      ]\n    }\n  ],\n  \"message\": \"OK\",\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 5,\n    \"total\": 20\n  }\n}"
+                },
+                {
+                  "name": "404 Admin unit not found",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/99999999-9999-4999-8999-999999999999/children",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "99999999-9999-4999-8999-999999999999",
+                        "children"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Admin unit not found\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Map layer (GeoJSON)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/admin-units/geojson?level=2&bbox=6.40,4.30,7.60,5.70&zoom=9",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin-units",
+                    "geojson"
+                  ],
+                  "query": [
+                    {
+                      "key": "level",
+                      "value": "2"
+                    },
+                    {
+                      "key": "bbox",
+                      "value": "6.40,4.30,7.60,5.70"
+                    },
+                    {
+                      "key": "zoom",
+                      "value": "9"
+                    }
+                  ]
+                },
+                "description": "Shapes for the map, only inside the visible area. `bbox` is required (a request without one is refused). Optional `zoom` simplifies shapes to about one screen pixel; optional countryCode and parentId narrow it."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/geojson?level=2&bbox=7.00,4.74,7.06,4.80&zoom=8",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "geojson"
+                      ],
+                      "query": [
+                        {
+                          "key": "level",
+                          "value": "2"
+                        },
+                        {
+                          "key": "bbox",
+                          "value": "7.00,4.74,7.06,4.80"
+                        },
+                        {
+                          "key": "zoom",
+                          "value": "8"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"type\": \"FeatureCollection\",\n    \"features\": [\n      {\n        \"type\": \"Feature\",\n        \"id\": \"493b8277-520b-42e3-a90a-ad6f8cbb036b\",\n        \"geometry\": {\n          \"type\": \"MultiPolygon\",\n          \"coordinates\": [\n            [\n              [\n                [\n                  6.983824,\n                  4.617081\n                ],\n                [\n                  6.998258,\n                  4.606652\n                ],\n                [\n                  6.993949,\n                  4.589895\n                ],\n                [\n                  6.9975,\n                  4.563775\n                ],\n                [\n                  7.008235,\n                  4.536503\n                ],\n                [\n                  7.009428,\n                  4.530701\n                ],\n                [\n                  7.00731,\n                  4.512759\n                ],\n                [\n                  7.015879,\n                  4.46839\n                ],\n                [\n                  7.022092,\n                  4.453405\n                ],\n                [\n                  7.021381,\n                  4.446698\n                ],\n                [\n                  7.024138,\n                  4.441202\n                ],\n                [\n                  7.044444,\n                  4.436388\n                ],\n                [\n                  7.067278,\n                  4.440622\n                ],\n                [\n                  7.075082,\n                  4.446326\n                ],\n                [\n                  7.094134,\n                  4.453047\n                ],\n                [\n                  7.103698,\n                  4.451491\n                ],\n                [\n                  7.158906,\n                  4.463629\n                ],\n                [\n                  7.170018,\n                  4.486531\n                ],\n                [\n                  7.177379,\n                  4.515041\n                ],\n                [\n                  7.177115,\n                  4.529488\n                ],\n                [\n                  7.16595,\n                  4.548644\n                ],\n                [\n                  7.176353,\n                  4.571149\n                ],\n                [\n                  7.17611,\n                  4.584444\n                ],\n                [\n                  7.169722,\n                  4.604444\n                ],\n                [\n                  7.150221,\n                  4.640579\n                ],\n                [\n                  7.129156,\n                  4.65649\n                ],\n                [\n                  7.095793,\n                  4.668422\n                ],\n                [\n                  7.092125,\n                  4.676238\n                ],\n                [\n                  7.083538,\n                  4.684146\n                ],\n                [\n                  7.078708,\n                  4.702666\n                ],\n                [\n                  7.081788,\n                  4.721914\n                ],\n                [\n                  7.085703,\n                  4.723167\n                ],\n                [\n                  7.088007,\n                  4.718719\n                ],\n                [\n                  7.088784,\n                  4.70106\n                ],\n                [\n                  7.091353,\n                  4.692872\n                ],\n                [\n                  7.108231,\n                  4.673954\n                ],\n                [\n                  7.123409,\n                  4.669722\n                ],\n                [\n                  7.125099,\n                  4.677681\n                ],\n                [\n                  7.120293,\n                  4.680965\n                ],\n                [\n                  7.118723,\n                  4.686632\n                ],\n                [\n                  7.122508,\n                  4.693855\n                ],\n                [\n                  7.122202,\n                  4.70207\n                ],\n                [\n                  7.116112,\n                  4.708537\n                ],\n                [\n                  7.115155,\n                  4.714635\n                ],\n                [\n                  7.118014,\n                  4.723954\n                ],\n                [\n                  7.1138,\n                  4.725874\n                ],\n                [\n                  7.114054,\n                  4.727755\n                ],\n                [\n                  7.120292,\n                  4.732233\n                ],\n                [\n                  7.130172,\n                  4.73486\n                ],\n                [\n                  7.139335,\n                  4.734162\n                ],\n                [\n                  7.119017,\n                  4.767567\n                ],\n                [\n                  7.113164,\n                  4.762144\n                ],\n                [\n                  7.104344,\n                  4.77131\n                ],\n                [\n                  7.097247,\n                  4.764527\n                ],\n                [\n                  7.090036,\n                  4.771845\n                ],\n                [\n                  7.095859,\n                  4.784475\n                ],\n                [\n                  7.092078,\n                  4.792532\n                ],\n                [\n                  7.075367,\n                  4.806861\n                ],\n                [\n                  7.078143,\n                  4.814763\n                ],\n                [\n                  7.073608,\n                  4.816619\n                ],\n                [\n                  7.068017,\n                  4.809416\n                ],\n                [\n                  7.062547,\n                  4.809258\n                ],\n                [\n                  7.060908,\n                  4.80726\n                ],\n                [\n                  7.068898,\n                  4.802396\n                ],\n                [\n                  7.069484,\n                  4.795054\n                ],\n                [\n                  7.062479,\n                  4.791145\n                ],\n                [\n                  7.061385,\n                  4.785954\n                ],\n                [\n                  7.069533,\n                  4.776637\n                ],\n                [\n                  7.068219,\n                  4.772005\n                ],\n                [\n                  7.055811,\n                  4.766082\n                ],\n                [\n                  7.054881,\n                  4.753161\n                ],\n                [\n                  7.043527,\n                  4.750442\n                ],\n                [\n                  7.044748,\n                  4.748001\n                ],\n                [\n                  7.043108,\n                  4.747262\n                ],\n                [\n                  7.042775,\n                  4.748897\n                ],\n                [\n                  7.038674,\n                  4.748931\n                ],\n                [\n                  7.035614,\n                  4.753762\n                ],\n                [\n                  7.025004,\n                  4.755804\n                ],\n                [\n                  7.012799,\n                  4.749895\n                ],\n                [\n                  7.010191,\n                  4.735028\n                ],\n                [\n                  7.006603,\n                  4.735767\n                ],\n                [\n                  6.997976,\n                  4.754653\n                ],\n                [\n                  6.988256,\n                  4.76111\n                ],\n                [\n                  6.983168,\n                  4.748772\n                ],\n                [\n                  6.986665,\n                  4.71724\n                ],\n                [\n                  6.985168,\n                  4.703762\n                ],\n                [\n                  6.972563,\n                  4.705664\n                ],\n                [\n                  6.964153,\n                  4.685403\n                ],\n                [\n                  6.973373,\n                  4.667191\n                ],\n                [\n                  6.984558,\n                  4.636911\n                ],\n                [\n                  6.983824,\n                  4.617081\n                ]\n              ]\n            ]\n          ]\n        },\n        \"properties\": {\n          \"id\": \"493b8277-520b-42e3-a90a-ad6f8cbb036b\",\n          \"unitName\": \"Okrika\",\n          \"unitCode\": \"NG033018\",\n          \"level\": 2,\n          \"levelName\": \"LGA\",\n          \"parentId\": \"0dba883d-9e23-4043-902a-e89899650b4d\",\n          \"sourceId\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\"\n        }\n      },\n      {\n        \"type\": \"Feature\",\n        \"id\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n        \"geometry\": {\n          \"type\": \"MultiPolygon\",\n          \"coordinates\": [\n            [\n              [\n                [\n                  6.985038,\n                  4.764824\n                ],\n                [\n                  6.997976,\n                  4.754653\n                ],\n                [\n                  7.006603,\n                  4.735767\n                ],\n                [\n                  7.010191,\n                  4.735028\n                ],\n                [\n                  7.012799,\n                  4.749895\n                ],\n                [\n                  7.025004,\n                  4.755804\n                ],\n                [\n                  7.035614,\n                  4.753762\n                ],\n                [\n                  7.038674,\n                  4.748931\n                ],\n                [\n                  7.042775,\n                  4.748897\n                ],\n                [\n                  7.043108,\n                  4.747262\n                ],\n                [\n                  7.044748,\n                  4.748001\n                ],\n                [\n                  7.043527,\n                  4.750442\n                ],\n                [\n                  7.054881,\n                  4.753161\n                ],\n                [\n                  7.055811,\n                  4.766082\n                ],\n                [\n                  7.068219,\n                  4.772005\n                ],\n                [\n                  7.069122,\n                  4.774729\n                ],\n                [\n                  7.06811,\n                  4.779938\n                ],\n                [\n                  7.061385,\n                  4.785954\n                ],\n                [\n                  7.062479,\n                  4.791145\n                ],\n                [\n                  7.069484,\n                  4.795054\n                ],\n                [\n                  7.068898,\n                  4.802396\n                ],\n                [\n                  7.053431,\n                  4.813708\n                ],\n                [\n                  7.047772,\n                  4.81286\n                ],\n                [\n                  7.046599,\n                  4.81468\n                ],\n                [\n                  7.037418,\n                  4.806881\n                ],\n                [\n                  7.031284,\n                  4.819907\n                ],\n                [\n                  7.02956,\n                  4.818077\n                ],\n                [\n                  7.027568,\n                  4.825395\n                ],\n                [\n                  7.024672,\n                  4.82438\n                ],\n                [\n                  7.025044,\n                  4.829151\n                ],\n                [\n                  7.004305,\n                  4.830877\n                ],\n                [\n                  7.005698,\n                  4.821644\n                ],\n                [\n                  6.994409,\n                  4.820228\n                ],\n                [\n                  6.995158,\n                  4.816032\n                ],\n                [\n                  6.982935,\n                  4.813582\n                ],\n                [\n                  6.977449,\n                  4.808326\n                ],\n                [\n                  6.975997,\n                  4.797497\n                ],\n                [\n                  6.971234,\n                  4.795113\n                ],\n                [\n                  6.974462,\n                  4.789789\n                ],\n                [\n                  6.972979,\n                  4.783838\n                ],\n                [\n                  6.95788,\n                  4.774509\n                ],\n                [\n                  6.963752,\n                  4.771317\n                ],\n                [\n                  6.964682,\n                  4.764442\n                ],\n                [\n                  6.985038,\n                  4.764824\n                ]\n              ]\n            ]\n          ]\n        },\n        \"properties\": {\n          \"id\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n          \"unitName\": \"Port Harcourt\",\n          \"unitCode\": \"NG033022\",\n          \"level\": 2,\n          \"levelName\": \"LGA\",\n          \"parentId\": \"0dba883d-9e23-4043-902a-e89899650b4d\",\n          \"sourceId\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\"\n        }\n      }\n    ]\n  },\n  \"message\": \"OK\"\n}"
+                },
+                {
+                  "name": "400 bbox missing",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/geojson?level=2",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "geojson"
+                      ],
+                      "query": [
+                        {
+                          "key": "level",
+                          "value": "2"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"bbox\",\n      \"message\": \"bbox is required: map layers are only served for a visible area\"\n    }\n  ]\n}"
+                }
+              ]
+            },
+            {
+              "name": "Locate a point",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/admin-units/locate?lon=7.0134&lat=4.7774",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "admin-units",
+                    "locate"
+                  ],
+                  "query": [
+                    {
+                      "key": "lon",
+                      "value": "7.0134"
+                    },
+                    {
+                      "key": "lat",
+                      "value": "4.7774"
+                    }
+                  ]
+                },
+                "description": "Point-in-polygon (ST_Contains): the state, LGA and ward containing [lon, lat], top level first. 404 when no mapped area contains the point, e.g. anywhere outside Rivers State."
+              },
+              "response": [
+                {
+                  "name": "200 OK (Port Harcourt)",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/locate?lon=7.0134&lat=4.7774",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "locate"
+                      ],
+                      "query": [
+                        {
+                          "key": "lon",
+                          "value": "7.0134"
+                        },
+                        {
+                          "key": "lat",
+                          "value": "4.7774"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"point\": [\n      7.0134,\n      4.7774\n    ],\n    \"units\": [\n      {\n        \"id\": \"0dba883d-9e23-4043-902a-e89899650b4d\",\n        \"countryCode\": \"NGA\",\n        \"level\": 1,\n        \"levelName\": \"State\",\n        \"unitName\": \"Rivers\",\n        \"unitCode\": \"NG-RI\"\n      },\n      {\n        \"id\": \"4867fa34-b881-44bf-9f77-7efb97b43ea8\",\n        \"countryCode\": \"NGA\",\n        \"level\": 2,\n        \"levelName\": \"LGA\",\n        \"unitName\": \"Port Harcourt\",\n        \"unitCode\": \"NG033022\"\n      },\n      {\n        \"id\": \"14c05a3f-e1e5-4608-9b08-e5f1ab448ba4\",\n        \"countryCode\": \"NGA\",\n        \"level\": 3,\n        \"levelName\": \"Ward\",\n        \"unitName\": \"Phward 17\",\n        \"unitCode\": \"RVSPHC17\"\n      }\n    ]\n  },\n  \"message\": \"OK\"\n}"
+                },
+                {
+                  "name": "400 Validation failed",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/locate?lon=7.0134&lat=95",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "locate"
+                      ],
+                      "query": [
+                        {
+                          "key": "lon",
+                          "value": "7.0134"
+                        },
+                        {
+                          "key": "lat",
+                          "value": "95"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"lat\",\n      \"message\": \"Latitude must be between -90 and 90\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "401 Missing bearer token",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/locate?lon=7.0134&lat=4.7774",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "locate"
+                      ],
+                      "query": [
+                        {
+                          "key": "lon",
+                          "value": "7.0134"
+                        },
+                        {
+                          "key": "lat",
+                          "value": "4.7774"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Missing bearer token\"\n}"
+                },
+                {
+                  "name": "404 Point outside Rivers State (Lagos)",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/locate?lon=3.3792&lat=6.5244",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "locate"
+                      ],
+                      "query": [
+                        {
+                          "key": "lon",
+                          "value": "3.3792"
+                        },
+                        {
+                          "key": "lat",
+                          "value": "6.5244"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"No mapped area contains this point\"\n}"
+                },
+                {
+                  "name": "500 Internal error",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/admin-units/locate?lon=7.0134&lat=4.7774",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "admin-units",
+                        "locate"
+                      ],
+                      "query": [
+                        {
+                          "key": "lon",
+                          "value": "7.0134"
+                        },
+                        {
+                          "key": "lat",
+                          "value": "4.7774"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Internal Server Error",
+                  "code": 500,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Something went wrong\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Data sources",
+          "description": "Phase 2's minimal provenance table: every admin unit points at one. Phase 3 adds the full feature.",
+          "item": [
+            {
+              "name": "List data sources",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/data-sources?page=1&pageSize=25",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "data-sources"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "25"
+                    }
+                  ]
+                },
+                "description": "Any signed-in user. Newest first."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/data-sources?page=1&pageSize=25",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "data-sources"
+                      ],
+                      "query": [
+                        {
+                          "key": "page",
+                          "value": "1"
+                        },
+                        {
+                          "key": "pageSize",
+                          "value": "25"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n      \"provider\": \"GRID3 (CIESIN, WorldPop, National Population Commission)\",\n      \"datasetName\": \"GRID3 NGA - Operational Wards v1.0, Rivers State\",\n      \"url\": \"https://data.grid3.org/datasets/0824aded5f5a4d39b10871c667aa8ccf/about\",\n      \"license\": \"CC BY 4.0\",\n      \"downloadedOn\": \"2026-09-22\",\n      \"notes\": \"Operational Placeholder ward boundaries from INEC; GRID3 marks them non-authoritative.\",\n      \"createdAt\": \"2026-10-05T15:18:44.677Z\"\n    },\n    {\n      \"id\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n      \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n      \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\",\n      \"url\": \"https://www.geoboundaries.org\",\n      \"license\": \"CC BY 4.0\",\n      \"downloadedOn\": \"2026-09-22\",\n      \"notes\": \"Mirrored from the wmgeolab/geoBoundaries GitHub release; geometry unmodified.\",\n      \"createdAt\": \"2026-10-05T15:18:44.076Z\"\n    }\n  ],\n  \"message\": \"OK\",\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 25,\n    \"total\": 2\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Add data source",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const json = pm.response.json();",
+                      "if (json.success) pm.environment.set(\"dataSourceId\", json.data.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/data-sources",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "data-sources"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n  \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\",\n  \"url\": \"https://www.geoboundaries.org\",\n  \"license\": \"CC BY 4.0\",\n  \"downloadedOn\": \"2026-09-22\",\n  \"notes\": \"Mirrored from the wmgeolab/geoBoundaries GitHub release; geometry unmodified.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Administrator only. Copy the provider, link, licence and download date from the dataset's README. Stores the new id in {{dataSourceId}}."
+              },
+              "response": [
+                {
+                  "name": "201 Data source added",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/data-sources",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "data-sources"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n  \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\",\n  \"url\": \"https://www.geoboundaries.org\",\n  \"license\": \"CC BY 4.0\",\n  \"downloadedOn\": \"2026-09-22\",\n  \"notes\": \"Mirrored from the wmgeolab/geoBoundaries GitHub release; geometry unmodified.\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n    \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n    \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\",\n    \"url\": \"https://www.geoboundaries.org\",\n    \"license\": \"CC BY 4.0\",\n    \"downloadedOn\": \"2026-09-22\",\n    \"notes\": \"Mirrored from the wmgeolab/geoBoundaries GitHub release; geometry unmodified.\",\n    \"createdAt\": \"2026-10-05T15:18:44.076Z\"\n  },\n  \"message\": \"Data source added\"\n}"
+                },
+                {
+                  "name": "400 Validation failed",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/data-sources",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "data-sources"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n  \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\",\n  \"url\": \"www.geoboundaries.org\",\n  \"license\": \"CC BY 4.0\",\n  \"downloadedOn\": \"2099-01-01\",\n  \"notes\": \"Mirrored from the wmgeolab/geoBoundaries GitHub release; geometry unmodified.\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"url\",\n      \"message\": \"Enter the provider's web address, starting with http:// or https://\"\n    },\n    {\n      \"field\": \"downloadedOn\",\n      \"message\": \"The download date can't be in the future\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "403 Role not permitted",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/data-sources",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "data-sources"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n  \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\",\n  \"url\": \"https://www.geoboundaries.org\",\n  \"license\": \"CC BY 4.0\",\n  \"downloadedOn\": \"2026-09-22\",\n  \"notes\": \"Mirrored from the wmgeolab/geoBoundaries GitHub release; geometry unmodified.\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Your role is not permitted to perform this action\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Imports",
+          "description": "The import pipeline: file -> staging -> checks -> live. Administrator only. Upload the real files from the ClimateSoftware folder: rivers_state_boundary.geojson (level 1), rivers_state_rainfall_and_boundaries.xlsx sheet lga_boundaries (level 2), rivers_state_wards.geojson (level 3).",
+          "item": [
+            {
+              "name": "Download template",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/imports/templates/admin-units?country={{countryCode}}&level=2&format=xlsx",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "imports",
+                    "templates",
+                    "admin-units"
+                  ],
+                  "query": [
+                    {
+                      "key": "country",
+                      "value": "{{countryCode}}"
+                    },
+                    {
+                      "key": "level",
+                      "value": "2"
+                    },
+                    {
+                      "key": "format",
+                      "value": "xlsx"
+                    }
+                  ]
+                },
+                "description": "The blank template for a country and level: Excel (Areas, Instructions, Parent areas sheets) or `format=geojson` for a sample GeoJSON. In Postman use *Send and Download*."
+              },
+              "response": [
+                {
+                  "name": "200 Template file",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/templates/admin-units?country=NGA&level=2&format=xlsx",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "templates",
+                        "admin-units"
+                      ],
+                      "query": [
+                        {
+                          "key": "country",
+                          "value": "NGA"
+                        },
+                        {
+                          "key": "level",
+                          "value": "2"
+                        },
+                        {
+                          "key": "format",
+                          "value": "xlsx"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "text",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    },
+                    {
+                      "key": "Content-Disposition",
+                      "value": "attachment; filename=\"admin-units-template_NGA_level-2-lga.xlsx\""
+                    }
+                  ],
+                  "body": "(binary .xlsx file, 14,704 bytes: sheets \"Areas\", \"Parent areas\", \"Instructions\")"
+                },
+                {
+                  "name": "400 Level the country doesn't have",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/templates/admin-units?country=NGA&level=5&format=xlsx",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "templates",
+                        "admin-units"
+                      ],
+                      "query": [
+                        {
+                          "key": "country",
+                          "value": "NGA"
+                        },
+                        {
+                          "key": "level",
+                          "value": "5"
+                        },
+                        {
+                          "key": "format",
+                          "value": "xlsx"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"level\",\n      \"message\": \"Nigeria has 3 levels (State, LGA, Ward)\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "403 Role not permitted",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/templates/admin-units?country=NGA&level=2",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "templates",
+                        "admin-units"
+                      ],
+                      "query": [
+                        {
+                          "key": "country",
+                          "value": "NGA"
+                        },
+                        {
+                          "key": "level",
+                          "value": "2"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Your role is not permitted to perform this action\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Preview a file",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/imports/preview",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "imports",
+                    "preview"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [],
+                      "description": "The file to inspect (.xlsx or .geojson)"
+                    },
+                    {
+                      "key": "countryCode",
+                      "value": "{{countryCode}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level",
+                      "value": "2",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sheetName",
+                      "value": "lga_boundaries",
+                      "type": "text",
+                      "description": "Excel only; defaults to the Areas sheet, else the first"
+                    },
+                    {
+                      "key": "headerRow",
+                      "value": "",
+                      "type": "text",
+                      "description": "Excel only; detected when blank"
+                    }
+                  ]
+                },
+                "description": "Reads the file's headings and first rows and suggests a column mapping. Stores nothing."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/preview",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "preview"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "2",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sheetName",
+                          "value": "lga_boundaries",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"fileName\": \"rivers_state_rainfall_and_boundaries.xlsx\",\n    \"fileType\": \"xlsx\",\n    \"sheets\": [\n      \"rainfall\",\n      \"lga_boundaries\"\n    ],\n    \"sheetName\": \"lga_boundaries\",\n    \"headerRow\": 2,\n    \"headings\": [\n      \"lga_name_standard\",\n      \"lga_name_source_geoboundaries\",\n      \"state\",\n      \"adm2_pcode\",\n      \"shape_id\",\n      \"geometry_type\",\n      \"vertex_count\",\n      \"centroid_lat\",\n      \"centroid_lon\",\n      \"bbox_min_lon\",\n      \"bbox_min_lat\",\n      \"bbox_max_lon\",\n      \"bbox_max_lat\",\n      \"geometry_wkt (EPSG:4326)\"\n    ],\n    \"rowCount\": 23,\n    \"sampleRows\": [\n      {\n        \"lga_name_standard\": \"Abua-Odual\",\n        \"lga_name_source_geoboundaries\": \"Abua/Odual\",\n        \"state\": \"Rivers\",\n        \"adm2_pcode\": \"NG033001\",\n        \"shape_id\": \"59680162B70529740290920\",\n        \"geometry_type\": \"Polygon\",\n        \"vertex_count\": \"129\",\n        \"centroid_lat\": \"4.82878\",\n        \"centroid_lon\": \"6.56411\",\n        \"bbox_min_lon\": \"6.39839\",\n        \"bbox_min_lat\": \"4.70452\",\n        \"bbox_max_lon\": \"6.74096\",\n        \"bbox_max_lat\": \"4.97735\",\n        \"geometry_wkt (EPSG:4326)\": \"POLYGON ((6.573524845195493 4.704851202720874, 6.57935977523… (4,755 characters)\"\n      },\n      {\n        \"lga_name_standard\": \"Ahoada East\",\n        \"lga_name_source_geoboundaries\": \"Ahoada East\",\n        \"state\": \"Rivers\",\n        \"adm2_pcode\": \"NG033002\",\n        \"shape_id\": \"59680162B72068294191364\",\n        \"geometry_type\": \"Polygon\",\n        \"vertex_count\": \"102\",\n        \"centroid_lat\": \"5.06439\",\n        \"centroid_lon\": \"6.63928\",\n        \"bbox_min_lon\": \"6.54415\",\n        \"bbox_min_lat\": \"4.88848\",\n        \"bbox_max_lon\": \"6.72527\",\n        \"bbox_max_lat\": \"5.23263\",\n        \"geometry_wkt (EPSG:4326)\": \"POLYGON ((6.667957097242265 4.888483990743623, 6.67597761997… (3,767 characters)\"\n      },\n      {\n        \"lga_name_standard\": \"Ahoada West\",\n        \"lga_name_source_geoboundaries\": \"Ahoada West\",\n        \"state\": \"Rivers\",\n        \"adm2_pcode\": \"NG033003\",\n        \"shape_id\": \"59680162B31457176745984\",\n        \"geometry_type\": \"Polygon\",\n        \"vertex_count\": \"92\",\n        \"centroid_lat\": \"5.02563\",\n        \"centroid_lon\": \"6.51086\",\n        \"bbox_min_lon\": \"6.41039\",\n        \"bbox_min_lat\": \"4.85109\",\n        \"bbox_max_lon\": \"6.58587\",\n        \"bbox_max_lat\": \"5.18981\",\n        \"geometry_wkt (EPSG:4326)\": \"POLYGON ((6.578727744290006 5.177153394813388, 6.56612711107… (3,389 characters)\"\n      }\n    ],\n    \"templateColumns\": [\n      \"unit_name\",\n      \"unit_code\",\n      \"parent_code\",\n      \"geometry_wkt\"\n    ],\n    \"suggestedMapping\": {\n      \"unit_name\": \"lga_name_standard\",\n      \"unit_code\": \"adm2_pcode\",\n      \"parent_code\": \"state\",\n      \"geometry_wkt\": \"geometry_wkt (EPSG:4326)\"\n    }\n  },\n  \"message\": \"OK\"\n}"
+                },
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/preview",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "preview"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "1",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"fileName\": \"rivers_state_boundary.geojson\",\n    \"fileType\": \"geojson\",\n    \"sheets\": [],\n    \"sheetName\": null,\n    \"headerRow\": null,\n    \"headings\": [\n      \"shapeName\",\n      \"shapeISO\",\n      \"shapeID\",\n      \"shapeGroup\",\n      \"shapeType\"\n    ],\n    \"rowCount\": 1,\n    \"sampleRows\": [\n      {\n        \"shapeName\": \"Rivers\",\n        \"shapeISO\": \"NG-RI\",\n        \"shapeID\": \"27671186B95832466049157\",\n        \"shapeGroup\": \"NGA\",\n        \"shapeType\": \"ADM1\"\n      }\n    ],\n    \"templateColumns\": [\n      \"unit_name\",\n      \"unit_code\",\n      \"parent_code\",\n      \"geometry_wkt\"\n    ],\n    \"suggestedMapping\": {\n      \"unit_name\": \"shapeName\",\n      \"unit_code\": \"shapeISO\"\n    }\n  },\n  \"message\": \"OK\"\n}"
+                },
+                {
+                  "name": "400 Not an importable file",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/preview",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "preview"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "level",
+                          "value": "2",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"file\",\n      \"message\": \"Upload an Excel workbook (.xlsx) or a GeoJSON file (.geojson). Other formats aren't supported yet.\"\n    }\n  ]\n}"
+                }
+              ]
+            },
+            {
+              "name": "Start an import",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const json = pm.response.json();",
+                      "if (json.success) pm.environment.set(\"importRunId\", json.data.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/imports",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "imports"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [],
+                      "description": "rivers_state_rainfall_and_boundaries.xlsx"
+                    },
+                    {
+                      "key": "countryCode",
+                      "value": "{{countryCode}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level",
+                      "value": "2",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sourceId",
+                      "value": "{{dataSourceId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sheetName",
+                      "value": "lga_boundaries",
+                      "type": "text"
+                    },
+                    {
+                      "key": "columnMapping",
+                      "value": "{\"unit_name\":\"lga_name_standard\",\"unit_code\":\"adm2_pcode\",\"parent_code\":\"state\",\"geometry_wkt\":\"geometry_wkt (EPSG:4326)\"}",
+                      "type": "text",
+                      "description": "Template column -> heading in this file"
+                    },
+                    {
+                      "key": "parentId",
+                      "value": "",
+                      "type": "text",
+                      "description": "Optional: one parent for every row instead of a parent column"
+                    }
+                  ]
+                },
+                "description": "Creates a run: reads the file, stages every row, runs every check, and stops. Nothing goes live until Promote. Stores the run id in {{importRunId}}."
+              },
+              "response": [
+                {
+                  "name": "201 Run created and checked",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "2",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sourceId",
+                          "value": "c1de4e3a-bd28-423c-bd28-3eee98b7c119",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sheetName",
+                          "value": "lga_boundaries",
+                          "type": "text"
+                        },
+                        {
+                          "key": "columnMapping",
+                          "value": "{\"unit_name\":\"lga_name_standard\",\"unit_code\":\"adm2_pcode\",\"parent_code\":\"state\",\"geometry_wkt\":\"geometry_wkt (EPSG:4326)\"}",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"79700dda-786d-4ad0-be5c-46ae47756d22\",\n    \"target\": \"admin_units\",\n    \"fileName\": \"rivers_state_rainfall_and_boundaries.xlsx\",\n    \"fileType\": \"xlsx\",\n    \"sheetName\": \"lga_boundaries\",\n    \"options\": {\n      \"level\": 2,\n      \"parentId\": null,\n      \"levelName\": \"LGA\",\n      \"countryCode\": \"NGA\"\n    },\n    \"columnMapping\": {\n      \"unit_code\": \"adm2_pcode\",\n      \"unit_name\": \"lga_name_standard\",\n      \"parent_code\": \"state\",\n      \"geometry_wkt\": \"geometry_wkt (EPSG:4326)\"\n    },\n    \"source\": {\n      \"id\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n      \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n      \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\"\n    },\n    \"status\": \"checked\",\n    \"rowCount\": 23,\n    \"passedCount\": 23,\n    \"errorCount\": 0,\n    \"promotedCount\": null,\n    \"warnings\": [],\n    \"extent\": [\n      6.398394,\n      4.31195,\n      7.590608,\n      5.689925\n    ],\n    \"createdBy\": {\n      \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n      \"email\": \"admin@example.com\",\n      \"displayName\": \"Ada Admin\"\n    },\n    \"createdAt\": \"2026-10-05T15:18:56.608Z\",\n    \"promotedBy\": null,\n    \"promotedAt\": null\n  },\n  \"message\": \"Checked 23 rows: 23 passed, 0 failed\"\n}"
+                },
+                {
+                  "name": "201 Run created and checked",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "3",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sourceId",
+                          "value": "51e3fabc-1ff3-4034-8d14-83e01c6df2fa",
+                          "type": "text"
+                        },
+                        {
+                          "key": "columnMapping",
+                          "value": "{\"unit_name\":\"wardname\",\"unit_code\":\"wardcode\",\"parent_code\":\"lganame\"}",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f2dcbd07-6ccb-46f7-84ca-386c1e82a2af\",\n    \"target\": \"admin_units\",\n    \"fileName\": \"rivers_state_wards.geojson\",\n    \"fileType\": \"geojson\",\n    \"sheetName\": null,\n    \"options\": {\n      \"level\": 3,\n      \"parentId\": null,\n      \"levelName\": \"Ward\",\n      \"countryCode\": \"NGA\"\n    },\n    \"columnMapping\": {\n      \"unit_code\": \"wardcode\",\n      \"unit_name\": \"wardname\",\n      \"parent_code\": \"lganame\"\n    },\n    \"source\": {\n      \"id\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n      \"provider\": \"GRID3 (CIESIN, WorldPop, National Population Commission)\",\n      \"datasetName\": \"GRID3 NGA - Operational Wards v1.0, Rivers State\"\n    },\n    \"status\": \"checked\",\n    \"rowCount\": 318,\n    \"passedCount\": 317,\n    \"errorCount\": 1,\n    \"promotedCount\": null,\n    \"warnings\": [],\n    \"extent\": [\n      6.398394,\n      4.31195,\n      7.590608,\n      5.689925\n    ],\n    \"createdBy\": {\n      \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n      \"email\": \"admin@example.com\",\n      \"displayName\": \"Ada Admin\"\n    },\n    \"createdAt\": \"2026-10-05T15:19:07.037Z\",\n    \"promotedBy\": null,\n    \"promotedAt\": null\n  },\n  \"message\": \"Checked 318 rows: 317 passed, 1 failed\"\n}"
+                },
+                {
+                  "name": "201 Run created and checked",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "1",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sourceId",
+                          "value": "c1de4e3a-bd28-423c-bd28-3eee98b7c119",
+                          "type": "text"
+                        },
+                        {
+                          "key": "columnMapping",
+                          "value": "{\"unit_name\":\"shapeName\",\"unit_code\":\"shapeISO\"}",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"994300b9-b4a0-4e49-8e06-54dbf589a62a\",\n    \"target\": \"admin_units\",\n    \"fileName\": \"rivers_state_boundary.geojson\",\n    \"fileType\": \"geojson\",\n    \"sheetName\": null,\n    \"options\": {\n      \"level\": 1,\n      \"parentId\": null,\n      \"levelName\": \"State\",\n      \"countryCode\": \"NGA\"\n    },\n    \"columnMapping\": {\n      \"unit_code\": \"shapeISO\",\n      \"unit_name\": \"shapeName\"\n    },\n    \"source\": {\n      \"id\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n      \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n      \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\"\n    },\n    \"status\": \"checked\",\n    \"rowCount\": 1,\n    \"passedCount\": 1,\n    \"errorCount\": 0,\n    \"promotedCount\": null,\n    \"warnings\": [],\n    \"extent\": [\n      6.398394,\n      4.31195,\n      7.590608,\n      5.689925\n    ],\n    \"createdBy\": {\n      \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n      \"email\": \"admin@example.com\",\n      \"displayName\": \"Ada Admin\"\n    },\n    \"createdAt\": \"2026-10-05T15:18:49.559Z\",\n    \"promotedBy\": null,\n    \"promotedAt\": null\n  },\n  \"message\": \"Checked 1 rows: 1 passed, 0 failed\"\n}"
+                },
+                {
+                  "name": "400 No file attached",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "2",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sourceId",
+                          "value": "c1de4e3a-bd28-423c-bd28-3eee98b7c119",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sheetName",
+                          "value": "lga_boundaries",
+                          "type": "text"
+                        },
+                        {
+                          "key": "columnMapping",
+                          "value": "{\"unit_name\":\"lga_name_standard\",\"unit_code\":\"adm2_pcode\",\"parent_code\":\"state\",\"geometry_wkt\":\"geometry_wkt (EPSG:4326)\"}",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"file\",\n      \"message\": \"Choose a file to upload\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "400 Not an importable file",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "2",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sourceId",
+                          "value": "c1de4e3a-bd28-423c-bd28-3eee98b7c119",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sheetName",
+                          "value": "lga_boundaries",
+                          "type": "text"
+                        },
+                        {
+                          "key": "columnMapping",
+                          "value": "{\"unit_name\":\"lga_name_standard\",\"unit_code\":\"adm2_pcode\",\"parent_code\":\"state\",\"geometry_wkt\":\"geometry_wkt (EPSG:4326)\"}",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"file\",\n      \"message\": \"Upload an Excel workbook (.xlsx) or a GeoJSON file (.geojson). Other formats aren't supported yet.\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "403 Role not permitted",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "2",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sourceId",
+                          "value": "c1de4e3a-bd28-423c-bd28-3eee98b7c119",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sheetName",
+                          "value": "lga_boundaries",
+                          "type": "text"
+                        },
+                        {
+                          "key": "columnMapping",
+                          "value": "{\"unit_name\":\"lga_name_standard\",\"unit_code\":\"adm2_pcode\",\"parent_code\":\"state\",\"geometry_wkt\":\"geometry_wkt (EPSG:4326)\"}",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Your role is not permitted to perform this action\"\n}"
+                },
+                {
+                  "name": "422 Data source not found",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "countryCode",
+                          "value": "NGA",
+                          "type": "text"
+                        },
+                        {
+                          "key": "level",
+                          "value": "2",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sourceId",
+                          "value": "99999999-9999-4999-8999-999999999999",
+                          "type": "text"
+                        },
+                        {
+                          "key": "sheetName",
+                          "value": "lga_boundaries",
+                          "type": "text"
+                        },
+                        {
+                          "key": "columnMapping",
+                          "value": "{\"unit_name\":\"lga_name_standard\",\"unit_code\":\"adm2_pcode\",\"parent_code\":\"state\",\"geometry_wkt\":\"geometry_wkt (EPSG:4326)\"}",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Entity",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Write rejected: missing or invalid dataType/sourceId\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "List imports",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/imports?page=1&pageSize=25",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "imports"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "25"
+                    }
+                  ]
+                },
+                "description": "Every run, newest first, with who ran it, when, row counts and status."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports?page=1&pageSize=25",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ],
+                      "query": [
+                        {
+                          "key": "page",
+                          "value": "1"
+                        },
+                        {
+                          "key": "pageSize",
+                          "value": "25"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"f2dcbd07-6ccb-46f7-84ca-386c1e82a2af\",\n      \"target\": \"admin_units\",\n      \"fileName\": \"rivers_state_wards.geojson\",\n      \"fileType\": \"geojson\",\n      \"sheetName\": null,\n      \"options\": {\n        \"level\": 3,\n        \"parentId\": null,\n        \"levelName\": \"Ward\",\n        \"countryCode\": \"NGA\"\n      },\n      \"columnMapping\": {\n        \"unit_code\": \"wardcode\",\n        \"unit_name\": \"wardname\",\n        \"parent_code\": \"lganame\"\n      },\n      \"source\": {\n        \"id\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n        \"provider\": \"GRID3 (CIESIN, WorldPop, National Population Commission)\",\n        \"datasetName\": \"GRID3 NGA - Operational Wards v1.0, Rivers State\"\n      },\n      \"status\": \"promoted\",\n      \"rowCount\": 318,\n      \"passedCount\": 317,\n      \"errorCount\": 1,\n      \"promotedCount\": 317,\n      \"warnings\": [],\n      \"extent\": null,\n      \"createdBy\": {\n        \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n        \"email\": \"admin@example.com\",\n        \"displayName\": \"Ada Admin\"\n      },\n      \"createdAt\": \"2026-10-05T15:19:07.037Z\",\n      \"promotedBy\": {\n        \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n        \"email\": \"admin@example.com\",\n        \"displayName\": \"Ada Admin\"\n      },\n      \"promotedAt\": \"2026-10-05T15:19:15.009Z\"\n    },\n    {\n      \"id\": \"79700dda-786d-4ad0-be5c-46ae47756d22\",\n      \"target\": \"admin_units\",\n      \"fileName\": \"rivers_state_rainfall_and_boundaries.xlsx\",\n      \"fileType\": \"xlsx\",\n      \"sheetName\": \"lga_boundaries\",\n      \"options\": {\n        \"level\": 2,\n        \"parentId\": null,\n        \"levelName\": \"LGA\",\n        \"countryCode\": \"NGA\"\n      },\n      \"columnMapping\": {\n        \"unit_code\": \"adm2_pcode\",\n        \"unit_name\": \"lga_name_standard\",\n        \"parent_code\": \"state\",\n        \"geometry_wkt\": \"geometry_wkt (EPSG:4326)\"\n      },\n      \"source\": {\n        \"id\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n        \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n        \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\"\n      },\n      \"status\": \"promoted\",\n      \"rowCount\": 23,\n      \"passedCount\": 23,\n      \"errorCount\": 0,\n      \"promotedCount\": 23,\n      \"warnings\": [],\n      \"extent\": null,\n      \"createdBy\": {\n        \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n        \"email\": \"admin@example.com\",\n        \"displayName\": \"Ada Admin\"\n      },\n      \"createdAt\": \"2026-10-05T15:18:56.608Z\",\n      \"promotedBy\": {\n        \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n        \"email\": \"admin@example.com\",\n        \"displayName\": \"Ada Admin\"\n      },\n      \"promotedAt\": \"2026-10-05T15:19:03.428Z\"\n    },\n    {\n      \"id\": \"994300b9-b4a0-4e49-8e06-54dbf589a62a\",\n      \"target\": \"admin_units\",\n      \"fileName\": \"rivers_state_boundary.geojson\",\n      \"fileType\": \"geojson\",\n      \"sheetName\": null,\n      \"options\": {\n        \"level\": 1,\n        \"parentId\": null,\n        \"levelName\": \"State\",\n        \"countryCode\": \"NGA\"\n      },\n      \"columnMapping\": {\n        \"unit_code\": \"shapeISO\",\n        \"unit_name\": \"shapeName\"\n      },\n      \"source\": {\n        \"id\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n        \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n        \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\"\n      },\n      \"status\": \"promoted\",\n      \"rowCount\": 1,\n      \"passedCount\": 1,\n      \"errorCount\": 0,\n      \"promotedCount\": 1,\n      \"warnings\": [],\n      \"extent\": null,\n      \"createdBy\": {\n        \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n        \"email\": \"admin@example.com\",\n        \"displayName\": \"Ada Admin\"\n      },\n      \"createdAt\": \"2026-10-05T15:18:49.559Z\",\n      \"promotedBy\": {\n        \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n        \"email\": \"admin@example.com\",\n        \"displayName\": \"Ada Admin\"\n      },\n      \"promotedAt\": \"2026-10-05T15:18:52.786Z\"\n    }\n  ],\n  \"message\": \"OK\",\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 25,\n    \"total\": 3\n  }\n}"
+                },
+                {
+                  "name": "403 Role not permitted",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Your role is not permitted to perform this action\"\n}"
+                },
+                {
+                  "name": "500 Internal error",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports"
+                      ]
+                    }
+                  },
+                  "status": "Internal Server Error",
+                  "code": 500,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Something went wrong\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get import run",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/imports/{{importRunId}}?status=failed&page=1&pageSize=50",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "imports",
+                    "{{importRunId}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "failed"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "50"
+                    }
+                  ]
+                },
+                "description": "The run plus its staged rows with errors and warnings. `status` (passed|failed) filters the rows."
+              },
+              "response": [
+                {
+                  "name": "200 OK (failed rows only)",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/f2dcbd07-6ccb-46f7-84ca-386c1e82a2af?status=failed&page=1&pageSize=50",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "f2dcbd07-6ccb-46f7-84ca-386c1e82a2af"
+                      ],
+                      "query": [
+                        {
+                          "key": "status",
+                          "value": "failed"
+                        },
+                        {
+                          "key": "page",
+                          "value": "1"
+                        },
+                        {
+                          "key": "pageSize",
+                          "value": "50"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"run\": {\n      \"id\": \"f2dcbd07-6ccb-46f7-84ca-386c1e82a2af\",\n      \"target\": \"admin_units\",\n      \"fileName\": \"rivers_state_wards.geojson\",\n      \"fileType\": \"geojson\",\n      \"sheetName\": null,\n      \"options\": {\n        \"level\": 3,\n        \"parentId\": null,\n        \"levelName\": \"Ward\",\n        \"countryCode\": \"NGA\"\n      },\n      \"columnMapping\": {\n        \"unit_code\": \"wardcode\",\n        \"unit_name\": \"wardname\",\n        \"parent_code\": \"lganame\"\n      },\n      \"source\": {\n        \"id\": \"51e3fabc-1ff3-4034-8d14-83e01c6df2fa\",\n        \"provider\": \"GRID3 (CIESIN, WorldPop, National Population Commission)\",\n        \"datasetName\": \"GRID3 NGA - Operational Wards v1.0, Rivers State\"\n      },\n      \"status\": \"checked\",\n      \"rowCount\": 318,\n      \"passedCount\": 317,\n      \"errorCount\": 1,\n      \"promotedCount\": null,\n      \"warnings\": [],\n      \"extent\": [\n        6.398394,\n        4.31195,\n        7.590608,\n        5.689925\n      ],\n      \"createdBy\": {\n        \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n        \"email\": \"admin@example.com\",\n        \"displayName\": \"Ada Admin\"\n      },\n      \"createdAt\": \"2026-10-05T15:19:07.037Z\",\n      \"promotedBy\": null,\n      \"promotedAt\": null\n    },\n    \"rows\": [\n      {\n        \"id\": \"2953e867-9b58-4177-9db9-0cb143527693\",\n        \"rowNumber\": 62,\n        \"status\": \"failed\",\n        \"unitName\": \"Omward 5\",\n        \"unitCode\": \"RVSBER05\",\n        \"parentRef\": \"Omumma\",\n        \"parentName\": \"Omuma\",\n        \"hasShape\": false,\n        \"errors\": [\n          \"The shape is missing\"\n        ],\n        \"warnings\": []\n      }\n    ]\n  },\n  \"message\": \"OK\",\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 50,\n    \"total\": 1\n  }\n}"
+                },
+                {
+                  "name": "404 Import run not found",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/99999999-9999-4999-8999-999999999999",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "99999999-9999-4999-8999-999999999999"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Import run not found\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Import preview map (GeoJSON)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/imports/{{importRunId}}/geojson?bbox=6.40,4.30,7.60,5.70",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "imports",
+                    "{{importRunId}}",
+                    "geojson"
+                  ],
+                  "query": [
+                    {
+                      "key": "bbox",
+                      "value": "6.40,4.30,7.60,5.70"
+                    }
+                  ]
+                },
+                "description": "Staged shapes inside a bbox, each tagged passed or failed, for the review map. bbox required."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/f2dcbd07-6ccb-46f7-84ca-386c1e82a2af/geojson?bbox=7.00,4.76,7.02,4.78",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "f2dcbd07-6ccb-46f7-84ca-386c1e82a2af",
+                        "geojson"
+                      ],
+                      "query": [
+                        {
+                          "key": "bbox",
+                          "value": "7.00,4.76,7.02,4.78"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"type\": \"FeatureCollection\",\n    \"features\": [\n      {\n        \"type\": \"Feature\",\n        \"id\": 40,\n        \"geometry\": {\n          \"type\": \"MultiPolygon\",\n          \"coordinates\": [\n            [\n              [\n                [\n                  6.998309,\n                  4.791534\n                ],\n                [\n                  6.99582,\n                  4.793274\n                ],\n                [\n                  6.998236,\n                  4.796794\n                ],\n                [\n                  6.99853,\n                  4.7974\n                ],\n                [\n                  6.998862,\n                  4.797193\n                ],\n                [\n                  6.999165,\n                  4.796923\n                ],\n                [\n                  6.99988,\n                  4.796852\n                ],\n                [\n                  7.000595,\n                  4.796463\n                ],\n                [\n                  7.000934,\n                  4.79633\n                ],\n                [\n                  7.001851,\n                  4.796581\n                ],\n                [\n                  7.00216,\n                  4.796562\n                ],\n                [\n                  7.002743,\n                  4.796187\n                ],\n                [\n                  7.003698,\n                  4.795573\n                ],\n                [\n                  7.004007,\n                  4.795299\n                ],\n                [\n                  7.004667,\n                  4.794664\n                ],\n                [\n                  7.004791,\n                  4.794265\n                ],\n                [\n                  7.004938,\n                  4.793858\n                ],\n                [\n                  7.00531,\n                  4.793508\n                ],\n                [\n                  7.005918,\n                  4.793287\n                ],\n                [\n                  7.006304,\n                  4.793355\n                ],\n                [\n                  7.008086,\n                  4.794567\n                ],\n                [\n                  7.010459,\n                  4.792924\n                ],\n                [\n                  7.010961,\n                  4.793555\n                ],\n                [\n                  7.011343,\n                  4.793215\n                ],\n                [\n                  7.011956,\n                  4.79276\n                ],\n                [\n                  7.012398,\n                  4.792449\n                ],\n                [\n                  7.012722,\n                  4.792345\n                ],\n                [\n                  7.013052,\n                  4.792373\n                ],\n                [\n                  7.015549,\n                  4.793313\n                ],\n                [\n                  7.016898,\n                  4.791791\n                ],\n                [\n                  7.019071,\n                  4.789644\n                ],\n                [\n                  7.019652,\n                  4.788975\n                ],\n                [\n                  7.020542,\n                  4.787438\n                ],\n                [\n                  7.020875,\n                  4.786739\n                ],\n                [\n                  7.021167,\n                  4.785951\n                ],\n                [\n                  7.021433,\n                  4.784963\n                ],\n                [\n                  7.021549,\n                  4.784146\n                ],\n                [\n                  7.021625,\n                  4.783148\n                ],\n                [\n                  7.021649,\n                  4.782158\n                ],\n                [\n                  7.02154,\n                  4.78105\n                ],\n                [\n                  7.021546,\n                  4.780994\n                ],\n                [\n                  7.021039,\n                  4.775801\n                ],\n                [\n                  7.018927,\n                  4.774997\n                ],\n                [\n                  7.018303,\n                  4.776489\n                ],\n                [\n                  7.017517,\n                  4.777691\n                ],\n                [\n                  7.016105,\n                  4.778292\n                ],\n                [\n                  7.013341,\n                  4.774282\n                ],\n                [\n                  7.012582,\n                  4.774983\n                ],\n                [\n                  7.010599,\n                  4.776213\n                ],\n                [\n                  7.009446,\n                  4.777136\n                ],\n                [\n                  7.007728,\n                  4.778856\n                ],\n                [\n                  7.007156,\n                  4.779627\n                ],\n                [\n                  7.006601,\n                  4.780765\n                ],\n                [\n                  7.005782,\n                  4.782549\n                ],\n                [\n                  7.005445,\n                  4.782648\n                ],\n                [\n                  7.005128,\n                  4.782607\n                ],\n                [\n                  7.004355,\n                  4.784173\n                ],\n                [\n                  7.003614,\n                  4.785723\n                ],\n                [\n                  7.002811,\n                  4.787165\n                ],\n                [\n                  7.001809,\n                  4.78796\n                ],\n                [\n                  7.001641,\n                  4.788254\n                ],\n                [\n                  7.001546,\n                  4.788524\n                ],\n                [\n                  7.001135,\n                  4.789009\n                ],\n                [\n                  6.999624,\n                  4.790639\n                ],\n                [\n                  6.998309,\n                  4.791534\n                ]\n              ]\n            ]\n          ]\n        },\n        \"properties\": {\n          \"rowNumber\": 40,\n          \"status\": \"passed\",\n          \"unitName\": \"Phward 17\",\n          \"errorCount\": 0\n        }\n      },\n      {\n        \"type\": \"Feature\",\n        \"id\": 166,\n        \"geometry\": {\n          \"type\": \"MultiPolygon\",\n          \"coordinates\": [\n            [\n              [\n                [\n                  6.988112,\n                  4.761431\n                ],\n                [\n                  6.985038,\n                  4.764824\n                ],\n                [\n                  6.990534,\n                  4.776472\n                ],\n                [\n                  6.995948,\n                  4.779153\n                ],\n                [\n                  7.000463,\n                  4.785519\n                ],\n                [\n                  7.000861,\n                  4.785546\n                ],\n                [\n                  7.002409,\n                  4.7854\n                ],\n                [\n                  7.002048,\n                  4.786122\n                ],\n                [\n                  7.000217,\n                  4.788202\n                ],\n                [\n                  7.001135,\n                  4.789009\n                ],\n                [\n                  7.001546,\n                  4.788524\n                ],\n                [\n                  7.001641,\n                  4.788254\n                ],\n                [\n                  7.001809,\n                  4.78796\n                ],\n                [\n                  7.002811,\n                  4.787165\n                ],\n                [\n                  7.003614,\n                  4.785723\n                ],\n                [\n                  7.004355,\n                  4.784173\n                ],\n                [\n                  7.005128,\n                  4.782607\n                ],\n                [\n                  7.005445,\n                  4.782648\n                ],\n                [\n                  7.005782,\n                  4.782549\n                ],\n                [\n                  7.006601,\n                  4.780765\n                ],\n                [\n                  7.007156,\n                  4.779627\n                ],\n                [\n                  7.007728,\n                  4.778856\n                ],\n                [\n                  7.009446,\n                  4.777136\n                ],\n                [\n                  7.010599,\n                  4.776213\n                ],\n                [\n                  7.010243,\n                  4.775788\n                ],\n                [\n                  7.009806,\n                  4.775482\n                ],\n                [\n                  7.0091,\n                  4.774855\n                ],\n                [\n                  7.008849,\n                  4.774744\n                ],\n                [\n                  7.008341,\n                  4.774697\n                ],\n                [\n                  7.007975,\n                  4.774206\n                ],\n                [\n                  7.005187,\n                  4.773123\n                ],\n                [\n                  7.00172,\n                  4.771252\n                ],\n                [\n                  7.000073,\n                  4.770772\n                ],\n                [\n                  6.998114,\n                  4.769748\n                ],\n                [\n                  6.988112,\n                  4.761431\n                ]\n              ]\n            ]\n          ]\n        },\n        \"properties\": {\n          \"rowNumber\": 166,\n          \"status\": \"passed\",\n          \"unitName\": \"Phward 7\",\n          \"errorCount\": 0\n        }\n      },\n      {\n        \"type\": \"Feature\",\n        \"id\": 170,\n        \"geometry\": {\n          \"type\": \"MultiPolygon\",\n          \"coordinates\": [\n            [\n              [\n                [\n                  7.021039,\n                  4.775801\n                ],\n                [\n                  7.020901,\n                  4.77438\n                ],\n                [\n                  7.020835,\n                  4.773693\n                ],\n                [\n                  7.020754,\n                  4.772565\n                ],\n                [\n                  7.020805,\n                  4.771922\n                ],\n                [\n                  7.021002,\n                  4.771305\n                ],\n                [\n                  7.021323,\n                  4.770682\n                ],\n                [\n                  7.021513,\n                  4.770389\n                ],\n                [\n                  7.021761,\n                  4.770147\n                ],\n                [\n                  7.022319,\n                  4.769543\n                ],\n                [\n                  7.022235,\n                  4.769293\n                ],\n                [\n                  7.022065,\n                  4.768872\n                ],\n                [\n                  7.022004,\n                  4.76827\n                ],\n                [\n                  7.022006,\n                  4.768262\n                ],\n                [\n                  7.022118,\n                  4.767594\n                ],\n                [\n                  7.022219,\n                  4.766933\n                ],\n                [\n                  7.022271,\n                  4.766771\n                ],\n                [\n                  7.022472,\n                  4.766514\n                ],\n                [\n                  7.022594,\n                  4.765968\n                ],\n                [\n                  7.022605,\n                  4.765319\n                ],\n                [\n                  7.022594,\n                  4.764832\n                ],\n                [\n                  7.02265,\n                  4.763786\n                ],\n                [\n                  7.022715,\n                  4.762726\n                ],\n                [\n                  7.02276,\n                  4.761787\n                ],\n                [\n                  7.022789,\n                  4.761221\n                ],\n                [\n                  7.022815,\n                  4.760851\n                ],\n                [\n                  7.02287,\n                  4.76013\n                ],\n                [\n                  7.022894,\n                  4.759584\n                ],\n                [\n                  7.022895,\n                  4.759585\n                ],\n                [\n                  7.022933,\n                  4.758635\n                ],\n                [\n                  7.022762,\n                  4.758627\n                ],\n                [\n                  7.022736,\n                  4.758391\n                ],\n                [\n                  7.02266,\n                  4.758182\n                ],\n                [\n                  7.022399,\n                  4.757881\n                ],\n                [\n                  7.022393,\n                  4.757692\n                ],\n                [\n                  7.022524,\n                  4.757526\n                ],\n                [\n                  7.022718,\n                  4.757499\n                ],\n                [\n                  7.02355,\n                  4.757663\n                ],\n                [\n                  7.024299,\n                  4.757862\n                ],\n                [\n                  7.02507,\n                  4.75799\n                ],\n                [\n                  7.025249,\n                  4.757946\n                ],\n                [\n                  7.025403,\n                  4.75794\n                ],\n                [\n                  7.02553,\n                  4.757895\n                ],\n                [\n                  7.025642,\n                  4.757819\n                ],\n                [\n                  7.025566,\n                  4.757117\n                ],\n                [\n                  7.025476,\n                  4.756793\n                ],\n                [\n                  7.025004,\n                  4.755804\n                ],\n                [\n                  7.012799,\n                  4.749895\n                ],\n                [\n                  7.011535,\n                  4.747409\n                ],\n                [\n                  7.012206,\n                  4.738589\n                ],\n                [\n                  7.010191,\n                  4.735028\n                ],\n                [\n                  7.006603,\n                  4.735767\n                ],\n                [\n                  7.002597,\n                  4.743407\n                ],\n                [\n                  6.997976,\n                  4.754653\n                ],\n                [\n                  6.988869,\n                  4.760771\n                ],\n                [\n                  6.988256,\n                  4.76111\n                ],\n                [\n                  6.988112,\n                  4.761431\n                ],\n                [\n                  6.998114,\n                  4.769748\n                ],\n                [\n                  7.000073,\n                  4.770772\n                ],\n                [\n                  7.00172,\n                  4.771252\n                ],\n                [\n                  7.005187,\n                  4.773123\n                ],\n                [\n                  7.007975,\n                  4.774206\n                ],\n                [\n                  7.008341,\n                  4.774697\n                ],\n                [\n                  7.008849,\n                  4.774744\n                ],\n                [\n                  7.0091,\n                  4.774855\n                ],\n                [\n                  7.009806,\n                  4.775482\n                ],\n                [\n                  7.010243,\n                  4.775788\n                ],\n                [\n                  7.010599,\n                  4.776213\n                ],\n                [\n                  7.012582,\n                  4.774983\n                ],\n                [\n                  7.013341,\n                  4.774282\n                ],\n                [\n                  7.016105,\n                  4.778292\n                ],\n                [\n                  7.017517,\n                  4.777691\n                ],\n                [\n                  7.018303,\n                  4.776489\n                ],\n                [\n                  7.018927,\n                  4.774997\n                ],\n                [\n                  7.021039,\n                  4.775801\n                ]\n              ]\n            ]\n          ]\n        },\n        \"properties\": {\n          \"rowNumber\": 170,\n          \"status\": \"passed\",\n          \"unitName\": \"Phward 3\",\n          \"errorCount\": 0\n        }\n      }\n    ]\n  },\n  \"message\": \"OK\"\n}"
+                },
+                {
+                  "name": "400 bbox missing",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/f2dcbd07-6ccb-46f7-84ca-386c1e82a2af/geojson",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "f2dcbd07-6ccb-46f7-84ca-386c1e82a2af",
+                        "geojson"
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"bbox\",\n      \"message\": \"bbox is required: map layers are only served for a visible area\"\n    }\n  ]\n}"
+                }
+              ]
+            },
+            {
+              "name": "Promote import",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/imports/{{importRunId}}/promote",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "imports",
+                    "{{importRunId}}",
+                    "promote"
+                  ]
+                },
+                "description": "Copies only the rows that passed into admin_units, in one transaction, and marks the run promoted. If anything fails, nothing is copied."
+              },
+              "response": [
+                {
+                  "name": "200 Promoted",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/79700dda-786d-4ad0-be5c-46ae47756d22/promote",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "79700dda-786d-4ad0-be5c-46ae47756d22",
+                        "promote"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"79700dda-786d-4ad0-be5c-46ae47756d22\",\n    \"target\": \"admin_units\",\n    \"fileName\": \"rivers_state_rainfall_and_boundaries.xlsx\",\n    \"fileType\": \"xlsx\",\n    \"sheetName\": \"lga_boundaries\",\n    \"options\": {\n      \"level\": 2,\n      \"parentId\": null,\n      \"levelName\": \"LGA\",\n      \"countryCode\": \"NGA\"\n    },\n    \"columnMapping\": {\n      \"unit_code\": \"adm2_pcode\",\n      \"unit_name\": \"lga_name_standard\",\n      \"parent_code\": \"state\",\n      \"geometry_wkt\": \"geometry_wkt (EPSG:4326)\"\n    },\n    \"source\": {\n      \"id\": \"c1de4e3a-bd28-423c-bd28-3eee98b7c119\",\n      \"provider\": \"geoBoundaries (William & Mary geoLab)\",\n      \"datasetName\": \"gbOpen NGA ADM1 and ADM2, Rivers State subset\"\n    },\n    \"status\": \"promoted\",\n    \"rowCount\": 23,\n    \"passedCount\": 23,\n    \"errorCount\": 0,\n    \"promotedCount\": 23,\n    \"warnings\": [],\n    \"extent\": [\n      6.398394,\n      4.31195,\n      7.590608,\n      5.689925\n    ],\n    \"createdBy\": {\n      \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n      \"email\": \"admin@example.com\",\n      \"displayName\": \"Ada Admin\"\n    },\n    \"createdAt\": \"2026-10-05T15:18:56.608Z\",\n    \"promotedBy\": {\n      \"id\": \"883afcf7-b52f-402f-8770-c6d30f9fbcdb\",\n      \"email\": \"admin@example.com\",\n      \"displayName\": \"Ada Admin\"\n    },\n    \"promotedAt\": \"2026-10-05T15:19:03.428Z\"\n  },\n  \"message\": \"23 areas are now live\"\n}"
+                },
+                {
+                  "name": "409 Already promoted",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/79700dda-786d-4ad0-be5c-46ae47756d22/promote",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "79700dda-786d-4ad0-be5c-46ae47756d22",
+                        "promote"
+                      ]
+                    }
+                  },
+                  "status": "Conflict",
+                  "code": 409,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"This import has already been promoted\"\n}"
+                },
+                {
+                  "name": "403 Role not permitted",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/79700dda-786d-4ad0-be5c-46ae47756d22/promote",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "79700dda-786d-4ad0-be5c-46ae47756d22",
+                        "promote"
+                      ]
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Your role is not permitted to perform this action\"\n}"
+                },
+                {
+                  "name": "404 Import run not found",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/imports/99999999-9999-4999-8999-999999999999/promote",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "imports",
+                        "99999999-9999-4999-8999-999999999999",
+                        "promote"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Import run not found\"\n}"
+                }
+              ]
             }
           ]
         }

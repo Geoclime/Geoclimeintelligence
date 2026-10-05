@@ -25,6 +25,7 @@ export interface IUserRepository {
   createIfAbsent(input: NewUser): Promise<User>;
   findPage(query: OffsetPageQuery): Promise<{ items: User[]; meta: PageMeta }>;
   updateAccess(id: string, patch: UserAccessPatch): Promise<User | null>;
+  hasAnyAdministrator(): Promise<boolean>;
 }
 
 export interface UserDto {

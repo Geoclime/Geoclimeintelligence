@@ -1,0 +1,128 @@
+/* ---------- Import screen ---------- */
+
+.import-steps {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 980px;
+}
+
+.import-step__number {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.import-step__title {
+  display: flex;
+  align-items: center;
+  font-size: var(--text-lg);
+}
+
+.template-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.source-picker {
+  display: grid;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+@media (min-width: 640px) {
+  .source-picker {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .source-picker > button {
+    margin-bottom: 2px;
+  }
+}
+
+.file-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.file-preview {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.file-preview__table {
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.file-preview__table th,
+.file-preview__table td {
+  max-width: 260px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  overflow-wrap: anywhere;
+  text-align: left;
+  vertical-align: top;
+}
+
+.file-preview__table th {
+  background: var(--color-surface-muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mapping-note {
+  align-self: end;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.mapping-parent {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.mapping-parent__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.mapping-parent__modes input {
+  accent-color: var(--color-primary);
+}
+
+/* ---------- Review screen ---------- */
+
+.import-preview-map__legend {
+  position: absolute;
+  left: var(--space-3);
+  bottom: calc(var(--space-3) + 20px);
+  z-index: 2;
+}
+
+.review-callouts {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}

@@ -21,6 +21,7 @@ export class FirebaseTokenVerifier implements TokenVerifier {
     return {
       uid: decoded.uid,
       email: decoded.email ?? null,
+      emailVerified: decoded.email_verified === true,
       name: typeof decoded["name"] === "string" ? decoded["name"] : null,
     };
   }

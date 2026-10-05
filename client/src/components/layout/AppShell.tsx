@@ -1,37 +1,47 @@
-import { Suspense } from "react";
-import { Link, NavLink, Outlet } from "react-router";
+import { Suspense, useCallback, useRef, useState } from "react";
+import { Link, Outlet, useLocation, useMatches } from "react-router";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
-import { hasAnyRole } from "../../utils/roles";
 import { BrandMark } from "../shared/BrandMark";
-import { Icon, type IconName } from "../shared/Icon";
+import { Icon } from "../shared/Icon";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
+import { activeNavItem } from "./nav-items";
 import { OfflineBanner } from "./OfflineBanner";
+import { Sidebar } from "./Sidebar";
 import { UserMenu } from "./UserMenu";
+import { VerifyEmailBanner } from "./VerifyEmailBanner";
 import "./layout.css";
 
-interface NavItem {
-  to: string;
-  label: string;
-  icon: IconName;
-  adminOnly?: boolean;
+/** Route `handle` flags read by the shell. The map sets fullBleed: it fills the whole content area. */
+export interface RouteHandle {
+  fullBleed?: boolean;
 }
 
-// Only screens that exist are listed. The map and data pages join this list once their backend
-// endpoints ship, never before (standard sections 10 and 17.1).
-const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Overview", icon: "layers" },
-  { to: "/admin/users", label: "Users", icon: "users", adminOnly: true },
-];
-
-/** The signed-in frame: header, navigation, offline notice, and the current page. */
+/**
+ * The signed-in dashboard frame: sidebar navigation, a top bar with the current section and the
+ * account menu, the offline and verify-email notices, and the current page.
+ */
 export function AppShell() {
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
+  const location = useLocation();
+  const matches = useMatches();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+
+  // Every sidebar link calls this; it only does anything when the phone drawer is open, and then
+  // hands focus back to the button that opened it.
+  const closeDrawer = useCallback(() => {
+    if (!drawerOpen) return;
+    setDrawerOpen(false);
+    menuButton.current?.focus();
+  }, [drawerOpen]);
+
   // RequireAuth only renders this once the user is resolved.
   if (!user) return null;
 
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || hasAnyRole(user.role, ["administrator"]));
+  const fullBleed = matches.some((match) => (match.handle as RouteHandle | undefined)?.fullBleed);
+  const section = activeNavItem(location.pathname);
 
   const handleSignOut = async () => {
     try {
@@ -47,39 +57,39 @@ export function AppShell() {
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <header className="app-header">
-        <div className="app-header__inner">
-          <Link to="/" className="app-header__brand" aria-label="GeoClime Intelligence, overview">
-            <BrandMark />
+      <Sidebar role={user.role} open={drawerOpen} onClose={closeDrawer} />
+
+      <div className={`app-body${fullBleed ? " app-body--full" : ""}`}>
+        <header className="app-topbar">
+          <button
+            ref={menuButton}
+            type="button"
+            className="app-topbar__menu"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open menu"
+            aria-controls="app-sidebar"
+            aria-expanded={drawerOpen}
+            data-cy="open-menu"
+          >
+            <Icon name="menu" size={22} />
+          </button>
+          <Link to="/" className="app-topbar__brand" aria-label="GeoClime Intelligence, map">
+            <BrandMark showName={false} />
           </Link>
-          <nav className="app-nav" aria-label="Main">
-            {items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                className="app-nav__link"
-                data-cy={`nav-${item.label.toLowerCase()}`}
-              >
-                <Icon name={item.icon} size={18} />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
+          <div className="app-topbar__title">
+            <p className="app-topbar__section">{section?.label ?? "Account"}</p>
+            <p className="app-topbar__description">{section?.description ?? "Your profile and access"}</p>
+          </div>
           <UserMenu user={user} onSignOut={() => void handleSignOut()} />
-        </div>
-      </header>
-      <OfflineBanner />
-      <main id="main" className="app-main" tabIndex={-1}>
-        <Suspense fallback={<LoadingSpinner />}>
-          <Outlet />
-        </Suspense>
-      </main>
-      <footer className="app-footer">
-        <span>GeoClime Intelligence</span>
-        <span aria-hidden="true">·</span>
-        <span>Rivers State, Nigeria</span>
-      </footer>
+        </header>
+        <OfflineBanner />
+        <VerifyEmailBanner />
+        <main id="main" className={`app-main${fullBleed ? " app-main--full" : ""}`} tabIndex={-1}>
+          <Suspense fallback={<LoadingSpinner />}>
+            <Outlet />
+          </Suspense>
+        </main>
+      </div>
     </div>
   );
 }
