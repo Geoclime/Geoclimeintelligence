@@ -52,6 +52,19 @@ export class CountryRepository implements ICountryRepository {
     return this.findByCode(countryCode);
   }
 
+  async deleteIfEmpty(countryCode: string): Promise<boolean> {
+    // The NOT EXISTS guard and the admin_units foreign key (ON DELETE RESTRICT) both stop a
+    // country with areas being deleted, even if an import promotes areas at the same moment.
+    const result = await this.repo
+      .createQueryBuilder()
+      .delete()
+      .from(Country)
+      .where("country_code = :countryCode", { countryCode })
+      .andWhere("NOT EXISTS (SELECT 1 FROM admin_units au WHERE au.country_code = :countryCode)", { countryCode })
+      .execute();
+    return (result.affected ?? 0) > 0;
+  }
+
   async countUnitsByLevel(countryCodes: string[]): Promise<LevelCount[]> {
     if (countryCodes.length === 0) return [];
     const rows: { countryCode: string; level: number; count: number }[] = await this.repo.query(

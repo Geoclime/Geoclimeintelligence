@@ -24,3 +24,9 @@ export async function updateCountry(code: string, patch: CountryPatch): Promise<
   const { data } = await httpClient.patch<ApiResponse<Country>>(`/api/v1/countries/${encodeURIComponent(code)}`, patch);
   return data;
 }
+
+/** Deletes a country that holds no areas. A country with any area is refused with a 409. */
+export async function deleteCountry(code: string): Promise<ApiResponse<null>> {
+  const { data } = await httpClient.delete<ApiResponse<null>>(`/api/v1/countries/${encodeURIComponent(code)}`);
+  return data;
+}

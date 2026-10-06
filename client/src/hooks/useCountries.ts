@@ -1,6 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { CACHE_KEYS, cached, invalidateCached } from "../cache/localCache";
-import { createCountry, fetchCountries, fetchCountry, updateCountry } from "../endpoints/country.endpoints";
+import { createCountry, deleteCountry, fetchCountries, fetchCountry, updateCountry } from "../endpoints/country.endpoints";
 import type { Country, CountryPatch, NewCountryInput } from "../types/country.types";
 import { useLoader } from "./useLoader";
 
@@ -39,4 +39,22 @@ export function useSaveCountry() {
     return response.data;
   }, []);
   return { save };
+}
+
+/**
+ * Deletes a country. The server only allows it while the country holds no areas, and rejects
+ * otherwise with an ApiError (409) whose message says how many areas it holds.
+ */
+export function useDeleteCountry() {
+  const [deleting, setDeleting] = useState(false);
+  const remove = useCallback(async (code: string): Promise<void> => {
+    setDeleting(true);
+    try {
+      await deleteCountry(code);
+      invalidateCached(CACHE_KEYS.countries);
+    } finally {
+      setDeleting(false);
+    }
+  }, []);
+  return { remove, deleting };
 }

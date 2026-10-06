@@ -41,4 +41,13 @@ export class CountryController {
       next(err);
     }
   }
+
+  static async remove(req: Request<{ code: string }>, res: Response, next: NextFunction) {
+    try {
+      await CountryService.Instance.delete(req.params.code);
+      return res.json(ok(null, "Country deleted"));
+    } catch (err) {
+      next(err);
+    }
+  }
 }

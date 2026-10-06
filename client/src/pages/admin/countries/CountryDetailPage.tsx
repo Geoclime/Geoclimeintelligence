@@ -1,22 +1,27 @@
-import { Link, useParams, useSearchParams } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import "../../../components/countries/countries.css";
 import { Breadcrumbs } from "../../../components/shared/Breadcrumbs/Breadcrumbs";
-import { buttonClassName } from "../../../components/shared/Button";
+import { Button, buttonClassName } from "../../../components/shared/Button";
 import { EmptyState } from "../../../components/shared/EmptyState";
 import { ErrorState } from "../../../components/shared/ErrorState";
 import { Icon } from "../../../components/shared/Icon";
 import { LoadingSpinner } from "../../../components/shared/LoadingSpinner";
+import { Modal } from "../../../components/shared/Modal";
 import { Pagination } from "../../../components/shared/Pagination";
 import { useAdminUnits } from "../../../hooks/useAdminUnits";
-import { useCountry } from "../../../hooks/useCountries";
+import { useCountry, useDeleteCountry } from "../../../hooks/useCountries";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
+import { useToast } from "../../../hooks/useToast";
+import { errorMessage } from "../../../transport/api-error";
 import { parsePageParam } from "../../../utils/pagination";
 
 const PAGE_SIZE = 50;
 
 /**
  * One country: its levels with area counts, and the areas of the chosen level (?level=2&page=1 in
- * the URL). "Import areas" opens the import screen preset to this country and level.
+ * the URL). "Import areas" opens the import screen preset to this country and level. "Delete" is
+ * only offered while the country holds no areas; the server enforces the same rule.
  */
 export function CountryDetailPage() {
   const { code } = useParams();
@@ -25,6 +30,10 @@ export function CountryDetailPage() {
   const level = Math.max(1, Number(searchParams.get("level")) || 1);
   const page = parsePageParam(searchParams.get("page"));
   const areas = useAdminUnits({ countryCode: country?.countryCode, level, page, pageSize: PAGE_SIZE, enabled: Boolean(country) });
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { remove, deleting } = useDeleteCountry();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   useDocumentTitle(country?.countryName ?? "Country");
 
   if (loading && !country) return <LoadingSpinner message="Loading the country…" />;
@@ -41,6 +50,19 @@ export function CountryDetailPage() {
   const parentLevel = country.levels.find((l) => l.level === current.level - 1);
   const importLink = (lvl: number) => `/admin/imports/new?country=${country.countryCode}&level=${lvl}`;
   const showLevel = (lvl: number) => setSearchParams({ level: String(lvl) });
+  const areaTotal = country.levels.reduce((sum, l) => sum + l.unitCount, 0);
+
+  const handleDelete = async () => {
+    try {
+      await remove(country.countryCode);
+      showToast({ type: "success", message: `${country.countryName} deleted.` });
+      navigate("/admin/countries");
+    } catch (error) {
+      showToast({ type: "error", message: errorMessage(error) });
+      setConfirmingDelete(false);
+      refetch();
+    }
+  };
 
   return (
     <div className="page" data-cy="country-detail-page">
@@ -62,8 +84,23 @@ export function CountryDetailPage() {
             <Icon name="upload" size={16} />
             <span>Import areas</span>
           </Link>
+          <Button
+            variant="danger"
+            icon={<Icon name="trash" size={16} />}
+            disabled={areaTotal > 0}
+            title={areaTotal > 0 ? "A country that holds areas can't be deleted" : undefined}
+            onClick={() => setConfirmingDelete(true)}
+            data-cy="delete-country"
+          >
+            Delete
+          </Button>
         </div>
       </header>
+      {areaTotal > 0 && (
+        <p className="muted country-delete-note" data-cy="delete-blocked">
+          {country.countryName} holds {areaTotal.toLocaleString()} areas, so it can't be deleted.
+        </p>
+      )}
 
       <div className="level-cards" data-cy="level-cards">
         {country.levels.map((l) => (
@@ -153,6 +190,25 @@ export function CountryDetailPage() {
           </>
         )}
       </section>
+
+      <Modal
+        open={confirmingDelete}
+        title={`Delete ${country.countryName}?`}
+        description="It has no areas yet, so nothing else is affected. Its past imports stay in the history."
+        onClose={() => setConfirmingDelete(false)}
+        dismissible={!deleting}
+        dataCy="delete-country-dialog"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+              Keep it
+            </Button>
+            <Button variant="danger" loading={deleting} loadingLabel="Deleting…" onClick={() => void handleDelete()} data-cy="confirm-delete-country">
+              Delete {country.countryCode}
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 }

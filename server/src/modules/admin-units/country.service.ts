@@ -1,6 +1,6 @@
 import { ConflictError, NotFoundError, ValidationError } from "../../common/errors/app-error";
 import { CountryRepository } from "./country.repository";
-import { toCountryDto, type CountryDto, type ICountryRepository } from "./country.types";
+import { toCountryDto, type CountryDto, type ICountryRepository, type LevelCount } from "./country.types";
 import type { CreateCountryBody, UpdateCountryBody } from "./country.validation";
 
 /**
@@ -60,4 +60,33 @@ export class CountryService {
     if (!updated) throw new NotFoundError("Country");
     return toCountryDto(updated, counts);
   }
+
+  /**
+   * Deletes a country, but only while it holds no areas: a country with any state, LGA or ward
+   * is never deleted (409). This is for removing a country created by mistake. Its imports
+   * history is kept, since past runs are a record of what happened.
+   */
+  async delete(countryCode: string): Promise<void> {
+    const existing = await this.countries.findByCode(countryCode);
+    if (!existing) throw new NotFoundError("Country");
+
+    const counts = await this.countries.countUnitsByLevel([countryCode]);
+    const total = counts.reduce((sum, c) => sum + c.count, 0);
+    if (total > 0) throw new ConflictError(hasAreasMessage(existing.countryName, existing.levelNames, counts));
+
+    // The repository re-checks in the same statement, so areas promoted a moment ago still win.
+    if (!(await this.countries.deleteIfEmpty(countryCode))) {
+      throw new ConflictError(`${existing.countryName} now has areas, so it can't be deleted`);
+    }
+  }
+}
+
+/** "Nigeria has 341 areas (State 1, LGA 23, Ward 317), so it can't be deleted". */
+function hasAreasMessage(countryName: string, levelNames: string[], counts: LevelCount[]): string {
+  const total = counts.reduce((sum, c) => sum + c.count, 0);
+  const byLevel = [...counts]
+    .sort((a, b) => a.level - b.level)
+    .map((c) => `${levelNames[c.level - 1] ?? `level ${c.level}`} ${c.count}`)
+    .join(", ");
+  return `${countryName} has ${total} ${total === 1 ? "area" : "areas"} (${byLevel}), so it can't be deleted`;
 }

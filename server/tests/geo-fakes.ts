@@ -69,6 +69,11 @@ export class InMemoryCountryRepository implements ICountryRepository {
   async countUnitsByLevel(codes: string[]) {
     return this.counts.filter((c) => codes.includes(c.countryCode));
   }
+
+  async deleteIfEmpty(code: string) {
+    if (this.counts.some((c) => c.countryCode === code && c.count > 0)) return false;
+    return this.rows.delete(code);
+  }
 }
 
 let unitSequence = 0;

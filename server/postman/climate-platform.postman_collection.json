@@ -1206,7 +1206,7 @@
       "item": [
         {
           "name": "Countries",
-          "description": "Countries and the names of their levels (Nigeria: State, LGA, Ward). Reads: any signed-in user. Writes: Administrator only.",
+          "description": "Countries and the names of their levels (Nigeria: State, LGA, Ward). Reads: any signed-in user. Writes and deletes: Administrator only; a country that holds areas can't be deleted.",
           "item": [
             {
               "name": "List countries",
@@ -1830,6 +1830,202 @@
                     }
                   ],
                   "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Country not found\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Delete country",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/countries/{{countryCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "countries",
+                    "{{countryCode}}"
+                  ]
+                },
+                "description": "Administrator only. Deletes a country, but only while it holds no areas: a country with any state, LGA or ward is refused with 409 and a message saying how many it holds. For removing a country created by mistake. Its import history is kept."
+              },
+              "response": [
+                {
+                  "name": "200 Country deleted",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/GHA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "GHA"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": null,\n  \"message\": \"Country deleted\"\n}"
+                },
+                {
+                  "name": "409 Country holds areas",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/NGA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "NGA"
+                      ]
+                    }
+                  },
+                  "status": "Conflict",
+                  "code": 409,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Nigeria has 341 areas (State 1, LGA 23, Ward 317), so it can't be deleted\"\n}"
+                },
+                {
+                  "name": "400 Validation failed",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/N1",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "N1"
+                      ]
+                    }
+                  },
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"code\",\n      \"message\": \"Use the 3-letter ISO 3166-1 code, e.g. NGA\"\n    }\n  ]\n}"
+                },
+                {
+                  "name": "404 Country not found",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/GHA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "GHA"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Country not found\"\n}"
+                },
+                {
+                  "name": "403 Role not permitted",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/NGA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "NGA"
+                      ]
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Your role is not permitted to perform this action\"\n}"
+                },
+                {
+                  "name": "401 Missing bearer token",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/countries/NGA",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "countries",
+                        "NGA"
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"data\": null,\n  \"message\": \"Missing bearer token\"\n}"
                 }
               ]
             }

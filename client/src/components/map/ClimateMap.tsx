@@ -100,6 +100,7 @@ function MapCanvas({
   token,
 }: ClimateMapProps & { token: string }) {
   const mapRef = useRef<MapRef>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [cursor, setCursor] = useState<string>("");
@@ -111,6 +112,24 @@ function MapCanvas({
     // fitKey stands in for fitTo, whose identity changes on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, fitKey]);
+
+  // Mapbox only re-measures itself when the browser window resizes. The sidebar collapsing changes
+  // the map's width without that, which would leave the canvas the old size. A canvas that no
+  // longer matches its container is the only case that needs a resize, so a window resize that
+  // Mapbox already handled is left alone.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      const map = mapRef.current?.getMap();
+      if (!map) return;
+      const container = map.getContainer();
+      const canvas = map.getCanvas();
+      if (canvas.clientWidth !== container.clientWidth || canvas.clientHeight !== container.clientHeight) map.resize();
+    });
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, []);
 
   const handleLoad = useCallback(
     (event: MapEvent) => {
@@ -128,7 +147,7 @@ function MapCanvas({
   );
 
   return (
-    <div className={`climate-map ${className ?? ""}`} role="region" aria-label={label} data-cy={dataCy}>
+    <div ref={wrapperRef} className={`climate-map ${className ?? ""}`} role="region" aria-label={label} data-cy={dataCy}>
       <Map
         ref={mapRef}
         mapboxAccessToken={token}

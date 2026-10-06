@@ -25,13 +25,14 @@ import {
 const rivers = makeUnit({ level: 1, levelName: "State", unitName: "Rivers", unitCode: "NG-RI" });
 const source = makeSource();
 let imports: RecordingImportRepository;
+let countries: InMemoryCountryRepository;
 
 beforeEach(() => {
   const users = new InMemoryUserRepository([
     makeUser({ firebaseUid: "admin-uid", role: "administrator" }),
     makeUser({ firebaseUid: "member-uid" }),
   ]);
-  const countries = new InMemoryCountryRepository([makeCountry()]);
+  countries = new InMemoryCountryRepository([makeCountry()]);
   const units = new InMemoryAdminUnitRepository([rivers]);
   const sources = new InMemoryDataSourceRepository([source]);
   imports = new RecordingImportRepository();
@@ -85,6 +86,22 @@ describe("countries", () => {
       .set(asAdmin)
       .send({ countryCode: "NGA", countryName: "Nigeria", levelNames: ["State"] });
     expect(duplicate.status).toBe(409);
+  });
+
+  it("deletes an empty country for administrators only", async () => {
+    await request(app).post("/api/v1/countries").set(asAdmin).send({ countryCode: "GHA", countryName: "Ghana", levelNames: ["Region"] });
+    expect((await request(app).delete("/api/v1/countries/GHA").set(asMember)).status).toBe(403);
+    const deleted = await request(app).delete("/api/v1/countries/gha").set(asAdmin);
+    expect(deleted.status).toBe(200);
+    expect(deleted.body).toEqual({ success: true, data: null, message: "Country deleted" });
+    expect((await request(app).get("/api/v1/countries/GHA").set(asAdmin)).status).toBe(404);
+  });
+
+  it("refuses to delete a country that holds areas", async () => {
+    countries.counts = [{ countryCode: "NGA", level: 2, count: 23 }];
+    const res = await request(app).delete("/api/v1/countries/NGA").set(asAdmin);
+    expect(res.status).toBe(409);
+    expect(res.body.message).toBe("Nigeria has 23 areas (LGA 23), so it can't be deleted");
   });
 
   it("rejects repeated level names and an inverted bbox with field errors", async () => {

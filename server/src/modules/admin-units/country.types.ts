@@ -27,6 +27,11 @@ export interface ICountryRepository {
   create(input: NewCountry): Promise<Country>;
   /** Also renames admin_units.level_name for every level whose name changed, in one transaction. */
   update(countryCode: string, patch: CountryPatch): Promise<Country | null>;
+  /**
+   * Deletes the country only if no admin unit belongs to it, checked in the same statement.
+   * Resolves false when nothing was deleted (it has areas, or it doesn't exist).
+   */
+  deleteIfEmpty(countryCode: string): Promise<boolean>;
   /** How many admin units each country has at each level. Only levels with at least one unit appear. */
   countUnitsByLevel(countryCodes: string[]): Promise<LevelCount[]>;
 }

@@ -80,6 +80,29 @@ describe("Administrator: countries", () => {
       cy.wait("@update").its("request.body").should("deep.equal", { levelNames: ["State", "Local Government Area", "Ward"] });
     });
 
+    it("deletes a country that has no areas, after confirming", () => {
+      cy.interceptApi("GET", "/countries/NGA", { data: buildCountry([0, 0, 0]) });
+      cy.interceptApi("GET", "/admin-units?*", { data: [], meta: { total: 0 } });
+      cy.interceptApi("DELETE", "/countries/NGA", { data: null, message: "Country deleted" }).as("delete");
+      cy.interceptApi("GET", "/countries", { data: [] });
+      cy.visit("/admin/countries/NGA");
+      cy.dataCy("delete-blocked").should("not.exist");
+      cy.dataCy("delete-country").click();
+      cy.dataCy("delete-country-dialog").should("contain", "Delete Nigeria?");
+      cy.dataCy("confirm-delete-country").click();
+      cy.wait("@delete");
+      cy.location("pathname").should("eq", "/admin/countries");
+      cy.dataCy("toast-success").should("contain", "Nigeria deleted");
+    });
+
+    it("won't offer to delete a country that holds states, LGAs or wards", () => {
+      cy.interceptApi("GET", "/countries/NGA", { data: buildCountry() });
+      cy.interceptApi("GET", "/admin-units?*", { data: [STATE], meta: { total: 1 } });
+      cy.visit("/admin/countries/NGA");
+      cy.dataCy("delete-country").should("be.disabled");
+      cy.dataCy("delete-blocked").should("contain", "holds 341 areas, so it can't be deleted");
+    });
+
     it("shows a country's areas by level, with Import buttons preset to it", () => {
       cy.interceptApi("GET", "/countries/NGA", { data: buildCountry() });
       cy.interceptApi("GET", "/admin-units?*", { data: [STATE], meta: { page: 1, pageSize: 50, total: 1 } }, { query: { level: "1" } });

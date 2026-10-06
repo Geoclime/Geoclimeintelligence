@@ -50,6 +50,30 @@ describe("CountryService", () => {
     await expect(service.update("NGA", { levelNames: ["State", "LGA"] })).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it("deletes a country that has no areas", async () => {
+    const repo = new InMemoryCountryRepository([makeCountry({ countryCode: "GHA", countryName: "Ghana" })]);
+    await new CountryService(repo).delete("GHA");
+    expect(repo.rows.has("GHA")).toBe(false);
+  });
+
+  it("never deletes a country that holds states, LGAs or wards (409), and says what it holds", async () => {
+    const repo = new InMemoryCountryRepository([makeCountry()]);
+    repo.counts = [
+      { countryCode: "NGA", level: 3, count: 317 },
+      { countryCode: "NGA", level: 1, count: 1 },
+      { countryCode: "NGA", level: 2, count: 23 },
+    ];
+    await expect(new CountryService(repo).delete("NGA")).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Nigeria has 341 areas (State 1, LGA 23, Ward 317), so it can't be deleted",
+    });
+    expect(repo.rows.has("NGA")).toBe(true);
+  });
+
+  it("returns 404 when deleting an unknown country", async () => {
+    await expect(new CountryService(new InMemoryCountryRepository()).delete("GHA")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
   it("returns 404 for an unknown country", async () => {
     await expect(new CountryService(new InMemoryCountryRepository()).get("GHA")).rejects.toBeInstanceOf(NotFoundError);
   });

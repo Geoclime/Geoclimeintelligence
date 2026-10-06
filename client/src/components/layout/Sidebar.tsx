@@ -11,14 +11,18 @@ interface SidebarProps {
   /** Phones and tablets: whether the drawer is showing. Ignored on wide screens. */
   open: boolean;
   onClose: () => void;
+  /** Wide screens: the sidebar is shrunk to an icon rail. Ignored by the phone drawer. */
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 /**
- * The main navigation. A fixed column on wide screens; below 1024px a drawer that slides in from
- * the left, closes on Esc, a backdrop tap or any link, and returns focus to the menu button.
- * Links a role can't use aren't shown (the backend refuses them anyway).
+ * The main navigation. A fixed column on wide screens, which the collapse button shrinks to an
+ * icon rail; below 1024px a drawer that slides in from the left, closes on Esc, a backdrop tap or
+ * any link, and returns focus to the menu button. Links a role can't use aren't shown (the
+ * backend refuses them anyway).
  */
-export function Sidebar({ role, open, onClose }: SidebarProps) {
+export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: SidebarProps) {
   const firstLink = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
@@ -40,13 +44,28 @@ export function Sidebar({ role, open, onClose }: SidebarProps) {
   return (
     <>
       <div className={`app-sidebar-backdrop${open ? " is-open" : ""}`} onClick={onClose} aria-hidden="true" />
-      <aside id="app-sidebar" className={`app-sidebar${open ? " is-open" : ""}`} aria-label="Main navigation" data-cy="sidebar">
+      <aside
+        id="app-sidebar"
+        className={`app-sidebar${open ? " is-open" : ""}${collapsed ? " is-collapsed" : ""}`}
+        aria-label="Main navigation"
+        data-cy="sidebar"
+      >
         <div className="app-sidebar__brand">
           <Link to="/" className="app-sidebar__home" aria-label="GeoClime Intelligence, map" onClick={onClose}>
             <BrandMark variant="light" />
           </Link>
           <button type="button" className="app-sidebar__close" onClick={onClose} aria-label="Close menu">
             <Icon name="close" size={20} />
+          </button>
+          <button
+            type="button"
+            className="app-sidebar__collapse"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            data-cy="sidebar-collapse"
+          >
+            <Icon name={collapsed ? "chevronRight" : "chevronLeft"} size={20} />
           </button>
         </div>
 
@@ -63,10 +82,11 @@ export function Sidebar({ role, open, onClose }: SidebarProps) {
                       end={item.to === "/"}
                       className="app-sidebar__link"
                       onClick={onClose}
+                      title={collapsed ? item.label : undefined}
                       data-cy={`nav-${item.label.toLowerCase()}`}
                     >
                       <Icon name={item.icon} size={18} />
-                      <span>{item.label}</span>
+                      <span className="app-sidebar__label">{item.label}</span>
                     </NavLink>
                   </li>
                 ))}
@@ -77,9 +97,9 @@ export function Sidebar({ role, open, onClose }: SidebarProps) {
 
         <div className="app-sidebar__footer">
           <Icon name="pin" size={16} />
-          <div>
+          <div className="app-sidebar__footer-text">
             <p className="app-sidebar__region">Rivers State, Nigeria</p>
-            <p className="app-sidebar__credit">Boundaries: geoBoundaries, GRID3 (CC BY 4.0)</p>
+            <p className="app-sidebar__credit">Boundaries: geoBoundaries. Wards: GRID3 placeholders. CC BY 4.0</p>
           </div>
         </div>
       </aside>

@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useMatches } from "react-router";
 import { useAuth } from "../../hooks/useAuth";
+import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useToast } from "../../hooks/useToast";
 import { BrandMark } from "../shared/BrandMark";
 import { Icon } from "../shared/Icon";
@@ -26,6 +27,7 @@ export function AppShell() {
   const location = useLocation();
   const matches = useMatches();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, toggleSidebarCollapsed] = useSidebarCollapsed();
   const menuButton = useRef<HTMLButtonElement>(null);
 
   // Every sidebar link calls this; it only does anything when the phone drawer is open, and then
@@ -56,7 +58,13 @@ export function AppShell() {
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <Sidebar role={user.role} open={drawerOpen} onClose={closeDrawer} />
+      <Sidebar
+        role={user.role}
+        open={drawerOpen}
+        onClose={closeDrawer}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebarCollapsed}
+      />
 
       <div className={`app-body${fullBleed ? " app-body--full" : ""}`}>
         <header className="app-topbar">

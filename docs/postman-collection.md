@@ -40,7 +40,7 @@ That saves Firebase's ID token into `{{accessToken}}`. The whole collection is s
 | Users | `GET /api/v1/users` | 200, 400, 401, 403, 500 |
 | Users | `GET /api/v1/users/:id` | 200, 400, 401, 403, 404, 500 |
 | Users | `PATCH /api/v1/users/:id/access` | 200, three kinds of 400, 401, two kinds of 403, 404, 500 |
-| Admin Geography › Countries | `GET /countries`, `GET /countries/:code`, `POST /countries`, `PATCH /countries/:code` | 200/201, 400, 401, 403, 404, 409 (duplicate code), 500 |
+| Admin Geography › Countries | `GET /countries`, `GET /countries/:code`, `POST /countries`, `PATCH /countries/:code`, `DELETE /countries/:code` | 200/201, 400, 401, 403, 404, 409 (duplicate code; delete refused because the country holds areas), 500 |
 | Admin Geography › Admin units | list, get, children, map layer (`/geojson`), locate | 200, 400 (incl. map layer with no bbox), 401, 404 (incl. a point in Lagos, outside Rivers State), 500 |
 | Admin Geography › Data sources | `GET /data-sources`, `POST /data-sources` | 200/201, 400, 403 |
 | Admin Geography › Imports | template download, preview, start, list, get run, run map, promote | 200/201, 400 (no file, not an importable file), 403 (non-admin), 404, 409 (already promoted), 422 (unknown data source), 500 |

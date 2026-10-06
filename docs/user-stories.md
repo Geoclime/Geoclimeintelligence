@@ -233,6 +233,14 @@ The stories are in the order you'd naturally go through them: set up, become the
 - [ ] The remove buttons for levels that hold areas are disabled.
 - [ ] Every LGA picks up the new name.
 
+### 2.12 Delete a country created by mistake
+*As an administrator, I want to delete a country I created by mistake, so that the list only shows real countries, without any risk of losing loaded boundaries.*
+1. Open **Countries**, then **Nigeria** (which holds areas after 2.5–2.7).
+- [ ] *(error case)* The **Delete** button is disabled, and a line says "Nigeria holds 341 areas, so it can't be deleted". The API refuses it too, with `409` (Postman: **Countries › Delete country**).
+2. Create a throwaway country (for example code `GHA`, name Ghana, one level "Region"), open it and click **Delete**, then **Delete GHA** in the dialog.
+- [ ] A confirmation dialog appears first; **Keep it** cancels.
+- [ ] After confirming, you're back on **Countries** with "Ghana deleted.", and Ghana is gone from the list.
+
 ---
 
 ## 3. Exploring the map and places (Phase 2, everyone signed in)

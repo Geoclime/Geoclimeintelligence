@@ -12,3 +12,5 @@ countriesRouter.get("/", CountryController.list);
 countriesRouter.get("/:code", validate(getCountrySchema), CountryController.get);
 countriesRouter.post("/", authorise("administrator"), validate(createCountrySchema), CountryController.create);
 countriesRouter.patch("/:code", authorise("administrator"), validate(updateCountrySchema), CountryController.update);
+// Only a country with no areas can be deleted; the service answers 409 otherwise.
+countriesRouter.delete("/:code", authorise("administrator"), validate(getCountrySchema), CountryController.remove);
