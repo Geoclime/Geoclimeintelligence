@@ -9,7 +9,6 @@ import { activeNavItem } from "./nav-items";
 import { OfflineBanner } from "./OfflineBanner";
 import { Sidebar } from "./Sidebar";
 import { UserMenu } from "./UserMenu";
-import { VerifyEmailBanner } from "./VerifyEmailBanner";
 import "./layout.css";
 
 /** Route `handle` flags read by the shell. The map sets fullBleed: it fills the whole content area. */
@@ -19,7 +18,7 @@ export interface RouteHandle {
 
 /**
  * The signed-in dashboard frame: sidebar navigation, a top bar with the current section and the
- * account menu, the offline and verify-email notices, and the current page.
+ * account menu, the offline notice, and the current page.
  */
 export function AppShell() {
   const { user, signOut } = useAuth();
@@ -83,7 +82,6 @@ export function AppShell() {
           <UserMenu user={user} onSignOut={() => void handleSignOut()} />
         </header>
         <OfflineBanner />
-        <VerifyEmailBanner />
         <main id="main" className={`app-main${fullBleed ? " app-main--full" : ""}`} tabIndex={-1}>
           <Suspense fallback={<LoadingSpinner />}>
             <Outlet />

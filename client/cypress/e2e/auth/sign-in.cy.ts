@@ -50,6 +50,23 @@ describe("Signing in", () => {
     cy.location("pathname").should("eq", "/sign-in");
   });
 
+  it("keeps an account with an unverified email signed out and offers to resend the link", () => {
+    cy.interceptApi("GET", "/auth/me", { data: buildUser({ role: "general_public" }) }).as("getMe");
+    cy.visit("/sign-in");
+    cy.dataCy("email").type("unverified@example.com");
+    cy.dataCy("password").type("a-good-password");
+    cy.dataCy("submit").click();
+
+    cy.dataCy("verify-email-notice").should("contain", "Verify your email");
+    cy.location("pathname").should("eq", "/sign-in");
+    cy.dataCy("map-page").should("not.exist");
+    cy.get("@getMe.all").should("have.length", 0);
+
+    cy.dataCy("resend-verification").click();
+    cy.dataCy("toast-success").should("contain", "unverified@example.com");
+    cy.location("pathname").should("eq", "/sign-in");
+  });
+
   it("toggles password visibility", () => {
     cy.visit("/sign-in");
     cy.dataCy("password").should("have.attr", "type", "password");

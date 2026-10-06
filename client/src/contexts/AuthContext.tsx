@@ -6,7 +6,7 @@ import type { AuthUser, IdentitySession } from "../types/auth.types";
 
 /**
  * - loading:    working out who is signed in (session restore, or waiting for /auth/me)
- * - signed-out: no Firebase session on this device
+ * - signed-out: no Firebase session on this device (an account with an unverified email counts)
  * - signed-in:  Firebase session AND the backend's user record (role, scope) are both known
  * - error:      signed in with Firebase, but the backend couldn't be reached to resolve the role
  */
@@ -23,9 +23,10 @@ export interface AuthContextValue extends AuthState {
   /** Re-asks the backend for the user record after an `error` status. */
   retry: () => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  /** Creates the account and emails a link; the new account is NOT signed in until it's verified. */
+  signUp: (email: string, password: string) => Promise<{ verificationSent: boolean }>;
   sendPasswordReset: (email: string) => Promise<void>;
-  sendEmailVerification: () => Promise<void>;
+  resendVerificationEmail: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
 }
 
@@ -91,33 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [resolveUser],
   );
 
-  // Someone who verifies their email from the inbox, in another tab or on their phone, comes
-  // back to a session the SDK still thinks is unverified until its next hourly token refresh.
-  // While unverified, re-check on load and whenever this tab regains focus.
-  const awaitingVerification = state.session !== null && !state.session.emailVerified;
-  useEffect(() => {
-    if (!awaitingVerification) return;
-    let inFlight = false;
-    const check = () => {
-      if (inFlight || document.visibilityState !== "visible") return;
-      inFlight = true;
-      // Best effort: a failed check just leaves the notice up until the next one.
-      void identity
-        .refreshSession()
-        .catch(() => undefined)
-        .finally(() => {
-          inFlight = false;
-        });
-    };
-    check();
-    window.addEventListener("focus", check);
-    document.addEventListener("visibilitychange", check);
-    return () => {
-      window.removeEventListener("focus", check);
-      document.removeEventListener("visibilitychange", check);
-    };
-  }, [awaitingVerification]);
-
   const retry = useCallback(() => void resolveUser(latestSession.current), [resolveUser]);
 
   const value = useMemo<AuthContextValue>(
@@ -127,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn: (email, password) => identity.signIn(email, password),
       signUp: (email, password) => identity.signUp(email, password),
       sendPasswordReset: (email) => identity.sendPasswordReset(email),
-      sendEmailVerification: () => identity.sendEmailVerification(),
+      resendVerificationEmail: (email, password) => identity.resendVerificationEmail(email, password),
       signOut: () => identity.signOut(),
     }),
     [state, retry],

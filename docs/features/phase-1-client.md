@@ -27,6 +27,7 @@ Read these in order. Each one covers one layer of the app:
 5. [client-testing.md](client-testing.md): the unit tests and the Cypress suite, and how Cypress signs in without Firebase.
 6. [client-deployment-vercel.md](client-deployment-vercel.md): putting the client on Vercel.
 7. [auth-email-templates.md](auth-email-templates.md): the Firebase console settings behind the verification and password-reset emails.
+8. [email-verification-before-sign-in.md](email-verification-before-sign-in.md): new accounts aren't signed in until their email is verified.
 
 **Checked before handing over:** typecheck (the app and the Cypress specs), ESLint, 25 unit tests and 27 Cypress end-to-end tests all pass, and so does the production build. The production bundle was searched to confirm the test-only fake sign-in code isn't in it. The screens were also reviewed in light and dark themes, on desktop and on a 390px-wide phone.
 
@@ -34,7 +35,7 @@ Read these in order. Each one covers one layer of the app:
 - **The standard's route name differs from the backend.** Standard section 12 calls the "who am I" endpoint `GET /api/v1/me`. The backend mounts it at `GET /api/v1/auth/me`, and the client uses the real one. The standard doc should be updated to match.
 - **Display names can't be set yet.** The backend copies the display name from the Firebase token once, when it first creates the user's row, and has no endpoint to change it afterwards. A fresh email/password account has no display name at that moment, so sign-up doesn't ask for one. It would be ignored. Adding a name needs a backend `PATCH /api/v1/auth/me` (or similar) first.
 - **Region scope is a raw ID for now.** Admin units arrive in Phase 2, so the access form takes a region's UUID instead of a picker, and the Overview shows the ID instead of a name. Swap in a picker once `admin_units` has an endpoint.
-- **Email verification isn't enforced.** New accounts are sent a verification link and the Overview nudges them, but unverified accounts can still sign in. This matches the backend's open question in [phase-1-authentication.md](../phase-1-authentication.md).
+- **Email verification is enforced by the client only.** New accounts are sent a verification link and can't sign in until they click it ([email-verification-before-sign-in.md](email-verification-before-sign-in.md)). The backend still accepts a token for an unverified account if someone calls it directly, which matches its open question in [phase-1-authentication.md](../phase-1-authentication.md).
 - **Version choices:** React Router is on v7, not v8, because v8 needs Node 22.22+ and this machine runs 22.15. TypeScript is 6.0, not 7 like the server, because `typescript-eslint` doesn't support 7 yet.
 
 ## Resources to read

@@ -47,7 +47,7 @@ How the app connects to the database, including over SSL to a cloud host such as
 **Flagged for the team (NEEDS VERIFICATION):**
 - `scopeAdminUnitId` is not yet checked against real admin units, because that table doesn't exist until Phase 2. Phase 2 adds the foreign key and the existence check.
 - Token *revocation* is not checked: a token stays valid until it expires, at most one hour. Checking revocation needs a Firebase service-account key and an extra network call per request. Decide whether that's needed.
-- Unverified email addresses are accepted, and they only ever get the read-only `general_public` role. Decide whether staff promotion should require a verified email.
+- Unverified email addresses are accepted by the backend, and they only ever get the read-only `general_public` role. Decide whether staff promotion should require a verified email, and whether the backend should reject unverified tokens outright. The web client already won't sign an unverified account in ([features/email-verification-before-sign-in.md](features/email-verification-before-sign-in.md)), but that doesn't stop a direct API caller.
 
 ## Resources to read
 

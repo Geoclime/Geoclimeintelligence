@@ -70,7 +70,7 @@ Set `BOOTSTRAP_ADMIN_EMAIL` in `server/.env` (and on Render). [`AuthService.reso
 - Firebase says the email is **verified**, so nobody can claim it by signing up with that address before its owner does; and
 - **no Administrator exists yet**, so the setting does nothing once the platform has one.
 
-It works whether the account is brand new or already signed in earlier. Accounts are created as General Public at sign-up, before the email is verified, so the row usually exists already. Every later administrator is promoted on the admin Users page. `npm run user:set-access` still works for recovery.
+It works whether the account is brand new or already signed in earlier. The web client now only signs an account in once its email is verified, so the row is normally created at that first sign-in, as General Public; rows made before that change may already exist. Every later administrator is promoted on the admin Users page. `npm run user:set-access` still works for recovery.
 
 ### 6. Results on the real data
 

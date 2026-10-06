@@ -29,8 +29,9 @@ Without `VITE_MAPBOX_TOKEN` the app still runs and maps show a "Map unavailable"
 required settings show a "This app isn't configured yet" screen that lists them. See
 [`docs/features/client-architecture.md`](../docs/features/client-architecture.md).
 
-To make yourself an Administrator: create an account in the app, then follow "Your first administrator"
-in the server README and reload.
+To make yourself an Administrator: create an account in the app, click the verification link in the email
+(new accounts can't sign in until they do), sign in, then follow "Your first administrator" in the server
+README and reload. See [`docs/features/email-verification-before-sign-in.md`](../docs/features/email-verification-before-sign-in.md).
 
 The verification and password-reset emails are Firebase templates, configured in the Firebase console. Apply
 the settings in [`docs/features/auth-email-templates.md`](../docs/features/auth-email-templates.md) to any new

@@ -13,7 +13,7 @@ import { env } from "../config/env";
 import type { IdentitySession } from "../types/auth.types";
 import { CONTINUE_PATHS, continueSettings, sendWithContinueUrl } from "./email-actions";
 import type { IdentityClient } from "./identity";
-import { toIdentityError } from "./identity-error";
+import { EMAIL_NOT_VERIFIED, identityErrorFromCode, toIdentityError } from "./identity-error";
 
 /**
  * The only file in the client that talks to the Firebase Auth SDK. The SDK persists the
@@ -33,8 +33,11 @@ export function createFirebaseIdentity(): IdentityClient {
   // translation instead (docs/features/auth-email-templates.md).
   auth.languageCode = "en";
 
+  // Firebase signs a user in the moment their account is created or their password is accepted,
+  // verified or not. So the gate is here: an unverified account is reported as "no session", which
+  // keeps the app from ever asking the backend about it (see signIn and signUp below).
   const toSession = (user: User | null): IdentitySession | null =>
-    user ? { uid: user.uid, email: user.email, emailVerified: user.emailVerified } : null;
+    user?.emailVerified ? { uid: user.uid, email: user.email } : null;
 
   /** Runs a Firebase call and converts any rejection into a user-safe IdentityError. */
   async function call<T>(operation: () => Promise<T>): Promise<T> {
@@ -44,6 +47,15 @@ export function createFirebaseIdentity(): IdentityClient {
       throw toIdentityError(error);
     }
   }
+
+  /** Best effort: if signing out fails, toSession still hides the unverified account from the app. */
+  const signOutQuietly = () => signOut(auth).catch(() => undefined);
+
+  const sendVerification = (user: User) =>
+    sendWithContinueUrl(
+      (settings) => sendEmailVerification(user, settings),
+      continueSettings(CONTINUE_PATHS.verifyEmail),
+    );
 
   return {
     onSessionChanged(listener) {
@@ -56,16 +68,24 @@ export function createFirebaseIdentity(): IdentityClient {
     },
 
     async signIn(email, password) {
-      await call(() => signInWithEmailAndPassword(auth, email, password));
+      const { user } = await call(() => signInWithEmailAndPassword(auth, email, password));
+      if (!user.emailVerified) {
+        await signOutQuietly();
+        throw identityErrorFromCode(EMAIL_NOT_VERIFIED);
+      }
     },
 
     async signUp(email, password) {
       const { user } = await call(() => createUserWithEmailAndPassword(auth, email, password));
-      // Best effort: the account exists either way, and the user can resend from the overview.
-      await sendWithContinueUrl(
-        (settings) => sendEmailVerification(user, settings),
-        continueSettings(CONTINUE_PATHS.verifyEmail),
-      ).catch(() => undefined);
+      // The account exists either way. If the email can't be sent, the user asks for another
+      // from the sign-in page, so a failure here is reported rather than thrown.
+      const verificationSent = await sendVerification(user).then(
+        () => true,
+        () => false,
+      );
+      // Firebase has signed the new account in. Undo that: it can't be used until verified.
+      await signOutQuietly();
+      return { verificationSent };
     },
 
     async sendPasswordReset(email) {
@@ -82,24 +102,16 @@ export function createFirebaseIdentity(): IdentityClient {
       }
     },
 
-    async sendEmailVerification() {
-      const user = auth.currentUser;
-      if (!user) return;
-      await call(() =>
-        sendWithContinueUrl(
-          (settings) => sendEmailVerification(user, settings),
-          continueSettings(CONTINUE_PATHS.verifyEmail),
-        ),
-      );
-    },
-
-    async refreshSession() {
-      const user = auth.currentUser;
-      if (!user || user.emailVerified) return;
-      await call(() => user.reload());
-      // reload() updates the user object but notifies no listener. Forcing a new ID token does
-      // (onIdTokenChanged), which is how AuthContext learns the email is now verified.
-      if (user.emailVerified) await call(() => user.getIdToken(true));
+    async resendVerificationEmail(email, password) {
+      const { user } = await call(() => signInWithEmailAndPassword(auth, email, password));
+      // Verified in the meantime: nothing to send, and the sign-in above is simply a normal one.
+      if (user.emailVerified) return false;
+      try {
+        await call(() => sendVerification(user));
+        return true;
+      } finally {
+        await signOutQuietly();
+      }
     },
 
     async signOut() {

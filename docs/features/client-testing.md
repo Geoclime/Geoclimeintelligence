@@ -2,7 +2,7 @@
 
 ## What was built
 
-Two kinds of automated tests for the web client. **Unit tests** (25, run with Vitest) check small pieces of logic in isolation, such as turning server errors into friendly messages or working out page counts. **End-to-end tests** (27, run with Cypress) drive the real app in a real browser: typing into forms, clicking buttons, checking what appears. They cover sign-in, sign-up, password reset, session handling, the admin Users page and phone-width layout. Neither kind ever talks to a real backend, database or Firebase project (standard section 21).
+Two kinds of automated tests for the web client. **Unit tests** (54, run with Vitest) check small pieces of logic in isolation, such as turning server errors into friendly messages or working out page counts. **End-to-end tests** (69, run with Cypress) drive the real app in a real browser: typing into forms, clicking buttons, checking what appears. They cover sign-in, sign-up, password reset, session handling, the admin Users page and phone-width layout. Neither kind ever talks to a real backend, database or Firebase project (standard section 21).
 
 ## How it works
 
@@ -12,14 +12,15 @@ All paths are relative to `client/`.
 - [`utils/pagination.test.ts`](../../client/src/utils/pagination.test.ts): `totalPages`/`hasNext`/`hasPrev` from the backend's `meta`, and junk `?page=` values.
 - [`transport/api-error.test.ts`](../../client/src/transport/api-error.test.ts): envelope messages kept, field errors kept, HTML error pages and timeouts turned into plain messages, offline detected.
 - [`transport/identity-error.test.ts`](../../client/src/transport/identity-error.test.ts): wrong-email and wrong-password give the same message, and Firebase's raw text never shows.
+- [`transport/firebase-identity.test.ts`](../../client/src/transport/firebase-identity.test.ts): with the Firebase SDK replaced by spies, an unverified account is never signed in (see [email-verification-before-sign-in.md](email-verification-before-sign-in.md)).
 - [`components/users/user-access.schema.test.ts`](../../client/src/components/users/user-access.schema.test.ts): the access form's rules, including clearing the region for roles that can't have one.
 
 **End-to-end tests.** `npm run e2e` starts the app in *e2e mode* (`vite --mode e2e`, port 5174), runs every spec in [`cypress/e2e/`](../../client/cypress/e2e/), then stops the server. `npm run e2e:open` does the same with Cypress's interactive window, which is handy for watching a test run.
 
-**How Cypress signs in without Firebase.** In e2e mode, [`src/transport/identity.ts`](../../client/src/transport/identity.ts) swaps the real Firebase wrapper for [`e2e-identity.ts`](../../client/src/transport/e2e-identity.ts), an in-memory fake that keeps its "session" in `localStorage` and hands out the token `e2e-id-token`. It's predictable on purpose: password `wrong-password` fails sign-in, and email `taken@example.com` fails sign-up. Vite replaces the mode check at build time, so a production build contains only the Firebase branch. That was checked by searching the built files for the fake's markers.
+**How Cypress signs in without Firebase.** In e2e mode, [`src/transport/identity.ts`](../../client/src/transport/identity.ts) swaps the real Firebase wrapper for [`e2e-identity.ts`](../../client/src/transport/e2e-identity.ts), an in-memory fake that keeps its "session" in `localStorage` and hands out the token `e2e-id-token`. It's predictable on purpose: password `wrong-password` fails sign-in, email `unverified@example.com` can't sign in until verified, email `taken@example.com` fails sign-up, and email `no-mail@example.com` signs up but its verification email "fails" to send. Like the real thing, it never signs anyone in at sign-up. Vite replaces the mode check at build time, so a production build contains only the Firebase branch. That was checked by searching the built files for the fake's markers.
 
 **Custom commands** in [`cypress/support/commands.ts`](../../client/cypress/support/commands.ts):
-- `cy.login(role, { user?, emailVerified? })`: seeds the fake session before the page loads and stubs `GET /api/v1/auth/me` (alias `@getMe`) with a user of that role. It never performs a real sign-in.
+- `cy.login(role, { user? })`: seeds the fake session before the page loads and stubs `GET /api/v1/auth/me` (alias `@getMe`) with a user of that role. It never performs a real sign-in.
 - `cy.interceptApi(method, path, response)`: `cy.intercept()` for `/api/v1<path>`, answering with the backend's `{ success, data, message, errors?, meta? }` envelope, or with a fixture file such as [`cypress/fixtures/users/list.json`](../../client/cypress/fixtures/users/list.json).
 - `cy.dataCy("name")`: finds `[data-cy="name"]`. This is the only way specs select elements, so restyling or rewording a screen doesn't break tests.
 

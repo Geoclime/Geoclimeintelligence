@@ -5,7 +5,8 @@ import type { ActionCodeSettings } from "firebase/auth";
  * the link in a verification or password-reset email.
  */
 export const CONTINUE_PATHS = {
-  verifyEmail: "/",
+  // Unverified accounts can't use the app, so the next step after verifying is signing in.
+  verifyEmail: "/sign-in",
   resetPassword: "/sign-in",
 } as const;
 

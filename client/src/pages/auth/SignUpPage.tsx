@@ -1,24 +1,25 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation } from "react-router";
-import { Button } from "../../components/shared/Button";
+import { Button, buttonClassName } from "../../components/shared/Button";
 import { Callout } from "../../components/shared/Callout";
 import { TextField } from "../../components/shared/TextField";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import { useToast } from "../../hooks/useToast";
 import { PASSWORD_MIN_LENGTH, signUpSchema, type SignUpInput } from "./auth.schema";
 
 /**
- * Creates a Firebase account. The backend creates the matching `users` row, as General Public,
- * the first time the new account calls GET /api/v1/auth/me, which AuthContext does straight away.
- * Only an Administrator can raise the role afterwards.
+ * Creates a Firebase account and emails a verification link. The new account is deliberately NOT
+ * signed in: the user has to click the link first, then sign in. The backend creates the matching
+ * `users` row, as General Public, the first time that verified account calls GET /api/v1/auth/me
+ * (which AuthContext does right after sign-in). Only an Administrator can raise the role afterwards.
  */
 export function SignUpPage() {
   useDocumentTitle("Create an account");
   const { signUp } = useAuth();
-  const { showToast } = useToast();
   const location = useLocation();
+  const [created, setCreated] = useState<{ email: string; verificationSent: boolean } | null>(null);
   const {
     register,
     handleSubmit,
@@ -28,12 +29,38 @@ export function SignUpPage() {
 
   const onSubmit = handleSubmit(async ({ email, password }) => {
     try {
-      await signUp(email, password);
-      showToast({ type: "success", message: `Account created. We've sent a verification link to ${email}.` });
+      const { verificationSent } = await signUp(email, password);
+      setCreated({ email, verificationSent });
     } catch (error) {
       setError("root.server", { message: error instanceof Error ? error.message : "Sign-up failed." });
     }
   });
+
+  if (created) {
+    return (
+      <section className="auth-card" data-cy="verify-email-sent">
+        <header className="auth-card__header">
+          <h1 className="auth-card__title">Verify your email</h1>
+        </header>
+        <div className="auth-form">
+          {created.verificationSent ? (
+            <Callout tone="success">
+              Your account is created. We sent a verification link to <strong>{created.email}</strong>. Click it, then
+              sign in. It can take a few minutes, so check your spam folder too.
+            </Callout>
+          ) : (
+            <Callout tone="warning" dataCy="verification-not-sent">
+              Your account is created, but we couldn't send the verification link to <strong>{created.email}</strong>.
+              Try signing in and we'll offer to send it again.
+            </Callout>
+          )}
+          <Link to="/sign-in" state={location.state} className={buttonClassName({ size: "lg", fullWidth: true })}>
+            Go to sign in
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="auth-card" data-cy="sign-up-page">

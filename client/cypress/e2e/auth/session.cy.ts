@@ -71,21 +71,4 @@ describe("Session and account", () => {
     cy.visit("/no-such-page");
     cy.dataCy("not-found").should("be.visible");
   });
-
-  it("drops the verify-email notice when the user comes back after verifying elsewhere", () => {
-    cy.login("general_public", { emailVerified: false });
-    cy.visit("/");
-    cy.dataCy("verify-email-notice").should("be.visible");
-
-    // Stand-in for clicking the link in the inbox: mark the fake session verified (key matches
-    // E2E_SESSION_KEY in src/transport/e2e-identity.ts), then return focus to the tab.
-    cy.window().then((win) => {
-      const key = "e2e:identity-session";
-      const session = JSON.parse(win.localStorage.getItem(key) ?? "{}") as Record<string, unknown>;
-      win.localStorage.setItem(key, JSON.stringify({ ...session, emailVerified: true }));
-      win.dispatchEvent(new Event("focus"));
-    });
-    cy.dataCy("verify-email-notice").should("not.exist");
-    cy.dataCy("map-page").should("be.visible");
-  });
 });

@@ -29,9 +29,9 @@ export interface AuthUser {
 /**
  * What the identity provider (Firebase) knows about the person signed in on this device.
  * It proves who they are; it says nothing about what they may do. See AuthUser for that.
+ * A session only exists once the account's email is verified, so there is no flag for it.
  */
 export interface IdentitySession {
   uid: string;
   email: string | null;
-  emailVerified: boolean;
 }

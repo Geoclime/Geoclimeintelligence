@@ -37,19 +37,20 @@ The stories are in the order you'd naturally go through them: set up, become the
 2. *(error case)* Type two different passwords and submit. You should see an inline "passwords must match" error, and nothing is sent.
 3. *(error case)* Try a password under 8 characters. You should see "Use at least 8 characters".
 4. Enter the email you put in `BOOTSTRAP_ADMIN_EMAIL` and a good password, then submit.
-- [ ] A success message says a verification link was sent.
-- [ ] You land on the **map** (the home screen).
-- [ ] A yellow banner across the top says **"Verify your email address"**, with a **Resend link** button.
+- [ ] A **"Verify your email"** panel says a verification link was sent to that address.
+- [ ] You are **not** signed in: you stay on the create-account page's panel, with a **Go to sign in** button, and you don't see the map.
 
 ### 1.2 Verify my email
-*As a new user, I want to confirm my email address, so that an administrator can trust who I am.*
-1. Open the verification email and click the link.
-2. Come back to the app's tab (no reload needed).
-- [ ] The verify banner disappears by itself within a moment of returning to the tab.
+*As a new user, I want to confirm my email address before I can use the account, so that an administrator can trust who I am.*
+1. *(error case)* Before clicking the link, choose **Go to sign in** and sign in with the new email and password. You should stay on the sign-in page and see "Verify your email address to sign in", with a **Resend link** button.
+2. Press **Resend link**. A "Verification email sent" message appears and a second email arrives. Use the link in the newest one.
+3. Open the verification email and click the link, then press **Continue** on the page that opens. You land on the sign-in page.
+4. Sign in with the same email and password.
+- [ ] You land on the **map** (the home screen), signed in as General Public, with no yellow banner.
 
 ### 1.3 Become the first administrator
 *As the person setting up the platform, I want my own account to become the first Administrator without touching the database, so that I can manage everything else from the app.*
-1. With your email verified, reload the page.
+1. With your email verified (story 1.2), sign in. If you were already signed in, reload the page.
 - [ ] The **Administration** group (Users, Countries, Imports) appears in the sidebar.
 - [ ] The account menu (your initials, top right) shows the role **Administrator**.
 - [ ] This only works with a **verified** email, and only while no administrator exists. Once you're an admin, the setting does nothing more. If it ever doesn't apply, the fallback is `npm run user:set-access -- --email you@example.com --role administrator` in `server/`.

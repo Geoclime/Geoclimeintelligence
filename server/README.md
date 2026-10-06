@@ -38,7 +38,7 @@ The API deploys to Render from [`../render.yaml`](../render.yaml): see [`docs/de
 ## Your first administrator
 
 Easiest (Phase 2): put your email in `server/.env` as `BOOTSTRAP_ADMIN_EMAIL`, sign up in the client app,
-verify your email, and sign in again. While the platform has no administrator, that verified account becomes
+verify your email (the client won't sign you in before that), and sign in. While the platform has no administrator, that verified account becomes
 one. See [`docs/user-management.md`](../docs/user-management.md). Or, from the command line:
 
 Every account starts as `general_public`, so bootstrap the first admin from the command line:

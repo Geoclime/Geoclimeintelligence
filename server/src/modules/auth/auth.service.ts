@@ -69,8 +69,9 @@ export class AuthService {
    *     address before its owner does; and
    *   - no administrator exists yet, so the setting does nothing once the platform has one,
    *     and an administrator who later demotes that account is not overruled.
-   * Works whether the row is brand new or was created earlier (sign-up happens before the
-   * email is verified, so the row usually already exists by the time this can apply).
+   * Works whether the row is brand new or was created earlier (the web client now only signs
+   * an account in once its email is verified, so the row is normally created on that first
+   * sign-in; rows from before that change, or from direct API callers, may already exist).
    */
   private async shouldBootstrapAdmin(identity: VerifiedIdentity): Promise<boolean> {
     if (!this.bootstrapAdminEmail || !identity.emailVerified) return false;

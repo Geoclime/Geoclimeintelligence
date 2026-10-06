@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation } from "react-router";
 import { Button } from "../../components/shared/Button";
@@ -6,31 +7,61 @@ import { Callout } from "../../components/shared/Callout";
 import { TextField } from "../../components/shared/TextField";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useToast } from "../../hooks/useToast";
+import { EMAIL_NOT_VERIFIED, IdentityError } from "../../transport/identity-error";
 import { signInSchema, type SignInInput } from "./auth.schema";
 
 /**
  * Email + password sign-in. The credentials go straight to Firebase, never to our backend.
  * On success nothing happens here: AuthContext sees the new session, loads the account from
  * GET /api/v1/auth/me, and GuestOnly redirects to wherever the user was headed.
+ *
+ * A correct password isn't enough: until the email is verified the user stays signed out, and this
+ * page says why and offers to send the verification link again.
  */
 export function SignInPage() {
   useDocumentTitle("Sign in");
-  const { signIn } = useAuth();
+  const { signIn, resendVerificationEmail } = useAuth();
+  const { showToast } = useToast();
   const location = useLocation();
+  const [unverifiedMessage, setUnverifiedMessage] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
   const {
     register,
     handleSubmit,
     setError,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<SignInInput>({ resolver: zodResolver(signInSchema), mode: "onTouched" });
 
   const onSubmit = handleSubmit(async ({ email, password }) => {
+    setUnverifiedMessage(null);
     try {
       await signIn(email, password);
     } catch (error) {
+      if (error instanceof IdentityError && error.code === EMAIL_NOT_VERIFIED) {
+        setUnverifiedMessage(error.message);
+        return;
+      }
       setError("root.server", { message: error instanceof Error ? error.message : "Sign-in failed." });
     }
   });
+
+  const resend = async () => {
+    const { email, password } = getValues();
+    setResending(true);
+    try {
+      // false means the email was verified in the meantime and they are now signed in; the
+      // route guard moves them on, so there is nothing to announce.
+      if (await resendVerificationEmail(email, password)) {
+        showToast({ type: "success", message: `Verification email sent to ${email}.` });
+      }
+    } catch (error) {
+      showToast({ type: "error", message: error instanceof Error ? error.message : "Couldn't send the email." });
+    } finally {
+      setResending(false);
+    }
+  };
 
   return (
     <section className="auth-card" data-cy="sign-in-page">
@@ -43,6 +74,19 @@ export function SignInPage() {
         {errors.root?.server && (
           <Callout tone="danger" dataCy="form-error">
             {errors.root.server.message}
+          </Callout>
+        )}
+        {unverifiedMessage && (
+          <Callout
+            tone="warning"
+            dataCy="verify-email-notice"
+            action={
+              <Button variant="secondary" size="sm" loading={resending} onClick={() => void resend()} data-cy="resend-verification">
+                Resend link
+              </Button>
+            }
+          >
+            {unverifiedMessage}
           </Callout>
         )}
         <TextField

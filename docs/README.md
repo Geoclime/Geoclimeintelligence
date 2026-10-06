@@ -44,6 +44,7 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 22. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
 23. [features/auth-email-templates.md](features/auth-email-templates.md): the verification and password-reset emails, and the Firebase console settings behind them.
 24. [features/admin-geography.md](features/admin-geography.md): Phase 2 on the client: the dashboard sidebar and top bar, the home map, Places, and the admin Countries and Imports screens.
+25. [features/email-verification-before-sign-in.md](features/email-verification-before-sign-in.md): new accounts aren't signed in until their email is verified.
 
 ## Adding a new doc
 

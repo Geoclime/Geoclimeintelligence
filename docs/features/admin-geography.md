@@ -72,7 +72,7 @@ Stable reference data (countries, area lists, area details) goes through `cache/
 - `components/layout/AppShell.tsx` puts `Sidebar.tsx` beside the content. The links are defined in `nav-items.ts`, and the administration group only appears for administrators.
 - Below 1024 px the sidebar becomes a drawer. It opens from the menu button and closes on Esc, a backdrop tap or any link, then returns focus to the button.
 - A route marked `handle: { fullBleed: true }` (the map) fills the whole content area.
-- `VerifyEmailBanner.tsx` replaces the verify-email notice that used to sit on the Overview page, so it shows on every screen.
+- *(Removed later.)* `VerifyEmailBanner.tsx` used to show a verify-email notice on every screen. Accounts can no longer be signed in before their email is verified, so the banner was deleted: see [email-verification-before-sign-in.md](email-verification-before-sign-in.md).
 - Shared table, stat tile, breadcrumb and form styles live in `styles/dashboard.css`. Data tables turn into stacked cards on phones, and no screen scrolls sideways at 360 px.
 
 **9. Tests.**
