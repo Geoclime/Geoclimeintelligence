@@ -41,4 +41,8 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
     await this.repo.update({ id }, patch);
     return this.findById(id);
   }
+
+  hasAnyAdministrator(): Promise<boolean> {
+    return this.repo.existsBy({ role: "administrator" });
+  }
 }

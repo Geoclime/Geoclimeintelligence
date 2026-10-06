@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { DataSource } from "typeorm";
 import { env } from "./env";
+import { AdminUnit } from "../modules/admin-units/admin-unit.entity";
+import { Country } from "../modules/admin-units/country.entity";
+import { DataSourceRecord } from "../modules/data-sources/data-source.entity";
+import { ImportRun, ImportStagingRow } from "../modules/data-sources/imports/import-run.entity";
 import { Role } from "../modules/users/role.entity";
 import { User } from "../modules/users/user.entity";
 
@@ -29,7 +33,7 @@ export const AppDataSource = new DataSource({
         ...(env.DATABASE_SSL_CA ? { ca: readFileSync(env.DATABASE_SSL_CA, "utf8") } : {}),
       }
     : false,
-  entities: [Role, User],
+  entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow],
   migrations: [path.join(__dirname, "..", "migrations", "*.ts")],
   // Schema changes only ever happen through migrations -- never auto-sync.
   synchronize: false,

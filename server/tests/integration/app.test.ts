@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../src/app";
 import { AuthService } from "../../src/modules/auth/auth.service";
 import { UserService } from "../../src/modules/users/user.service";
-import { FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
+import { fakeRegions, FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
 
 // Drives the real Express app -- real middleware order, routers, validation and error
 // handler -- with the database and Firebase swapped for in-memory fakes.
@@ -18,7 +18,7 @@ beforeEach(() => {
   const authService = new AuthService(repo, new FakeTokenVerifier());
   verifySpy = vi.spyOn(authService, "verifyToken");
   vi.spyOn(AuthService, "Instance", "get").mockReturnValue(authService);
-  vi.spyOn(UserService, "Instance", "get").mockReturnValue(new UserService(repo));
+  vi.spyOn(UserService, "Instance", "get").mockReturnValue(new UserService(repo, fakeRegions(["11111111-1111-4111-8111-111111111111"])));
 });
 
 afterEach(() => {

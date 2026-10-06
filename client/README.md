@@ -6,8 +6,9 @@ React 19 + TypeScript + Vite, with Firebase Authentication for sign-in and the A
 Disaster Platform*. Per-feature explanations live in [`../docs/features/`](../docs/features/). Start with
 [`phase-1-client.md`](../docs/features/phase-1-client.md).
 
-**Status:** Phase 1 (Foundation & Authentication) is done: sign-in, sign-up, password reset, the
-Overview page, and Administrator user management.
+**Status:** Phase 1 (sign-in, sign-up, password reset, account page, Administrator user management) and Phase 2
+(dashboard sidebar, home map, Places, admin Countries and Imports) are done. See
+[`admin-geography.md`](../docs/features/admin-geography.md).
 
 ## Prerequisites
 
@@ -20,15 +21,17 @@ Overview page, and Administrator user management.
 ```bash
 cd client
 npm install
-cp .env.example .env     # then fill in VITE_API_URL and the Firebase web config
+cp .env.example .env     # then fill in VITE_API_URL, the Firebase web config and VITE_MAPBOX_TOKEN
 npm run dev              # http://localhost:5173
 ```
 
-Missing or invalid settings show a "This app isn't configured yet" screen that lists them. See
+Without `VITE_MAPBOX_TOKEN` the app still runs and maps show a "Map unavailable" notice. Missing or invalid
+required settings show a "This app isn't configured yet" screen that lists them. See
 [`docs/features/client-architecture.md`](../docs/features/client-architecture.md).
 
-To make yourself an Administrator: create an account in the app, then follow "Your first administrator"
-in the server README and reload.
+To make yourself an Administrator: create an account in the app, click the verification link in the email
+(new accounts can't sign in until they do), sign in, then follow "Your first administrator" in the server
+README and reload. See [`docs/features/email-verification-before-sign-in.md`](../docs/features/email-verification-before-sign-in.md).
 
 The verification and password-reset emails are Firebase templates, configured in the Firebase console. Apply
 the settings in [`docs/features/auth-email-templates.md`](../docs/features/auth-email-templates.md) to any new
@@ -67,10 +70,13 @@ src/
   contexts/                       # AuthContext, ThemeContext, ToastContext
   components/
     shared/                       # Button, TextField, Modal, Toast, states, Pagination…
-    layout/                       # AppShell, AuthLayout, UserMenu, ThemeToggle
+    layout/                       # AppShell, Sidebar, AuthLayout, UserMenu, ThemeToggle
     routing/                      # RequireAuth, GuestOnly, RequireRole
     users/                        # RoleBadge, UserTable, UserAccessDialog
-  pages/                          # auth/, home/, admin/, NotFound, RouteError
+    map/                          # ClimateMap, boundary layers, LayerToggle, MapLegend, popups, SourceBadge
+    countries/, imports/          # admin forms, tables and the import review pieces
+  pages/                          # auth/, map/, places/, account/, admin/ (users, countries, imports)
+  cache/localCache.ts             # 15-minute in-memory cache for reference data
   types/, utils/, styles/
 cypress/                          # e2e specs, support commands, fixtures
 ```

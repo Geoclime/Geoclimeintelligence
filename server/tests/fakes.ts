@@ -69,14 +69,28 @@ export class InMemoryUserRepository implements IUserRepository {
     Object.assign(user, patch);
     return user;
   }
+
+  async hasAnyAdministrator() {
+    return [...this.rows.values()].some((u) => u.role === "administrator");
+  }
 }
 
-/** Accepts tokens of the form "valid:<uid>"; rejects everything else the way Firebase does. */
+/** Stands in for admin_units when a service only asks "does this area exist?". */
+export function fakeRegions(knownIds: string[] = []) {
+  const ids = new Set(knownIds);
+  return { exists: async (id: string) => ids.has(id) };
+}
+
+/**
+ * Accepts tokens of the form "valid:<uid>" (email verified) or "unverified:<uid>"; rejects
+ * everything else the way Firebase does. The email is always "<uid>@example.test".
+ */
 export class FakeTokenVerifier implements TokenVerifier {
   async verify(idToken: string): Promise<VerifiedIdentity> {
-    if (idToken.startsWith("valid:")) {
-      const uid = idToken.slice("valid:".length);
-      return { uid, email: `${uid}@example.test`, name: null };
+    const match = /^(valid|unverified):(.+)$/.exec(idToken);
+    if (match) {
+      const uid = match[2]!;
+      return { uid, email: `${uid}@example.test`, emailVerified: match[1] === "valid", name: null };
     }
     throw Object.assign(new Error("Decoding Firebase ID token failed"), { code: "auth/argument-error" });
   }

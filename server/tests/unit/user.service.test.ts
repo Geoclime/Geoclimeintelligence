@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../src/common/errors/app-error";
 import { UserService } from "../../src/modules/users/user.service";
-import { asAuthUser, InMemoryUserRepository, makeUser } from "../fakes";
+import { asAuthUser, fakeRegions, InMemoryUserRepository, makeUser } from "../fakes";
 
 const ADMIN_UNIT = "11111111-1111-4111-8111-111111111111";
 
@@ -9,7 +9,7 @@ function setup() {
   const admin = makeUser({ role: "administrator" });
   const target = makeUser();
   const repo = new InMemoryUserRepository([admin, target]);
-  return { service: new UserService(repo), admin: asAuthUser(admin), target };
+  return { service: new UserService(repo, fakeRegions([ADMIN_UNIT])), admin: asAuthUser(admin), target };
 }
 
 describe("UserService.updateAccess", () => {
@@ -54,5 +54,14 @@ describe("UserService.updateAccess", () => {
     await expect(
       service.updateAccess(target.id, { role: "administrator", scopeAdminUnitId: null }, admin),
     ).resolves.toMatchObject({ role: "administrator", scopeAdminUnitId: null });
+  });
+});
+
+describe("UserService.updateAccess: region scopes must be real areas", () => {
+  it("rejects a scope that is not an admin unit", async () => {
+    const { service, admin, target } = setup();
+    await expect(
+      service.updateAccess(target.id, { role: "emergency_responder", scopeAdminUnitId: "22222222-2222-4222-8222-222222222222" }, admin),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });

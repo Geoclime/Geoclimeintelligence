@@ -1,8 +1,10 @@
 import type { AuthUser } from "../../common/access/auth-user";
 import { assertScopeAllowedForRole } from "../../common/access/roles";
-import { ForbiddenError, NotFoundError } from "../../common/errors/app-error";
+import { ForbiddenError, NotFoundError, ValidationError } from "../../common/errors/app-error";
 import type { OffsetPageQuery } from "../../common/pagination/pagination";
 import type { PageMeta } from "../../common/response/api-response";
+import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
+import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
 import { UserRepository } from "./user.repository";
 import { toUserDto, type IUserRepository, type UserDto } from "./user.types";
 import type { UpdateUserAccessBody } from "./user.validation";
@@ -15,11 +17,14 @@ import type { UpdateUserAccessBody } from "./user.validation";
 export class UserService {
   private static _instance?: UserService;
   static get Instance(): UserService {
-    return (this._instance ??= new UserService(UserRepository.Instance));
+    return (this._instance ??= new UserService(UserRepository.Instance, AdminUnitRepository.Instance));
   }
 
-  // Public so tests can inject a fake repository; application code always uses .Instance.
-  constructor(private readonly users: IUserRepository) {}
+  // Public so tests can inject fakes; application code always uses .Instance.
+  constructor(
+    private readonly users: IUserRepository,
+    private readonly regions: Pick<IAdminUnitRepository, "exists">,
+  ) {}
 
   async getById(id: string): Promise<UserDto> {
     const user = await this.users.findById(id);
@@ -44,8 +49,10 @@ export class UserService {
     const role = input.role ?? target.role;
     const scopeAdminUnitId = input.scopeAdminUnitId !== undefined ? input.scopeAdminUnitId : target.scopeAdminUnitId;
     assertScopeAllowedForRole(role, scopeAdminUnitId);
-    // TODO(Phase 2): reject a scopeAdminUnitId that isn't a real admin_units row (404), and add
-    // the users.scope_admin_unit_id -> admin_units.id FK in the Phase 2 migration.
+    // A scope must be a real area. The users.scope_admin_unit_id foreign key is the second gate.
+    if (scopeAdminUnitId !== null && !(await this.regions.exists(scopeAdminUnitId))) {
+      throw new ValidationError([{ field: "scopeAdminUnitId", message: "No area with this id exists" }]);
+    }
 
     const updated = await this.users.updateAccess(id, { role, scopeAdminUnitId });
     if (!updated) throw new NotFoundError("User");

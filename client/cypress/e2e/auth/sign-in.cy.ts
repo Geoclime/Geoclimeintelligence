@@ -14,10 +14,9 @@ describe("Signing in", () => {
 
     cy.wait("@getMe").its("request.headers.authorization").should("eq", "Bearer e2e-id-token");
     cy.location("pathname").should("eq", "/");
-    cy.dataCy("home-page").should("be.visible");
-    cy.dataCy("access-summary").within(() => {
-      cy.dataCy("role-badge").should("have.text", "General Public");
-    });
+    cy.dataCy("map-page").should("be.visible");
+    cy.dataCy("user-menu-trigger").click();
+    cy.dataCy("user-menu").find('[data-cy="role-badge"]').should("have.text", "General Public");
   });
 
   it("returns the user to the page they originally asked for", () => {
@@ -48,6 +47,23 @@ describe("Signing in", () => {
     cy.dataCy("password").type("wrong-password");
     cy.dataCy("submit").click();
     cy.dataCy("form-error").should("contain", "don't match an account");
+    cy.location("pathname").should("eq", "/sign-in");
+  });
+
+  it("keeps an account with an unverified email signed out and offers to resend the link", () => {
+    cy.interceptApi("GET", "/auth/me", { data: buildUser({ role: "general_public" }) }).as("getMe");
+    cy.visit("/sign-in");
+    cy.dataCy("email").type("unverified@example.com");
+    cy.dataCy("password").type("a-good-password");
+    cy.dataCy("submit").click();
+
+    cy.dataCy("verify-email-notice").should("contain", "Verify your email");
+    cy.location("pathname").should("eq", "/sign-in");
+    cy.dataCy("map-page").should("not.exist");
+    cy.get("@getMe.all").should("have.length", 0);
+
+    cy.dataCy("resend-verification").click();
+    cy.dataCy("toast-success").should("contain", "unverified@example.com");
     cy.location("pathname").should("eq", "/sign-in");
   });
 

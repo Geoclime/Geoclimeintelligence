@@ -56,9 +56,16 @@ describe("RegionAccess.scope", () => {
   });
 });
 
-describe("RegionAccess.Instance (Phase 1 placeholder hierarchy)", () => {
-  it("fails closed: a scoped user is denied descendants until Phase 2 wires in admin_units", async () => {
-    await expect(RegionAccess.Instance.assert(lgaResponder, LGA)).resolves.toBeUndefined();
-    await expect(RegionAccess.Instance.assert(lgaResponder, WARD)).rejects.toBeInstanceOf(ForbiddenError);
+describe("a scope that points at no real area", () => {
+  // subtreeIds() of a missing root is empty, so the stale scope matches nothing.
+  const emptyHierarchy: RegionHierarchy = {
+    isDescendantOrSelf: async () => false,
+    subtreeIds: async () => [],
+  };
+  const staleAccess = new RegionAccess(emptyHierarchy);
+
+  it("fails closed for single records and lists", async () => {
+    await expect(staleAccess.assert(lgaResponder, LGA)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(staleAccess.scope({ page: 1 }, lgaResponder)).resolves.toEqual({ page: 1, scopeAdminUnitIds: [] });
   });
 });

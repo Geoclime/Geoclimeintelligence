@@ -4,6 +4,8 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 
 ## Suggested reading order
 
+**Want to try it rather than read about it?** [user-stories.md](user-stories.md) walks through everything built so far as user stories, with steps to follow in the running app and what you should see.
+
 **Start here**
 1. [architecture.md](architecture.md): the big picture. Layers, folders, and how a request flows through the code.
 2. [phase-1-authentication.md](phase-1-authentication.md): Phase 1 end to end, including how sign-in with Firebase works.
@@ -22,21 +24,27 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 11. [testing.md](testing.md): running and writing tests.
 12. [postman-collection.md](postman-collection.md): trying the API by hand.
 
+**Phase 2: Admin Geography**
+13. [admin-geography.md](admin-geography.md): countries, the state, LGAs and wards, map layers, point-in-polygon, region scoping on real areas, and the first-administrator setting.
+14. [data-import.md](data-import.md): the import pipeline (file, staging, checks, promote), and how the real Rivers State files were loaded.
+
 **Deployment**
-13. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
+15. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
 
 ## Web client ([`client/`](../client/))
 
 Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engineering Standards*. They use the same four parts.
 
-14. [features/phase-1-client.md](features/phase-1-client.md): the client's Phase 1 overview. Start here for the frontend.
-15. [features/client-architecture.md](features/client-architecture.md): layers, folders, configuration, and the lint rules that enforce the standard.
-16. [features/signing-in-with-firebase.md](features/signing-in-with-firebase.md): sign-in, sign-up, password reset, `AuthContext` and the route guards.
-17. [features/ui-foundations.md](features/ui-foundations.md): design tokens, light/dark theme, shared components, Modal and toasts.
-18. [features/admin-user-management-ui.md](features/admin-user-management-ui.md): the Administrator Users page.
-19. [features/client-testing.md](features/client-testing.md): unit tests and the offline Cypress suite.
-20. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
-21. [features/auth-email-templates.md](features/auth-email-templates.md): the verification and password-reset emails, and the Firebase console settings behind them.
+16. [features/phase-1-client.md](features/phase-1-client.md): the client's Phase 1 overview. Start here for the frontend.
+17. [features/client-architecture.md](features/client-architecture.md): layers, folders, configuration, and the lint rules that enforce the standard.
+18. [features/signing-in-with-firebase.md](features/signing-in-with-firebase.md): sign-in, sign-up, password reset, `AuthContext` and the route guards.
+19. [features/ui-foundations.md](features/ui-foundations.md): design tokens, light/dark theme, shared components, Modal and toasts.
+20. [features/admin-user-management-ui.md](features/admin-user-management-ui.md): the Administrator Users page.
+21. [features/client-testing.md](features/client-testing.md): unit tests and the offline Cypress suite.
+22. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
+23. [features/auth-email-templates.md](features/auth-email-templates.md): the verification and password-reset emails, and the Firebase console settings behind them.
+24. [features/admin-geography.md](features/admin-geography.md): Phase 2 on the client: the dashboard sidebar and top bar, the home map, Places, and the admin Countries and Imports screens.
+25. [features/email-verification-before-sign-in.md](features/email-verification-before-sign-in.md): new accounts aren't signed in until their email is verified.
 
 ## Adding a new doc
 

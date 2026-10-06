@@ -12,6 +12,9 @@ export class IdentityError extends Error {
   }
 }
 
+/** Our own code (not Firebase's): the password was right, but the email isn't verified yet. */
+export const EMAIL_NOT_VERIFIED = "app/email-not-verified";
+
 // Firebase Auth error codes: https://firebase.google.com/docs/reference/js/auth#autherrorcodes
 // Wrong email and wrong password deliberately share one message (and Firebase's email
 // enumeration protection already merges them into auth/invalid-credential), so the form never
@@ -30,6 +33,7 @@ const MESSAGES: Record<string, string> = {
   "auth/network-request-failed": "We couldn't reach the sign-in service. Check your connection.",
   "auth/operation-not-allowed": "Email sign-in isn't enabled for this project yet.",
   "auth/requires-recent-login": "For your security, sign in again before doing that.",
+  [EMAIL_NOT_VERIFIED]: "Verify your email address to sign in. We sent a link to your inbox when you created the account.",
 };
 
 export function identityErrorFromCode(code: string): IdentityError {

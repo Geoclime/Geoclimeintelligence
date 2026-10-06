@@ -38,7 +38,7 @@ Content-Type: application/json
 { "role": "emergency_responder", "scopeAdminUnitId": "3f1c2b8e-5a4d-4e6f-9b7a-1c2d3e4f5a6b" }
 ```
 
-**The first Administrator.** Nobody can use the API to promote the first admin, because nobody is an admin yet. [`src/scripts/set-user-access.ts`](../server/src/scripts/set-user-access.ts) does it directly in the database:
+**The first Administrator.** Nobody can use the API to promote the first admin, because nobody is an admin yet. Since Phase 2 the simplest way is the `BOOTSTRAP_ADMIN_EMAIL` setting in `server/.env`. When that email signs in with a **verified** Firebase email while the platform has **no administrator**, its account becomes one. Once any administrator exists the setting does nothing (details in [admin-geography.md](admin-geography.md)). The command-line script below still works, for recovery or if you'd rather not use the setting. [`src/scripts/set-user-access.ts`](../server/src/scripts/set-user-access.ts) does it directly in the database:
 
 ```bash
 # 1. Sign up (Postman "Auth → Firebase: sign up", or the client app)
@@ -53,7 +53,7 @@ The script checks its arguments with Zod and applies the same "scope must suit t
 **Tests:** [`tests/unit/user.service.test.ts`](../server/tests/unit/user.service.test.ts) covers promotion, self-change refused, unknown user, scope on the wrong role, and the inherited-scope case. [`tests/integration/app.test.ts`](../server/tests/integration/app.test.ts) covers the full HTTP path: listing with `meta`, `403` for non-admins, field-level `400`s, and rejection of unknown body fields.
 
 **Flagged for the team (NEEDS VERIFICATION):**
-- `scopeAdminUnitId` accepts any well-formed UUID today, because the `admin_units` table doesn't exist until Phase 2. Phase 2 must reject unknown ids with `404` and add the foreign key; there's a `TODO(Phase 2)` in `user.service.ts`.
+- Phase 2 done: `scopeAdminUnitId` must be a real admin unit. An unknown id gets a field-level `400` (`scopeAdminUnitId: No area with this id exists`) from `UserService`, the `users` → `admin_units` foreign key backs that up, and the script checks it too.
 - There's no audit log of who changed whose access, or when. Decide whether one is needed before real staff accounts are managed.
 - There's no endpoint to delete or deactivate an account. Firebase accounts can be disabled in the Firebase console; decide whether the API needs its own version.
 

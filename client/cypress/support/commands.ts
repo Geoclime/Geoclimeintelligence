@@ -20,7 +20,6 @@ export type StubResponse =
 
 interface LoginOptions {
   user?: Partial<StubUser>;
-  emailVerified?: boolean;
 }
 
 declare global {
@@ -69,7 +68,7 @@ Cypress.Commands.add("interceptApi", (method, path, response, matcher = {}) => {
 
 Cypress.Commands.add("login", (role: Role = "general_public", options: LoginOptions = {}) => {
   const user = buildUser({ n: 9000, role, email: `${role}@example.com`, ...options.user });
-  const session = { uid: user.firebaseUid, email: user.email, emailVerified: options.emailVerified ?? true };
+  const session = { uid: user.firebaseUid, email: user.email };
   cy.on("window:before:load", (win) => {
     win.localStorage.setItem(E2E_SESSION_KEY, JSON.stringify(session));
   });

@@ -40,10 +40,16 @@ That saves Firebase's ID token into `{{accessToken}}`. The whole collection is s
 | Users | `GET /api/v1/users` | 200, 400, 401, 403, 500 |
 | Users | `GET /api/v1/users/:id` | 200, 400, 401, 403, 404, 500 |
 | Users | `PATCH /api/v1/users/:id/access` | 200, three kinds of 400, 401, two kinds of 403, 404, 500 |
+| Admin Geography › Countries | `GET /countries`, `GET /countries/:code`, `POST /countries`, `PATCH /countries/:code`, `DELETE /countries/:code` | 200/201, 400, 401, 403, 404, 409 (duplicate code; delete refused because the country holds areas), 500 |
+| Admin Geography › Admin units | list, get, children, map layer (`/geojson`), locate | 200, 400 (incl. map layer with no bbox), 401, 404 (incl. a point in Lagos, outside Rivers State), 500 |
+| Admin Geography › Data sources | `GET /data-sources`, `POST /data-sources` | 200/201, 400, 403 |
+| Admin Geography › Imports | template download, preview, start, list, get run, run map, promote | 200/201, 400 (no file, not an importable file), 403 (non-admin), 404, 409 (already promoted), 422 (unknown data source), 500 |
+
+The Admin Geography examples are real replies. They were captured from the app running against a scratch PostGIS database loaded with the actual Rivers State files; only Firebase token checks were stubbed. Upload requests use Postman's *form-data* body: pick the file from the `ClimateSoftware` folder in the `file` row. The environment has four new variables. `countryCode` defaults to `NGA`. `dataSourceId`, `importRunId` and `adminUnitId` are filled in by the post-response scripts on "Add data source", "Start an import" and "List admin units".
 
 The example responses weren't written from memory. They were captured by running each request against the real Express app with in-memory fakes in place of the database and Firebase, as standard section 14 requires. The status codes come from walking each route's middleware and every error its service can throw.
 
-**A typical first session:** sign up, then `GET /auth/me` (this creates your user row), then promote yourself with the script in [user-management.md](user-management.md), then try the Users folder.
+**A typical first session:** sign up, then `GET /auth/me` (this creates your user row), then become an administrator (the `BOOTSTRAP_ADMIN_EMAIL` setting or the script, both in [user-management.md](user-management.md)), then try the Users folder. For Phase 2, follow the loading order in [data-import.md](data-import.md): create Nigeria, add the sources, then import and promote level 1, 2 and 3.
 
 **Keeping it up to date:** every new endpoint gets a request in its module's folder, with one example per possible status code (standard section 12, step 9). Folders mirror `src/modules/`.
 
