@@ -5,12 +5,14 @@ Node.js + TypeScript (strict) + Express 5 + TypeORM + PostgreSQL, with identity 
 Firebase Authentication. It follows *Backend Engineering Standards — Climate & Disaster
 Platform*. Per-feature explanations live in [`../docs/`](../docs/). Start with the [docs index](../docs/README.md).
 
-**Status:** Phase 1 (Foundation & Authentication) is done. See [`docs/phase-1-authentication.md`](../docs/phase-1-authentication.md).
+**Status:** Phase 1 (Foundation & Authentication) and Phase 2 (Admin Geography) are done. See
+[`docs/phase-1-authentication.md`](../docs/phase-1-authentication.md), [`docs/admin-geography.md`](../docs/admin-geography.md)
+and [`docs/data-import.md`](../docs/data-import.md).
 
 ## Prerequisites
 
 - Node.js 20.19+ or 22.13+
-- PostgreSQL 13+ (PostGIS is needed from Phase 2 onwards)
+- PostgreSQL 15+ with the PostGIS extension available (the Phase 2 migrations run `CREATE EXTENSION postgis` and use `NULLS NOT DISTINCT`)
 - A Firebase project with the **Email/Password** sign-in provider enabled
 
 ## Setup
@@ -19,7 +21,7 @@ Platform*. Per-feature explanations live in [`../docs/`](../docs/). Start with t
 cd server
 npm install
 cp .env.example .env        # then fill in DATABASE_URL and FIREBASE_PROJECT_ID
-npm run migration:run       # creates the roles and users tables
+npm run migration:run       # roles/users, then PostGIS, data_sources, countries, admin_units and the import tables
 npm run dev                 # http://localhost:4000, restarts on file changes
 ```
 
@@ -34,6 +36,10 @@ tokens needs nothing else: no service-account key.
 The API deploys to Render from [`../render.yaml`](../render.yaml): see [`docs/deployment-render.md`](../docs/deployment-render.md).
 
 ## Your first administrator
+
+Easiest (Phase 2): put your email in `server/.env` as `BOOTSTRAP_ADMIN_EMAIL`, sign up in the client app,
+verify your email, and sign in again. While the platform has no administrator, that verified account becomes
+one. See [`docs/user-management.md`](../docs/user-management.md). Or, from the command line:
 
 Every account starts as `general_public`, so bootstrap the first admin from the command line:
 
@@ -82,6 +88,8 @@ src/
   modules/
     auth/                # token verification, GET /auth/me
     users/               # User/Role entities, admin user management
+    admin-units/         # countries, admin_units (state/LGA/ward), map layers, locate
+    data-sources/        # data_sources; imports/ is the file -> staging -> checks -> promote pipeline
   migrations/
   scripts/
 tests/                   # vitest, with in-memory fakes in tests/fakes.ts

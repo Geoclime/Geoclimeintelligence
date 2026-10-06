@@ -24,10 +24,10 @@ interface CountryFormProps {
 
 const MAX_LEVELS = 6;
 const BBOX_FIELDS = [
-  ["minLon", "West (min longitude)"],
-  ["minLat", "South (min latitude)"],
-  ["maxLon", "East (max longitude)"],
-  ["maxLat", "North (max latitude)"],
+  ["minLon", "West edge (longitude)"],
+  ["minLat", "South edge (latitude)"],
+  ["maxLon", "East edge (longitude)"],
+  ["maxLat", "North edge (latitude)"],
 ] as const;
 
 /**
@@ -169,8 +169,10 @@ export function CountryForm({ country, onSubmit, onCancel }: CountryFormProps) {
           Rough bounding box (optional)
         </h2>
         <p className="form-section__lead">
-          Imported shapes outside this box fail their checks, which catches latitude and longitude swapped or the wrong
-          country. Decimal degrees, WGS84. A generous box for Nigeria is West 2.5, South 4.0, East 14.8, North 14.0.
+          A rectangle drawn around the country on the map, given as its four edges in degrees. Every imported shape must
+          sit inside it, so a shape with a mistyped coordinate, a missing minus sign, or from another country is stopped
+          before it goes live. It doesn't need to be exact. For Nigeria, type West 2.5, South 4.0, East 14.8, North 14.0.
+          Leave all four empty to skip this check.
         </p>
         <div className="form-grid form-grid--4">
           {BBOX_FIELDS.map(([key, label]) => (

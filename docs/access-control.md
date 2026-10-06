@@ -34,15 +34,15 @@ If `req.user.role` isn't in the list, the request stops with `403 Your role is n
 
 The region check lives in the service, not the route, because it needs to know *which* record is involved and needs a database lookup to walk the region tree.
 
-**4. The Phase 1 stand-in: it fails closed.** Knowing that "Ward X is inside LGA Y" needs the `admin_units` table, which arrives in Phase 2. Until then, `RegionAccess` uses `SelfOnlyRegionHierarchy`, which treats a region as containing only itself. A responder scoped to an LGA would be *refused* for a ward inside it, never wrongly *allowed* somewhere else. It errs toward saying no. **Phase 2 must replace it** with an `AdminUnitRepository` that walks `admin_units.parent_id`. Services don't change, because they talk to the `RegionHierarchy` interface. [`tests/unit/region-access.test.ts`](../server/tests/unit/region-access.test.ts) already tests the real behaviour against a small made-up tree (state → LGA → ward), and it also checks that the stand-in fails closed.
+**4. The region tree (Phase 2).** Knowing that "Ward X is inside LGA Y" needs the `admin_units` table. Since Phase 2, `RegionAccess` uses `AdminUnitRepository` as its hierarchy: recursive queries walk `admin_units.parent_id` up (`isDescendantOrSelf`) and down (`subtreeIds`). A responder scoped to an LGA can therefore act on that LGA's wards. Phase 1's stand-in, which treated a region as containing only itself, is gone; services didn't change, because they talk to the `RegionHierarchy` interface. A scope pointing at an area that doesn't exist still fails closed: its subtree is empty, so it matches nothing. [`tests/unit/region-access.test.ts`](../server/tests/unit/region-access.test.ts) tests the behaviour against a small made-up tree (state → LGA → ward) and the stale-scope case. See [admin-geography.md](admin-geography.md).
 
 **5. Who may be scoped: enforced twice.** Only Emergency Responders and Government Officials may have a region. `assertScopeAllowedForRole` in `roles.ts` rejects anything else with a `400`, and the database has a `CHECK` constraint (`ck_users_scope_only_for_staff`) with the same rule. The API and the admin script both call the code check, and the database catches anything that slips past.
 
 **Current state, honestly:** no Phase 1 endpoint uses the region check yet, because there's no region-tagged data to protect. The only protected routes are the Administrator-only user-management routes. Administrators are never scoped, so the region check doesn't apply to them; that's the documented exception in AI rule 9. Phase 4 (disaster events) is the first real user of `assertRegionAccess` and `applyRegionScope`.
 
 **Flagged for the team (NEEDS VERIFICATION):**
-- Should a staff promotion require the person's email to be verified in Firebase first? Right now it doesn't.
-- `scopeAdminUnitId` isn't yet checked against real admin units; Phase 2 adds that.
+- Should a staff promotion require the person's email to be verified in Firebase first? Right now it doesn't. (The Phase 2 first-administrator setting does require it.)
+- Phase 2 done: `scopeAdminUnitId` must now be a real admin unit, checked by `UserService` (`400`) and by the `fk_users_scope_admin_unit` foreign key (`ON DELETE RESTRICT`, so deleting an area can never widen anyone's access).
 
 ## Resources to read
 
@@ -50,8 +50,8 @@ The region check lives in the service, not the route, because it needs to know *
 - OWASP authorisation guide ("deny by default"): https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html
 - Express middleware (how `authorise` plugs into a route): https://expressjs.com/en/guide/using-middleware.html
 - PostgreSQL CHECK constraints: https://www.postgresql.org/docs/current/ddl-constraints.html
-- Recursive queries (what Phase 2 will use to walk the region tree): https://www.postgresql.org/docs/current/queries-with.html
+- Recursive queries (how the region tree is walked): https://www.postgresql.org/docs/current/queries-with.html
 
 ## Explain it like I'm new to this
 
-Think of a hospital. Your job title (role) decides which *kinds* of rooms you may enter: a visitor can go to the waiting area, a nurse can go on wards, and the hospital director can go anywhere. A guard at each door checks your title, and that's `authorise`. Some staff are also assigned to one wing: a nurse on the East Wing can enter any ward *in the East Wing*, but not the West Wing's wards. That's region scoping. It's checked by the person handling your specific request, because only they know which ward the patient is in. Right now the hospital's floor plan (the list of which wards belong to which wing) hasn't been delivered; that's Phase 2. Until it arrives, the rule is strict: an East Wing nurse can only enter a room literally labelled "East Wing". That's annoying, but it can never let anyone into the wrong wing.
+Think of a hospital. Your job title (role) decides which *kinds* of rooms you may enter: a visitor can go to the waiting area, a nurse can go on wards, and the hospital director can go anywhere. A guard at each door checks your title, and that's `authorise`. Some staff are also assigned to one wing: a nurse on the East Wing can enter any ward *in the East Wing*, but not the West Wing's wards. That's region scoping. It's checked by the person handling your specific request, because only they know which ward the patient is in. To know which wards belong to which wing, they consult the hospital's floor plan, which is the `admin_units` table, delivered in Phase 2. If a nurse's badge names a wing that isn't on the plan, they're let in nowhere: an unknown wing never means "everywhere".

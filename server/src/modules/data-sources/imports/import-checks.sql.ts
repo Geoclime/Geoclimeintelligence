@@ -33,7 +33,7 @@ export const GEOMETRY_CHECKS: readonly GeometryCheck[] = [
       SET errors = errors || format('The shape must be a Polygon or MultiPolygon, not a %s', GeometryType(geom)), geom = NULL
     WHERE run_id = $1 AND geom IS NOT NULL AND GeometryType(geom) NOT IN ('POLYGON', 'MULTIPOLYGON')` },
 
-  // 4. Real coordinates (catches latitude/longitude swapped far enough to leave the globe).
+  // 4. Real coordinates (catches values that are not degrees at all, e.g. a projected CRS in metres).
   { sql: `UPDATE import_staging_rows
       SET errors = errors || 'The shape has coordinates outside longitude -180 to 180 or latitude -90 to 90'::text, geom = NULL
     WHERE run_id = $1 AND geom IS NOT NULL
@@ -53,7 +53,7 @@ export const GEOMETRY_CHECKS: readonly GeometryCheck[] = [
 
   // 7. Inside the country's rough box (skipped when the country has none).
   { sql: `UPDATE import_staging_rows
-      SET errors = errors || format('The shape lies outside %s''s bounding box (latitude and longitude swapped, or the wrong country?)', $2::text)
+      SET errors = errors || format('The shape lies outside %s''s bounding box. Check its coordinates: a typo, a missing minus sign, or a shape from another country?', $2::text)
     WHERE run_id = $1 AND geom IS NOT NULL AND $3::float8[] IS NOT NULL
       AND NOT ST_Within(geom, ST_MakeEnvelope(($3::float8[])[1], ($3::float8[])[2], ($3::float8[])[3], ($3::float8[])[4], 4326))`,
     withBBox: true },

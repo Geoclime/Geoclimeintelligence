@@ -12,7 +12,7 @@ Two client changes go with it:
 
 **Who sends these emails.** Firebase Authentication sends both of them, not our backend (standard section 15 keeps verify-email and reset-password on Firebase). The client only asks for them:
 - Sign-up: [`SignUpPage.tsx`](../../client/src/pages/auth/SignUpPage.tsx) → `signUp` in [`transport/firebase-identity.ts`](../../client/src/transport/firebase-identity.ts) → Firebase's `sendEmailVerification`.
-- *Resend link* on the Overview: [`HomePage.tsx`](../../client/src/pages/home/HomePage.tsx) → the same file's `sendEmailVerification`.
+- *Resend link* in the verify-email banner shown on every signed-in screen: [`VerifyEmailBanner.tsx`](../../client/src/components/layout/VerifyEmailBanner.tsx) → `sendEmailVerification` from `useAuth()`.
 - Forgot password: [`ForgotPasswordPage.tsx`](../../client/src/pages/auth/ForgotPasswordPage.tsx) → `sendPasswordReset` → Firebase's `sendPasswordResetEmail`.
 
 The text of the emails therefore lives in the **Firebase console**, not in our code. Firebase lets you edit a template's sender name, sender address, reply-to address and subject. It lets you edit the **message itself only for the password-reset email**. The verification email's body is fixed by Firebase. That body ends with "Your %APP_NAME% team", where `%APP_NAME%` is the project's *Public-facing name*, so setting that name is what fixes it.
