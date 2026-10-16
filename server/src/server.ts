@@ -7,6 +7,9 @@ import { logger } from "./config/logger";
 async function main() {
   await AppDataSource.initialize();
   logger.info("Database connected");
+  if (env.NODE_ENV === "production" && !env.AI_KEYS_SECRET) {
+    logger.warn("AI_KEYS_SECRET is not set: AI provider keys cannot be saved, so AI features are off");
+  }
 
   const server = createApp().listen(env.PORT, () => {
     logger.info(`API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);

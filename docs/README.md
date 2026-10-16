@@ -29,6 +29,9 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 14. [data-import.md](data-import.md): the import pipeline (file, staging, checks, promote), and how the real Rivers State files were loaded.
 15. [user-profiles.md](user-profiles.md): profile details (phone, organisation, job title), `PATCH /api/v1/auth/me`, and searching and filtering the user list.
 
+**AI**
+- [ai-integration.md](ai-integration.md): the foundation for AI features. The provider contract, key encryption, error mapping and `AiService` skeleton, and what comes next.
+
 **Deployment**
 16. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
 

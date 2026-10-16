@@ -31,6 +31,16 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
     ),
+  // Encrypts stored AI provider keys (docs/ai-integration.md). Optional; without it no key can
+  // be saved and AI stays off. Generate with `openssl rand -base64 32`.
+  AI_KEYS_SECRET: z
+    .string()
+    .trim()
+    .default("")
+    .refine((value) => value === "" || value.length >= 32, "AI_KEYS_SECRET must be at least 32 characters"),
+  AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
+  // Only for the very longest generations; everything else uses AI_REQUEST_TIMEOUT_MS.
+  AI_LONG_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(1_200_000),
 });
 
 export type Env = z.infer<typeof envSchema>;
