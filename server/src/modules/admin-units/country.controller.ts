@@ -42,6 +42,16 @@ export class CountryController {
     }
   }
 
+  static async clearLevel(req: Request<{ code: string; level: string }>, res: Response, next: NextFunction) {
+    try {
+      // validate() already turned :level into a number.
+      const { deleted, levelName } = await CountryService.Instance.clearLevel(req.params.code, Number(req.params.level));
+      return res.json(ok({ deleted }, `${deleted} ${levelName} areas cleared`));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async remove(req: Request<{ code: string }>, res: Response, next: NextFunction) {
     try {
       await CountryService.Instance.delete(req.params.code);

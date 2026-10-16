@@ -97,6 +97,19 @@ describe("countries", () => {
     expect((await request(app).get("/api/v1/countries/GHA").set(asAdmin)).status).toBe(404);
   });
 
+  it("clears a level for administrators only, bottom-up", async () => {
+    countries.counts = [
+      { countryCode: "NGA", level: 2, count: 23 },
+      { countryCode: "NGA", level: 3, count: 317 },
+    ];
+    expect((await request(app).delete("/api/v1/countries/NGA/levels/3/areas").set(asMember)).status).toBe(403);
+    expect((await request(app).delete("/api/v1/countries/NGA/levels/2/areas").set(asAdmin)).status).toBe(409);
+    const cleared = await request(app).delete("/api/v1/countries/nga/levels/3/areas").set(asAdmin);
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toEqual({ success: true, data: { deleted: 317 }, message: "317 Ward areas cleared" });
+    expect((await request(app).delete("/api/v1/countries/NGA/levels/9/areas").set(asAdmin)).status).toBe(400);
+  });
+
   it("refuses to delete a country that holds areas", async () => {
     countries.counts = [{ countryCode: "NGA", level: 2, count: 23 }];
     const res = await request(app).delete("/api/v1/countries/NGA").set(asAdmin);

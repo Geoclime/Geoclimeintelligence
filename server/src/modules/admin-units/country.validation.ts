@@ -20,6 +20,10 @@ const countryParams = z.object({ code: countryCodeSchema });
 
 export const getCountrySchema = z.object({ params: countryParams });
 
+export const clearLevelSchema = z.object({
+  params: countryParams.extend({ level: z.coerce.number().int().min(1).max(6) }),
+});
+
 export const createCountrySchema = z.object({
   body: z
     .object({

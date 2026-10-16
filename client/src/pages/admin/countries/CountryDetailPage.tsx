@@ -9,8 +9,9 @@ import { Icon } from "../../../components/shared/Icon";
 import { LoadingSpinner } from "../../../components/shared/LoadingSpinner";
 import { Modal } from "../../../components/shared/Modal";
 import { Pagination } from "../../../components/shared/Pagination";
+import { TextField } from "../../../components/shared/TextField";
 import { useAdminUnits } from "../../../hooks/useAdminUnits";
-import { useCountry, useDeleteCountry } from "../../../hooks/useCountries";
+import { useClearLevel, useCountry, useDeleteCountry } from "../../../hooks/useCountries";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 import { useToast } from "../../../hooks/useToast";
 import { errorMessage } from "../../../transport/api-error";
@@ -34,6 +35,9 @@ export function CountryDetailPage() {
   const { showToast } = useToast();
   const { remove, deleting } = useDeleteCountry();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const { clear, clearing } = useClearLevel();
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [clearConfirmText, setClearConfirmText] = useState("");
   useDocumentTitle(country?.countryName ?? "Country");
 
   if (loading && !country) return <LoadingSpinner message="Loading the country…" />;
@@ -51,6 +55,25 @@ export function CountryDetailPage() {
   const importLink = (lvl: number) => `/admin/imports/new?country=${country.countryCode}&level=${lvl}`;
   const showLevel = (lvl: number) => setSearchParams({ level: String(lvl) });
   const areaTotal = country.levels.reduce((sum, l) => sum + l.unitCount, 0);
+  const childLevel = country.levels.find((l) => l.level === current.level + 1);
+
+  const openClear = () => {
+    setClearConfirmText("");
+    setConfirmingClear(true);
+  };
+
+  const handleClear = async () => {
+    try {
+      const deleted = await clear(country.countryCode, current.level);
+      showToast({ type: "success", message: `${deleted.toLocaleString()} ${current.name} areas cleared.` });
+    } catch (error) {
+      showToast({ type: "error", message: errorMessage(error) });
+    } finally {
+      setConfirmingClear(false);
+      refetch();
+      areas.refetch();
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -129,10 +152,28 @@ export function CountryDetailPage() {
             </h2>
             <p className="card__subtitle">Names and codes only; open one to see its shape.</p>
           </div>
-          <Link to={importLink(current.level)} className={buttonClassName({ variant: "secondary", size: "sm" })}>
-            Import {current.name} areas
-          </Link>
+          <div className="page__actions">
+            <Link to={importLink(current.level)} className={buttonClassName({ variant: "secondary", size: "sm" })}>
+              Import {current.name} areas
+            </Link>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<Icon name="trash" size={16} />}
+              disabled={current.unitCount === 0 || Boolean(childLevel && childLevel.unitCount > 0)}
+              onClick={openClear}
+              data-cy="clear-level"
+            >
+              Clear {current.name} areas
+            </Button>
+          </div>
         </div>
+        {current.unitCount > 0 && childLevel && childLevel.unitCount > 0 && (
+          <p className="muted country-delete-note card__body" data-cy="clear-blocked">
+            To clear the {current.name} areas, clear the {childLevel.unitCount.toLocaleString()} {childLevel.name} areas inside
+            them first. Levels are cleared from the bottom up.
+          </p>
+        )}
         {areas.loading && areas.units.length === 0 ? (
           <LoadingSpinner message="Loading areas…" />
         ) : areas.error ? (
@@ -209,6 +250,43 @@ export function CountryDetailPage() {
           </>
         }
       />
+
+      <Modal
+        open={confirmingClear}
+        title={`Clear all ${current.unitCount.toLocaleString()} ${current.name} areas?`}
+        description={`They disappear from the map, the directory and every page that uses them. This can't be undone; to get them back, import the file again.`}
+        onClose={() => setConfirmingClear(false)}
+        dismissible={!clearing}
+        dataCy="clear-level-dialog"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmingClear(false)} disabled={clearing}>
+              Keep them
+            </Button>
+            <Button
+              variant="danger"
+              loading={clearing}
+              loadingLabel="Clearing…"
+              disabled={clearConfirmText.trim().toLowerCase() !== current.name.toLowerCase()}
+              onClick={() => void handleClear()}
+              data-cy="confirm-clear-level"
+            >
+              Clear {current.name} areas
+            </Button>
+          </>
+        }
+      >
+        <div className="stack">
+          <p>Past imports stay in the history, so you can see where these areas came from.</p>
+          <TextField
+            label={`Type ${current.name} to confirm`}
+            value={clearConfirmText}
+            onChange={(event) => setClearConfirmText(event.target.value)}
+            autoComplete="off"
+            data-cy="clear-level-confirm-input"
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

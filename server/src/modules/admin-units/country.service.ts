@@ -79,6 +79,41 @@ export class CountryService {
       throw new ConflictError(`${existing.countryName} now has areas, so it can't be deleted`);
     }
   }
+
+  /**
+   * Clears one level: deletes every area at that level of the country, so it can be imported
+   * again from scratch. Levels are cleared bottom-up, the reverse of importing: while the level
+   * below has areas, they'd lose their parent, so it's refused (409). So is a level that a user's
+   * region points into, since a missing scope would quietly mean "unrestricted". Past import runs
+   * are kept as history.
+   */
+  async clearLevel(countryCode: string, level: number): Promise<{ deleted: number; levelName: string }> {
+    const existing = await this.countries.findByCode(countryCode);
+    if (!existing) throw new NotFoundError("Country");
+    const levelName = existing.levelNames[level - 1];
+    if (!levelName) throw new NotFoundError("Level");
+
+    const counts = await this.countries.countUnitsByLevel([countryCode]);
+    const countAt = (lvl: number) => counts.find((c) => c.level === lvl)?.count ?? 0;
+    const below = existing.levelNames[level];
+    if (below && countAt(level + 1) > 0) {
+      throw new ConflictError(
+        `Clear the ${below} areas first: ${countAt(level + 1)} of them sit inside these ${levelName} areas and would lose their parent`,
+      );
+    }
+    const scoped = await this.countries.countUsersScopedToLevel(countryCode, level);
+    if (scoped > 0) {
+      throw new ConflictError(
+        `${scoped} ${scoped === 1 ? "user's region is" : "users' regions are"} set to a ${levelName} area. Change ${scoped === 1 ? "it" : "them"} on the Users page first`,
+      );
+    }
+
+    const deleted = await this.countries.deleteLevel(countryCode, level);
+    if (deleted === null || (deleted === 0 && countAt(level) > 0)) {
+      throw new ConflictError(`Something changed while clearing the ${levelName} areas, so nothing was deleted. Reload and try again`);
+    }
+    return { deleted, levelName };
+  }
 }
 
 /** "Nigeria has 341 areas (State 1, LGA 23, Ward 317), so it can't be deleted". */

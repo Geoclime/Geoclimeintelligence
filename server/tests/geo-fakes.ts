@@ -70,6 +70,21 @@ export class InMemoryCountryRepository implements ICountryRepository {
     return this.counts.filter((c) => codes.includes(c.countryCode));
   }
 
+  /** Users scoped to each "CODE|level", for the clear-a-level checks. */
+  scopedUsers = new Map<string, number>();
+
+  async countUsersScopedToLevel(code: string, level: number) {
+    return this.scopedUsers.get(`${code}|${level}`) ?? 0;
+  }
+
+  async deleteLevel(code: string, level: number) {
+    if (this.counts.some((c) => c.countryCode === code && c.level === level + 1 && c.count > 0)) return 0;
+    if ((this.scopedUsers.get(`${code}|${level}`) ?? 0) > 0) return null;
+    const deleted = this.counts.find((c) => c.countryCode === code && c.level === level)?.count ?? 0;
+    this.counts = this.counts.filter((c) => !(c.countryCode === code && c.level === level));
+    return deleted;
+  }
+
   async deleteIfEmpty(code: string) {
     if (this.counts.some((c) => c.countryCode === code && c.count > 0)) return false;
     return this.rows.delete(code);

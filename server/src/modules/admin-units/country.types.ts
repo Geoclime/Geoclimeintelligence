@@ -32,6 +32,14 @@ export interface ICountryRepository {
    * Resolves false when nothing was deleted (it has areas, or it doesn't exist).
    */
   deleteIfEmpty(countryCode: string): Promise<boolean>;
+  /** How many users are limited (scoped) to an area at this level of this country. */
+  countUsersScopedToLevel(countryCode: string, level: number): Promise<number>;
+  /**
+   * Deletes every admin unit at one level of a country, only if the level below is empty,
+   * checked in the same statement. Resolves the number deleted, or null when a foreign key
+   * (an area below, or a user's scope) refused it.
+   */
+  deleteLevel(countryCode: string, level: number): Promise<number | null>;
   /** How many admin units each country has at each level. Only levels with at least one unit appear. */
   countUnitsByLevel(countryCodes: string[]): Promise<LevelCount[]>;
 }

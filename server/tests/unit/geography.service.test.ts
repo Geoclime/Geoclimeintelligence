@@ -70,6 +70,46 @@ describe("CountryService", () => {
     expect(repo.rows.has("NGA")).toBe(true);
   });
 
+  describe("clearLevel", () => {
+    const nigeria = () => {
+      const repo = new InMemoryCountryRepository([makeCountry()]);
+      repo.counts = [
+        { countryCode: "NGA", level: 1, count: 1 },
+        { countryCode: "NGA", level: 2, count: 23 },
+        { countryCode: "NGA", level: 3, count: 317 },
+      ];
+      return repo;
+    };
+
+    it("clears the lowest level and reports how many areas went", async () => {
+      const repo = nigeria();
+      await expect(new CountryService(repo).clearLevel("NGA", 3)).resolves.toEqual({ deleted: 317, levelName: "Ward" });
+      expect(repo.counts.map((c) => c.level)).toEqual([1, 2]);
+    });
+
+    it("refuses a level whose level below still has areas (409), bottom-up only", async () => {
+      const repo = nigeria();
+      await expect(new CountryService(repo).clearLevel("NGA", 2)).rejects.toMatchObject({
+        statusCode: 409,
+        message: "Clear the Ward areas first: 317 of them sit inside these LGA areas and would lose their parent",
+      });
+      expect(repo.counts).toHaveLength(3);
+    });
+
+    it("refuses a level that a user's region points into (409)", async () => {
+      const repo = nigeria();
+      repo.scopedUsers.set("NGA|3", 2);
+      await expect(new CountryService(repo).clearLevel("NGA", 3)).rejects.toMatchObject({
+        statusCode: 409,
+        message: "2 users' regions are set to a Ward area. Change them on the Users page first",
+      });
+    });
+
+    it("returns 404 for a level the country doesn't have", async () => {
+      await expect(new CountryService(nigeria()).clearLevel("NGA", 4)).rejects.toBeInstanceOf(NotFoundError);
+    });
+  });
+
   it("returns 404 when deleting an unknown country", async () => {
     await expect(new CountryService(new InMemoryCountryRepository()).delete("GHA")).rejects.toBeInstanceOf(NotFoundError);
   });

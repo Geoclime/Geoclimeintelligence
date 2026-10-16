@@ -4,6 +4,14 @@ import { AppDataSource } from "../../config/data-source";
 import { Country } from "./country.entity";
 import type { CountryPatch, ICountryRepository, LevelCount, NewCountry } from "./country.types";
 
+const FOREIGN_KEY_VIOLATION = "23503";
+
+function pgCode(err: unknown): string | undefined {
+  const candidate = err as { code?: unknown; driverError?: { code?: unknown } } | null;
+  const code = candidate?.code ?? candidate?.driverError?.code;
+  return typeof code === "string" ? code : undefined;
+}
+
 /**
  * Countries are keyed by their ISO code, not a uuid `id`, so this repository can't extend
  * BaseRepository<T> (whose findById assumes an `id` column). It follows the same rules: it is
@@ -63,6 +71,37 @@ export class CountryRepository implements ICountryRepository {
       .andWhere("NOT EXISTS (SELECT 1 FROM admin_units au WHERE au.country_code = :countryCode)", { countryCode })
       .execute();
     return (result.affected ?? 0) > 0;
+  }
+
+  async countUsersScopedToLevel(countryCode: string, level: number): Promise<number> {
+    const [row]: { count: number }[] = await this.repo.query(
+      `SELECT count(*)::int AS count
+         FROM users u
+         JOIN admin_units au ON au.id = u.scope_admin_unit_id
+        WHERE au.country_code = $1 AND au.level = $2`,
+      [countryCode, level],
+    );
+    return row?.count ?? 0;
+  }
+
+  async deleteLevel(countryCode: string, level: number): Promise<number | null> {
+    try {
+      // The NOT EXISTS guard and the foreign keys (children's parent_id and users' scope, both
+      // ON DELETE RESTRICT) stop the delete if areas below, or a user, appeared since the checks.
+      const result = await this.repo.manager
+        .createQueryBuilder()
+        .delete()
+        .from("admin_units")
+        .where("country_code = :countryCode AND level = :level", { countryCode, level })
+        .andWhere("NOT EXISTS (SELECT 1 FROM admin_units c WHERE c.country_code = :countryCode AND c.level = :below)", {
+          below: level + 1,
+        })
+        .execute();
+      return result.affected ?? 0;
+    } catch (err) {
+      if (pgCode(err) === FOREIGN_KEY_VIOLATION) return null;
+      throw err;
+    }
   }
 
   async countUnitsByLevel(countryCodes: string[]): Promise<LevelCount[]> {

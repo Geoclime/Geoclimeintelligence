@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { CACHE_KEYS, cached, invalidateCached } from "../cache/localCache";
-import { createCountry, deleteCountry, fetchCountries, fetchCountry, updateCountry } from "../endpoints/country.endpoints";
+import { clearCountryLevel, createCountry, deleteCountry, fetchCountries, fetchCountry, updateCountry } from "../endpoints/country.endpoints";
 import type { Country, CountryPatch, NewCountryInput } from "../types/country.types";
 import { useLoader } from "./useLoader";
 
@@ -57,4 +57,25 @@ export function useDeleteCountry() {
     }
   }, []);
   return { remove, deleting };
+}
+
+/**
+ * Clears one level of a country (deletes all its areas). The server refuses with an ApiError
+ * (409) while the level below has areas or a user's region points into the level. Drops the
+ * cached countries and areas, so lists and the map reload without the cleared areas.
+ */
+export function useClearLevel() {
+  const [clearing, setClearing] = useState(false);
+  const clear = useCallback(async (code: string, level: number): Promise<number> => {
+    setClearing(true);
+    try {
+      const response = await clearCountryLevel(code, level);
+      return response.data?.deleted ?? 0;
+    } finally {
+      invalidateCached(CACHE_KEYS.countries);
+      invalidateCached(CACHE_KEYS.adminUnits);
+      setClearing(false);
+    }
+  }, []);
+  return { clear, clearing };
 }

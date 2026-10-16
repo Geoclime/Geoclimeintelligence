@@ -52,6 +52,7 @@ Stable reference data (countries, area lists, area details) goes through `cache/
 **6. Admin countries.** `pages/admin/countries/`, with `components/countries/CountryForm.tsx` (react-hook-form + Zod; schema in `country-form.schema.ts`):
 - Add or rename levels and move them up or down.
 - Levels that already hold areas can be renamed but not removed. The form disables those buttons, and the server refuses them too.
+- **Clear {level} areas** on the country page (`useClearLevel`, `DELETE /api/v1/countries/:code/levels/:level/areas`) deletes every area at the chosen level, so it can be imported again from scratch. The admin has to type the level's name to confirm. Levels are cleared bottom-up, the reverse of importing: the button is disabled while the level below has areas, and the server refuses it too (`409`), as it does when a user's region points into the level (a missing scope would mean "unrestricted"). Past import runs stay in the history.
 - **Delete** on the country page (`useDeleteCountry`, confirmed in a Modal) is only enabled while the country holds no areas; otherwise it is disabled with a line saying how many it holds. The server enforces the same rule (`409`).
 - The optional rough bounding box is what the import checks use.
 - Edits send only the fields that changed.
