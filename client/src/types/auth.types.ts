@@ -24,6 +24,20 @@ export interface AuthUser {
   role: UserRole;
   /** null = unrestricted; otherwise the admin unit (and its descendants) this user may act on. */
   scopeAdminUnitId: string | null;
+  /** Self-service profile details. Optional so an older backend without them still works. */
+  phone?: string | null;
+  organisation?: string | null;
+  jobTitle?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Body for PATCH /api/v1/auth/me. Role and scope can't be changed here; "" or null clears a field. */
+export interface ProfilePatch {
+  displayName?: string | null;
+  phone?: string | null;
+  organisation?: string | null;
+  jobTitle?: string | null;
 }
 
 /**

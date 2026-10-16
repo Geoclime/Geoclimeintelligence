@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { ok } from "../../common/response/api-response";
+import { AuthService } from "./auth.service";
+import type { UpdateProfileBody } from "./auth.validation";
 
 export class AuthController {
   /**
@@ -9,7 +11,17 @@ export class AuthController {
    */
   static async me(req: Request, res: Response, next: NextFunction) {
     try {
-      return res.json(ok(req.user!));
+      // The full profile (AuthUser plus contact details and dates), not just req.user.
+      return res.json(ok(await AuthService.Instance.getProfile(req.user!)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async updateProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const profile = await AuthService.Instance.updateProfile(req.user!, req.body as UpdateProfileBody);
+      return res.json(ok(profile, "Profile updated"));
     } catch (err) {
       next(err);
     }

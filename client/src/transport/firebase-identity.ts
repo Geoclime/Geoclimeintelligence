@@ -7,6 +7,7 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
+  updateProfile,
   type User,
 } from "firebase/auth";
 import { env } from "../config/env";
@@ -75,8 +76,11 @@ export function createFirebaseIdentity(): IdentityClient {
       }
     },
 
-    async signUp(email, password) {
+    async signUp(email, password, displayName) {
       const { user } = await call(() => createUserWithEmailAndPassword(auth, email, password));
+      // Best effort: the name rides on the ID token (the `name` claim) into the backend's first
+      // GET /auth/me. If it fails, the user can still add it from their account page.
+      if (displayName) await updateProfile(user, { displayName }).catch(() => undefined);
       // The account exists either way. If the email can't be sent, the user asks for another
       // from the sign-in page, so a failure here is reported rather than thrown.
       const verificationSent = await sendVerification(user).then(

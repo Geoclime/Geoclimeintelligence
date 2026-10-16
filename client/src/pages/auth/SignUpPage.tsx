@@ -27,9 +27,9 @@ export function SignUpPage() {
     formState: { errors, isSubmitting },
   } = useForm<SignUpInput>({ resolver: zodResolver(signUpSchema), mode: "onTouched" });
 
-  const onSubmit = handleSubmit(async ({ email, password }) => {
+  const onSubmit = handleSubmit(async ({ displayName, email, password }) => {
     try {
-      const { verificationSent } = await signUp(email, password);
+      const { verificationSent } = await signUp(email, password, displayName);
       setCreated({ email, verificationSent });
     } catch (error) {
       setError("root.server", { message: error instanceof Error ? error.message : "Sign-up failed." });
@@ -79,11 +79,19 @@ export function SignUpPage() {
           </Callout>
         )}
         <TextField
+          label="Full name"
+          autoComplete="name"
+          autoFocus
+          hint="Shown to administrators when they review access requests."
+          error={errors.displayName?.message}
+          data-cy="display-name"
+          {...register("displayName")}
+        />
+        <TextField
           label="Email"
           type="email"
           autoComplete="email"
           inputMode="email"
-          autoFocus
           error={errors.email?.message}
           data-cy="email"
           {...register("email")}

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useAdminUnit } from "../../hooks/useAdminUnit";
 import type { ManagedUser } from "../../types/user.types";
 import { formatDate } from "../../utils/formatDate";
 import { Button } from "../shared/Button";
@@ -11,6 +12,17 @@ interface UserTableProps {
   /** The signed-in administrator. The backend refuses self-edits, so their row can't be edited. */
   currentUserId: string;
   onEdit: (user: ManagedUser) => void;
+}
+
+/** A region scope by name ("Obio/Akpor, LGA"), looked up once per area and cached. */
+function ScopeName({ id }: { id: string }) {
+  const { unit, error } = useAdminUnit(id);
+  if (unit) return <span title={id}>{unit.unitName} <span className="user-table__muted">({unit.levelName})</span></span>;
+  return (
+    <code className="user-table__scope" title={id}>
+      {error ? `${id.slice(0, 8)}…` : "Loading…"}
+    </code>
+  );
 }
 
 /**
@@ -45,15 +57,16 @@ export const UserTable = memo(function UserTable({ users, currentUserId, onEdit 
                     {isSelf && <span className="user-table__you">You</span>}
                   </span>
                   {user.displayName && user.email && <span className="user-table__email">{user.email}</span>}
+                  {(user.jobTitle || user.organisation) && (
+                    <span className="user-table__org">{[user.jobTitle, user.organisation].filter(Boolean).join(" · ")}</span>
+                  )}
                 </td>
                 <td data-label="Role">
                   <RoleBadge role={user.role} />
                 </td>
                 <td data-label="Region">
                   {user.scopeAdminUnitId ? (
-                    <code className="user-table__scope" title={user.scopeAdminUnitId}>
-                      {user.scopeAdminUnitId.slice(0, 8)}…
-                    </code>
+                    <ScopeName id={user.scopeAdminUnitId} />
                   ) : (
                     <span className="user-table__muted">All regions</span>
                   )}

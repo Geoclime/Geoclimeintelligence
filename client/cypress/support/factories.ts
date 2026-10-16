@@ -8,6 +8,9 @@ export interface StubUser {
   firebaseUid: string;
   email: string | null;
   displayName: string | null;
+  phone?: string | null;
+  organisation?: string | null;
+  jobTitle?: string | null;
   role: Role;
   scopeAdminUnitId: string | null;
   createdAt: string;
@@ -26,6 +29,9 @@ export function buildUser(overrides: Partial<StubUser> & { n?: number } = {}): S
     firebaseUid: `firebase-uid-${n}`,
     email: `user${n}@example.com`,
     displayName: null,
+    phone: null,
+    organisation: null,
+    jobTitle: null,
     role: "general_public",
     scopeAdminUnitId: null,
     createdAt: "2026-09-01T09:00:00.000Z",

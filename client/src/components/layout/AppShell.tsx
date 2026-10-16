@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useRef, useState } from "react";
-import { Link, Outlet, useLocation, useMatches } from "react-router";
+import { Link, NavLink, Outlet, useLocation, useMatches } from "react-router";
 import { useAuth } from "../../hooks/useAuth";
 import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useToast } from "../../hooks/useToast";
@@ -8,6 +8,7 @@ import { Icon } from "../shared/Icon";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { activeNavItem } from "./nav-items";
 import { OfflineBanner } from "./OfflineBanner";
+import { QuickSearch } from "./QuickSearch";
 import { Sidebar } from "./Sidebar";
 import { UserMenu } from "./UserMenu";
 import "./layout.css";
@@ -78,7 +79,7 @@ export function AppShell() {
             aria-expanded={drawerOpen}
             data-cy="open-menu"
           >
-            <Icon name="menu" size={22} />
+            <Icon name="menu" size={20} />
           </button>
           <Link to="/" className="app-topbar__brand" aria-label="GeoClime Intelligence, map">
             <BrandMark showName={false} />
@@ -87,7 +88,13 @@ export function AppShell() {
             <p className="app-topbar__section">{section?.label ?? "Account"}</p>
             <p className="app-topbar__description">{section?.description ?? "Your profile and access"}</p>
           </div>
-          <UserMenu user={user} onSignOut={() => void handleSignOut()} />
+          <div className="app-topbar__actions">
+            <QuickSearch role={user.role} />
+            <NavLink to="/help" className="app-topbar__help" aria-label="Help and guides" title="Help and guides">
+              <Icon name="info" size={18} />
+            </NavLink>
+            <UserMenu user={user} onSignOut={() => void handleSignOut()} />
+          </div>
         </header>
         <OfflineBanner />
         <main id="main" className={`app-main${fullBleed ? " app-main--full" : ""}`} tabIndex={-1}>

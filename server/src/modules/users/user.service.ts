@@ -1,12 +1,11 @@
 import type { AuthUser } from "../../common/access/auth-user";
 import { assertScopeAllowedForRole } from "../../common/access/roles";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../common/errors/app-error";
-import type { OffsetPageQuery } from "../../common/pagination/pagination";
 import type { PageMeta } from "../../common/response/api-response";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
 import { UserRepository } from "./user.repository";
-import { toUserDto, type IUserRepository, type UserDto } from "./user.types";
+import { toUserDto, type IUserRepository, type UserDto, type UserListQuery } from "./user.types";
 import type { UpdateUserAccessBody } from "./user.validation";
 
 /**
@@ -32,7 +31,7 @@ export class UserService {
     return toUserDto(user);
   }
 
-  async list(query: OffsetPageQuery): Promise<{ items: UserDto[]; meta: PageMeta }> {
+  async list(query: UserListQuery): Promise<{ items: UserDto[]; meta: PageMeta }> {
     const { items, meta } = await this.users.findPage(query);
     return { items: items.map(toUserDto), meta };
   }

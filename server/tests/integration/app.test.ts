@@ -130,3 +130,58 @@ describe("error handling", () => {
     expect(res.body.success).toBe(false);
   });
 });
+
+describe("own profile", () => {
+  it("GET /auth/me returns profile details and the join date", async () => {
+    const res = await request(app).get("/api/v1/auth/me").set(bearer("member-uid"));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ phone: null, organisation: null, jobTitle: null, createdAt: expect.any(String) });
+  });
+
+  it("PATCH /auth/me updates the caller's details, trimming and clearing empty values", async () => {
+    const res = await request(app)
+      .patch("/api/v1/auth/me")
+      .set(bearer("member-uid"))
+      .send({ displayName: "  Ada Obi ", phone: "+234 803 123 4567", organisation: "RSEMA", jobTitle: "" });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      displayName: "Ada Obi",
+      phone: "+234 803 123 4567",
+      organisation: "RSEMA",
+      jobTitle: null,
+      role: "general_public",
+    });
+  });
+
+  it("refuses to change role or scope through the profile route", async () => {
+    const res = await request(app).patch("/api/v1/auth/me").set(bearer("member-uid")).send({ role: "administrator" });
+    expect(res.status).toBe(400);
+    const me = await request(app).get("/api/v1/auth/me").set(bearer("member-uid"));
+    expect(me.body.data.role).toBe("general_public");
+  });
+
+  it("rejects an empty patch and a malformed phone number", async () => {
+    const empty = await request(app).patch("/api/v1/auth/me").set(bearer("member-uid")).send({});
+    expect(empty.status).toBe(400);
+    const phone = await request(app).patch("/api/v1/auth/me").set(bearer("member-uid")).send({ phone: "call me" });
+    expect(phone.status).toBe(400);
+  });
+});
+
+describe("user list filters", () => {
+  it("filters by role", async () => {
+    const res = await request(app).get("/api/v1/users?role=administrator").set(bearer("admin-uid"));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].role).toBe("administrator");
+  });
+
+  it("searches name, email and organisation", async () => {
+    const memberRow = [...repo.rows.values()].find((u) => u.firebaseUid === "member-uid")!;
+    memberRow.organisation = "Rivers State Emergency Management Agency";
+    const res = await request(app).get("/api/v1/users?q=emergency").set(bearer("admin-uid"));
+    expect(res.status).toBe(200);
+    expect(res.body.meta.total).toBe(1);
+    expect(res.body.data[0].firebaseUid).toBe("member-uid");
+  });
+});

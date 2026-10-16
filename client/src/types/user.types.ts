@@ -9,6 +9,9 @@ export interface ManagedUser {
   firebaseUid: string;
   email: string | null;
   displayName: string | null;
+  phone?: string | null;
+  organisation?: string | null;
+  jobTitle?: string | null;
   role: UserRole;
   scopeAdminUnitId: string | null;
   createdAt: string;
@@ -19,6 +22,9 @@ export interface ManagedUser {
 export interface UserListParams {
   page: number;
   pageSize: number;
+  /** Name, email or organisation contains this text. */
+  q?: string;
+  role?: UserRole;
 }
 
 /**

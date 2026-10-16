@@ -1,8 +1,8 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { fetchCurrentUser } from "../endpoints/auth.endpoints";
+import { fetchCurrentUser, updateCurrentUser } from "../endpoints/auth.endpoints";
 import { toApiError } from "../transport/api-error";
 import { identity } from "../transport/identity";
-import type { AuthUser, IdentitySession } from "../types/auth.types";
+import type { AuthUser, IdentitySession, ProfilePatch } from "../types/auth.types";
 
 /**
  * - loading:    working out who is signed in (session restore, or waiting for /auth/me)
@@ -24,7 +24,9 @@ export interface AuthContextValue extends AuthState {
   retry: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   /** Creates the account and emails a link; the new account is NOT signed in until it's verified. */
-  signUp: (email: string, password: string) => Promise<{ verificationSent: boolean }>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<{ verificationSent: boolean }>;
+  /** Saves the signed-in user's own profile details and swaps in the updated record. */
+  updateProfile: (patch: ProfilePatch) => Promise<AuthUser>;
   sendPasswordReset: (email: string) => Promise<void>;
   resendVerificationEmail: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -94,17 +96,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const retry = useCallback(() => void resolveUser(latestSession.current), [resolveUser]);
 
+  const updateProfile = useCallback(async (patch: ProfilePatch) => {
+    const { data } = await updateCurrentUser(patch);
+    if (!data) throw new Error("The server returned no user record.");
+    setState((prev) => (prev.user?.id === data.id ? { ...prev, user: data } : prev));
+    return data;
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
       retry,
       signIn: (email, password) => identity.signIn(email, password),
-      signUp: (email, password) => identity.signUp(email, password),
+      signUp: (email, password, displayName) => identity.signUp(email, password, displayName),
+      updateProfile,
       sendPasswordReset: (email) => identity.sendPasswordReset(email),
       resendVerificationEmail: (email, password) => identity.resendVerificationEmail(email, password),
       signOut: () => identity.signOut(),
     }),
-    [state, retry],
+    [state, retry, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

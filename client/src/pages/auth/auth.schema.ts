@@ -16,6 +16,11 @@ export const PASSWORD_MIN_LENGTH = 8;
 
 export const signUpSchema = z
   .object({
+    displayName: z
+      .string()
+      .trim()
+      .min(2, { error: "Enter your full name" })
+      .max(200, { error: "Use 200 characters or fewer" }),
     email,
     password: z
       .string()

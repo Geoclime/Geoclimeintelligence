@@ -30,10 +30,11 @@ export interface IdentityClient {
   signIn(email: string, password: string): Promise<void>;
   /**
    * Creates the account and emails a verification link, then signs straight back out: the new
-   * account can't be used until the link has been clicked. `verificationSent` is false when the
+   * account can't be used until the link has been clicked. A `displayName` is saved on the
+   * identity, so the backend picks it up when it first creates the user's row. `verificationSent` is false when the
    * account exists but the email couldn't be sent (the user can ask for another at sign-in).
    */
-  signUp(email: string, password: string): Promise<{ verificationSent: boolean }>;
+  signUp(email: string, password: string, displayName?: string): Promise<{ verificationSent: boolean }>;
   sendPasswordReset(email: string): Promise<void>;
   /**
    * For someone who can't sign in because their email is unverified: checks the password, sends a

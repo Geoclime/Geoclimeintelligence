@@ -16,7 +16,7 @@ All paths are relative to `server/`. Every route here is Administrator-only.
 | `GET /api/v1/users/:id` | Returns one account | `200` |
 | `PATCH /api/v1/users/:id/access` | Changes `role` and/or `scopeAdminUnitId` | `200 User access updated` |
 
-`GET /api/v1/auth/me` (any signed-in user) is covered in [phase-1-authentication.md](phase-1-authentication.md).
+`GET /api/v1/auth/me` (any signed-in user) is covered in [phase-1-authentication.md](phase-1-authentication.md). The list also takes `?q=` (name, email or organisation contains) and `?role=`, and each user can edit their own profile through `PATCH /api/v1/auth/me`: see [user-profiles.md](user-profiles.md).
 
 **What a PATCH request goes through**, in order:
 1. `authMiddleware` and `resolveUserMiddleware` in `app.ts` establish who's calling.

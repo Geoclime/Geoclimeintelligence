@@ -1,9 +1,8 @@
 import { AppError } from "../../common/errors/app-error";
-import type { OffsetPageQuery } from "../../common/pagination/pagination";
 import { BaseRepository } from "../../common/repository/base.repository";
 import type { PageMeta } from "../../common/response/api-response";
 import { User } from "./user.entity";
-import type { IUserRepository, NewUser, UserAccessPatch } from "./user.types";
+import type { IUserRepository, NewUser, UserAccessPatch, UserListQuery, UserProfilePatch } from "./user.types";
 
 export class UserRepository extends BaseRepository<User> implements IUserRepository {
   private static _instance?: UserRepository;
@@ -33,12 +32,29 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
     return user;
   }
 
-  override findPage(query: OffsetPageQuery): Promise<{ items: User[]; meta: PageMeta }> {
-    return super.findPage({ ...query, order: { createdAt: "ASC", id: "ASC" } });
+  override async findPage(query: UserListQuery): Promise<{ items: User[]; meta: PageMeta }> {
+    const qb = this.repo.createQueryBuilder("u").orderBy("u.createdAt", "ASC").addOrderBy("u.id", "ASC");
+    if (query.q) {
+      // Escape LIKE wildcards so a search for "a_b" means the text "a_b".
+      const pattern = `%${query.q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+      qb.andWhere("(u.email ILIKE :pattern OR u.display_name ILIKE :pattern OR u.organisation ILIKE :pattern)", { pattern });
+    }
+    if (query.role) qb.andWhere("u.role = :role", { role: query.role });
+
+    const [items, total] = await qb
+      .skip((query.page - 1) * query.pageSize)
+      .take(query.pageSize)
+      .getManyAndCount();
+    return { items, meta: { page: query.page, pageSize: query.pageSize, total } };
   }
 
   async updateAccess(id: string, patch: UserAccessPatch): Promise<User | null> {
     await this.repo.update({ id }, patch);
+    return this.findById(id);
+  }
+
+  async updateProfile(id: string, patch: UserProfilePatch): Promise<User | null> {
+    if (Object.keys(patch).length > 0) await this.repo.update({ id }, patch);
     return this.findById(id);
   }
 

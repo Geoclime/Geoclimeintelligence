@@ -19,10 +19,10 @@ describe("Dashboard shell", () => {
     cy.viewport(1280, 800);
     cy.login("administrator");
     cy.visit("/");
-    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 248);
+    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 228);
 
     cy.dataCy("sidebar-collapse").should("have.attr", "aria-label", "Collapse sidebar").click();
-    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 72);
+    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 64);
     cy.dataCy("sidebar-collapse").should("have.attr", "aria-label", "Expand sidebar");
     // The labels are hidden from sight but still there for screen readers and as tooltips.
     cy.dataCy("nav-places").should("have.attr", "title", "Places").and("contain", "Places");
@@ -30,15 +30,15 @@ describe("Dashboard shell", () => {
 
     cy.dataCy("nav-places").click();
     cy.location("pathname").should("eq", "/places");
-    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 72);
+    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 64);
 
     cy.reload();
-    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 72);
+    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 64);
 
     cy.dataCy("sidebar-collapse").click();
-    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 248);
+    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 228);
     cy.reload();
-    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 248);
+    cy.dataCy("sidebar").invoke("outerWidth").should("eq", 228);
   });
 
   it("ignores a collapsed setting in the phone drawer", () => {

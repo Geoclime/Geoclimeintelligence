@@ -1,8 +1,7 @@
 import type { AuthUser, VerifiedIdentity } from "../src/common/access/auth-user";
-import type { OffsetPageQuery } from "../src/common/pagination/pagination";
 import type { TokenVerifier } from "../src/modules/auth/firebase-token-verifier";
 import { User } from "../src/modules/users/user.entity";
-import type { IUserRepository, NewUser, UserAccessPatch } from "../src/modules/users/user.types";
+import type { IUserRepository, NewUser, UserAccessPatch, UserListQuery, UserProfilePatch } from "../src/modules/users/user.types";
 
 let sequence = 0;
 
@@ -14,6 +13,9 @@ export function makeUser(overrides: Partial<User> = {}): User {
     firebaseUid: `firebase-uid-${sequence}`,
     email: `user${sequence}@example.test`,
     displayName: null,
+    phone: null,
+    organisation: null,
+    jobTitle: null,
     role: "general_public",
     scopeAdminUnitId: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -54,8 +56,13 @@ export class InMemoryUserRepository implements IUserRepository {
     return user;
   }
 
-  async findPage(query: OffsetPageQuery) {
-    const all = [...this.rows.values()];
+  async findPage(query: UserListQuery) {
+    const needle = query.q?.toLowerCase();
+    const all = [...this.rows.values()].filter(
+      (u) =>
+        (!query.role || u.role === query.role) &&
+        (!needle || [u.email, u.displayName, u.organisation].some((value) => value?.toLowerCase().includes(needle))),
+    );
     const start = (query.page - 1) * query.pageSize;
     return {
       items: all.slice(start, start + query.pageSize),
@@ -64,6 +71,13 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async updateAccess(id: string, patch: UserAccessPatch) {
+    const user = this.rows.get(id);
+    if (!user) return null;
+    Object.assign(user, patch);
+    return user;
+  }
+
+  async updateProfile(id: string, patch: UserProfilePatch) {
     const user = this.rows.get(id);
     if (!user) return null;
     Object.assign(user, patch);

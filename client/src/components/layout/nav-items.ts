@@ -34,6 +34,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/admin/imports", label: "Imports", icon: "upload", roles: ["administrator"], description: "Load boundary data through staging and review" },
     ],
   },
+  {
+    label: "Support",
+    items: [
+      { to: "/help", label: "Help", icon: "info", roles: [], description: "Guides for every part of the platform" },
+      { to: "/account", label: "Profile", icon: "user", roles: [], description: "Your details, access and preferences" },
+    ],
+  },
 ];
 
 /** The nav item a path belongs to ("/places/abc" -> Places), for the top bar's title. */

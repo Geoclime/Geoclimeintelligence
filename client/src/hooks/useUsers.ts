@@ -2,12 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchUsers } from "../endpoints/user.endpoints";
 import { errorMessage } from "../transport/api-error";
 import type { PaginationMeta } from "../types/api.types";
+import type { UserRole } from "../types/auth.types";
 import type { ManagedUser } from "../types/user.types";
 import { paginationDetails } from "../utils/pagination";
 
 interface UseUsersOptions {
   page: number;
   pageSize?: number;
+  /** Name, email or organisation contains this text. Debounce it first. */
+  q?: string;
+  role?: UserRole;
 }
 
 interface UsersResult {
@@ -27,15 +31,15 @@ interface UsersResult {
  * being set at the start of the effect, so state only ever changes when a response arrives.
  * While the next page loads, the previous rows stay on screen.
  */
-export function useUsers({ page, pageSize = 25 }: UseUsersOptions) {
+export function useUsers({ page, pageSize = 25, q, role }: UseUsersOptions) {
   const [reloadCount, setReloadCount] = useState(0);
   const [result, setResult] = useState<UsersResult | null>(null);
-  const requestKey = `${page}:${pageSize}:${reloadCount}`;
+  const requestKey = `${page}:${pageSize}:${q ?? ""}:${role ?? ""}:${reloadCount}`;
 
   useEffect(() => {
     // Paging quickly overlaps requests; a response for a superseded request is dropped.
     let superseded = false;
-    fetchUsers({ page, pageSize }).then(
+    fetchUsers({ page, pageSize, q: q || undefined, role }).then(
       (response) => {
         if (!superseded) {
           setResult({ requestKey, users: response.data ?? [], meta: response.meta ?? {}, error: null });
@@ -55,7 +59,7 @@ export function useUsers({ page, pageSize = 25 }: UseUsersOptions) {
     return () => {
       superseded = true;
     };
-  }, [page, pageSize, requestKey]);
+  }, [page, pageSize, q, role, requestKey]);
 
   const refetch = useCallback(() => setReloadCount((count) => count + 1), []);
 

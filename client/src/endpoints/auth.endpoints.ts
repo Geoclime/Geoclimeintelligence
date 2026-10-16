@@ -1,6 +1,6 @@
 import { httpClient } from "../transport/http";
 import type { ApiResponse } from "../types/api.types";
-import type { AuthUser } from "../types/auth.types";
+import type { AuthUser, ProfilePatch } from "../types/auth.types";
 
 // Thin on purpose (standard section 6): sign-up, sign-in and password reset go straight to
 // Firebase through transport/identity.ts. This backend only ever sees the resulting ID token.
@@ -14,5 +14,11 @@ import type { AuthUser } from "../types/auth.types";
  */
 export async function fetchCurrentUser(): Promise<ApiResponse<AuthUser>> {
   const { data } = await httpClient.get<ApiResponse<AuthUser>>("/api/v1/auth/me");
+  return data;
+}
+
+/** The signed-in user's own name and contact details. Returns the updated record. */
+export async function updateCurrentUser(patch: ProfilePatch): Promise<ApiResponse<AuthUser>> {
+  const { data } = await httpClient.patch<ApiResponse<AuthUser>>("/api/v1/auth/me", patch);
   return data;
 }

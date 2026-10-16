@@ -1,10 +1,10 @@
 import type { AuthUser, VerifiedIdentity } from "../../common/access/auth-user";
 import { DEFAULT_ROLE } from "../../common/access/roles";
-import { UnauthorizedError } from "../../common/errors/app-error";
+import { NotFoundError, UnauthorizedError } from "../../common/errors/app-error";
 import { env } from "../../config/env";
 import { logger } from "../../config/logger";
 import { UserRepository } from "../users/user.repository";
-import { toAuthUser, type IUserRepository } from "../users/user.types";
+import { toAuthUser, toUserDto, type IUserRepository, type UserDto, type UserProfilePatch } from "../users/user.types";
 import { FirebaseTokenVerifier, type TokenVerifier } from "./firebase-token-verifier";
 
 export class AuthService {
@@ -60,6 +60,23 @@ export class AuthService {
       }
     }
     return toAuthUser(user);
+  }
+
+  /** The signed-in user's own record: access plus profile details and dates. */
+  async getProfile(user: AuthUser): Promise<UserDto> {
+    const row = await this.users.findById(user.id);
+    if (!row) throw new NotFoundError("User");
+    return toUserDto(row);
+  }
+
+  /**
+   * Updates the signed-in user's own profile details. The patch type has no role or scope field,
+   * and the route's schema is strict, so nobody can raise their own access through this.
+   */
+  async updateProfile(user: AuthUser, patch: UserProfilePatch): Promise<UserDto> {
+    const row = await this.users.updateProfile(user.id, patch);
+    if (!row) throw new NotFoundError("User");
+    return toUserDto(row);
   }
 
   /**

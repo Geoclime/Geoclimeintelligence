@@ -17,14 +17,30 @@ export interface UserAccessPatch {
   scopeAdminUnitId: string | null;
 }
 
+/** The details a user may change about themselves. Never role or scope (section 7). */
+export interface UserProfilePatch {
+  displayName?: string | null;
+  phone?: string | null;
+  organisation?: string | null;
+  jobTitle?: string | null;
+}
+
+/** Filters for the administrator user list. */
+export interface UserListQuery extends OffsetPageQuery {
+  /** Name or email contains this text (case-insensitive). */
+  q?: string;
+  role?: UserRole;
+}
+
 /** What services depend on, so they can be unit-tested with an in-memory fake (section 2). */
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;
   findByFirebaseUid(firebaseUid: string): Promise<User | null>;
   /** Inserts unless a row with this firebaseUid already exists; returns the stored row either way. */
   createIfAbsent(input: NewUser): Promise<User>;
-  findPage(query: OffsetPageQuery): Promise<{ items: User[]; meta: PageMeta }>;
+  findPage(query: UserListQuery): Promise<{ items: User[]; meta: PageMeta }>;
   updateAccess(id: string, patch: UserAccessPatch): Promise<User | null>;
+  updateProfile(id: string, patch: UserProfilePatch): Promise<User | null>;
   hasAnyAdministrator(): Promise<boolean>;
 }
 
@@ -33,6 +49,9 @@ export interface UserDto {
   firebaseUid: string;
   email: string | null;
   displayName: string | null;
+  phone: string | null;
+  organisation: string | null;
+  jobTitle: string | null;
   role: UserRole;
   scopeAdminUnitId: string | null;
   createdAt: string;
@@ -45,6 +64,9 @@ export function toUserDto(user: User): UserDto {
     firebaseUid: user.firebaseUid,
     email: user.email,
     displayName: user.displayName,
+    phone: user.phone ?? null,
+    organisation: user.organisation ?? null,
+    jobTitle: user.jobTitle ?? null,
     role: user.role,
     scopeAdminUnitId: user.scopeAdminUnitId,
     createdAt: user.createdAt.toISOString(),

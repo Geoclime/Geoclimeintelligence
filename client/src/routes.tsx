@@ -27,6 +27,7 @@ const CountryDetailPage = page(() => import("./pages/admin/countries/CountryDeta
 const ImportHistoryPage = page(() => import("./pages/admin/imports/ImportHistoryPage"), (m) => m.ImportHistoryPage);
 const ImportNewPage = page(() => import("./pages/admin/imports/ImportNewPage"), (m) => m.ImportNewPage);
 const ImportReviewPage = page(() => import("./pages/admin/imports/ImportReviewPage"), (m) => m.ImportReviewPage);
+const HelpPage = page(() => import("./pages/help/HelpPage"), (m) => m.HelpPage);
 const NotFoundPage = page(() => import("./pages/NotFoundPage"), (m) => m.NotFoundPage);
 
 const fullBleed: RouteHandle = { fullBleed: true };
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <MapPage />, handle: fullBleed },
               { path: "account", element: <AccountPage /> },
+              { path: "help", element: <HelpPage /> },
               { path: "places", element: <PlacesPage /> },
               { path: "places/:id", element: <LgaProfilePage /> },
               { path: "places/:id/wards/:wardId", element: <WardPage /> },

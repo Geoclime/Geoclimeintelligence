@@ -21,6 +21,8 @@ All paths are relative to `client/src/`. The flow follows the standard's scaffol
 
 **Region IDs for now.** Admin units (LGAs, wards) arrive in Phase 2. Until then the region is typed as its UUID, and names can't be shown. Replace the text field with a picker once an admin-units endpoint exists.
 
+**Update.** The table now shows each region scope by name, plus each person's job title and organisation. The page also has search and a role filter. See [usability-and-profile.md](usability-and-profile.md).
+
 ## Resources to read
 
 - react-hook-form, getting started: https://react-hook-form.com/get-started

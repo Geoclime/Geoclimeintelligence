@@ -19,6 +19,16 @@ export class User {
   @Column({ name: "display_name", type: "varchar", length: 200, nullable: true })
   displayName!: string | null;
 
+  /** Self-service profile details (PATCH /api/v1/auth/me). Informational only: they grant nothing. */
+  @Column({ type: "varchar", length: 32, nullable: true })
+  phone!: string | null;
+
+  @Column({ type: "varchar", length: 200, nullable: true })
+  organisation!: string | null;
+
+  @Column({ name: "job_title", type: "varchar", length: 120, nullable: true })
+  jobTitle!: string | null;
+
   /** FK to roles.code. */
   @Column({ type: "varchar", length: 32, default: "general_public" })
   role!: UserRole;

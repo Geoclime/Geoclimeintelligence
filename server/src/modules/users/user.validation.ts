@@ -5,7 +5,10 @@ import { offsetPageQuerySchema } from "../../common/pagination/pagination";
 const userIdParams = z.object({ id: z.uuid() });
 
 export const listUsersSchema = z.object({
-  query: offsetPageQuerySchema,
+  query: offsetPageQuerySchema.extend({
+    q: z.string().trim().max(100).optional().transform((value) => value || undefined),
+    role: z.enum(USER_ROLES).optional(),
+  }),
 });
 export type ListUsersQuery = z.infer<typeof listUsersSchema>["query"];
 

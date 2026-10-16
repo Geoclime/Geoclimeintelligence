@@ -8,7 +8,16 @@ describe("Creating an account", () => {
     cy.visit("/sign-up");
   });
 
+  it("asks for a name before creating the account", () => {
+    cy.dataCy("email").type("new@example.com");
+    cy.dataCy("password").type("long-enough-password");
+    cy.dataCy("confirm-password").type("long-enough-password");
+    cy.dataCy("submit").click();
+    cy.dataCy("field-error").should("have.length", 1).and("contain", "Enter your full name");
+  });
+
   it("checks that the passwords match before submitting", () => {
+    cy.dataCy("display-name").type("Ada Obi");
     cy.dataCy("email").type("new@example.com");
     cy.dataCy("password").type("long-enough-password");
     cy.dataCy("confirm-password").type("something-else").blur();
@@ -16,6 +25,7 @@ describe("Creating an account", () => {
   });
 
   it("explains when the email is already registered", () => {
+    cy.dataCy("display-name").type("Ada Obi");
     cy.dataCy("email").type("taken@example.com");
     cy.dataCy("password").type("long-enough-password");
     cy.dataCy("confirm-password").type("long-enough-password");
@@ -27,6 +37,7 @@ describe("Creating an account", () => {
     cy.interceptApi("GET", "/auth/me", { data: buildUser({ role: "general_public", email: "new@example.com" }) }).as(
       "getMe",
     );
+    cy.dataCy("display-name").type("Ada Obi");
     cy.dataCy("email").type("new@example.com");
     cy.dataCy("password").type("long-enough-password");
     cy.dataCy("confirm-password").type("long-enough-password");
@@ -44,6 +55,7 @@ describe("Creating an account", () => {
   });
 
   it("says so when the account was created but the verification email could not be sent", () => {
+    cy.dataCy("display-name").type("Ada Obi");
     cy.dataCy("email").type("no-mail@example.com");
     cy.dataCy("password").type("long-enough-password");
     cy.dataCy("confirm-password").type("long-enough-password");

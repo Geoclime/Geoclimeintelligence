@@ -10,7 +10,7 @@
 
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-lg: 12px;
   --radius-pill: 999px;
 
   --space-1: 4px;
@@ -21,12 +21,14 @@
   --space-6: 32px;
   --space-7: 48px;
 
+  /* A compact dashboard scale: 14px body text, 13px secondary text, 22px page titles. */
+  --text-2xs: 0.6875rem;
   --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.5rem;
-  --text-2xl: 2rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.375rem;
 
   --shadow-sm: 0 1px 2px rgb(6 60 62 / 0.08);
   --shadow-md: 0 4px 16px rgb(6 60 62 / 0.1);
@@ -34,7 +36,7 @@
 
   --duration-fast: 120ms;
   --duration-base: 200ms;
-  --header-height: 64px;
+  --header-height: 56px;
   --content-max: 1200px;
 
   /* Light theme */
@@ -144,8 +146,9 @@ p {
 h1,
 h2,
 h3 {
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  font-weight: 650;
 }
 
 a {
@@ -209,7 +212,7 @@ code,
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--space-6) var(--space-4) var(--space-7);
+  padding: var(--space-5) var(--space-4) var(--space-7);
 }
 
 .page__header {
@@ -217,13 +220,13 @@ code,
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .page__eyebrow {
   color: var(--color-primary);
-  font-size: var(--text-xs);
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -238,8 +241,9 @@ code,
 
 .page__lead {
   color: var(--color-text-muted);
-  margin-top: var(--space-2);
-  max-width: 60ch;
+  margin-top: var(--space-1);
+  max-width: 72ch;
+  font-size: var(--text-sm);
 }
 
 .card {
@@ -256,6 +260,15 @@ code,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Phones zoom into any field under 16px when it is focused, so fields stay at 16px on touch screens. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
   }
 }
 
