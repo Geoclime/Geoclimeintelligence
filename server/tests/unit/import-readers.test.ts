@@ -49,6 +49,12 @@ describe("readXlsx", () => {
     expect(parsed.rows[0]!.values["geometry_wkt (EPSG:4326)"]).toBe(WKT);
   });
 
+  it("opens the sheet with a shape column when none is chosen", async () => {
+    const parsed = await readXlsx(await bannerWorkbook());
+    expect(parsed.sheetName).toBe("lga_boundaries");
+    expect(parsed.headerRow).toBe(2);
+  });
+
   it("lets the admin override the heading row", async () => {
     const parsed = await readXlsx(await bannerWorkbook(), { sheetName: "lga_boundaries", headerRow: 3 });
     expect(parsed.headings[0]).toBe("Obio-Akpor");

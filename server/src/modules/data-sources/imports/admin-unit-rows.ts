@@ -16,6 +16,11 @@ export interface AdminUnitRowContext {
   existing: AdminUnitLookupRow[];
 }
 
+/** Whether a row error says the area is already live, i.e. the row was imported before. */
+export function isLiveDuplicateError(message: string): boolean {
+  return message.endsWith("it can't be imported twice") || /^Code ".*" is already used by a live /.test(message);
+}
+
 const MAX_NAME = 200;
 const MAX_CODE = 100;
 

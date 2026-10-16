@@ -14,6 +14,7 @@ import { Icon } from "../../../components/shared/Icon";
 import { LoadingSpinner } from "../../../components/shared/LoadingSpinner";
 import { Modal } from "../../../components/shared/Modal";
 import { Pagination } from "../../../components/shared/Pagination";
+import { useCountries } from "../../../hooks/useCountries";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 import { useImportRun } from "../../../hooks/useImportRun";
 import { useImportRunLayer } from "../../../hooks/useImportRunLayer";
@@ -45,6 +46,7 @@ export function ImportReviewPage() {
   const [layerVersion, setLayerVersion] = useState(0);
   const layer = useImportRunLayer(run.run?.id, view?.bbox ?? null, layerVersion);
   const [confirming, setConfirming] = useState(false);
+  const { countries } = useCountries();
   useDocumentTitle(run.run ? `Import: ${run.run.fileName}` : "Import");
 
   if (run.loading && !run.run) return <LoadingSpinner message="Loading the import…" />;
@@ -60,6 +62,7 @@ export function ImportReviewPage() {
   const current = run.run;
 
   const promoted = current.status === "promoted";
+  const levelBelow = countries.find((c) => c.countryCode === current.options.countryCode)?.levels[current.options.level] ?? null;
   const parentLevelName = current.options.level > 1 ? "Parent" : null;
   const setFilter = (value?: string) => setSearchParams(value ? { status: value } : {});
 
@@ -135,9 +138,35 @@ export function ImportReviewPage() {
           </Callout>
         ))}
         {!promoted && current.errorCount > 0 && current.passedCount > 0 && (
-          <Callout tone="info">
-            Promote copies only the {current.passedCount} rows that passed. The {current.errorCount} failed rows are left out;
-            to include them, fix the file and upload it again.
+          <Callout tone="info" dataCy="partial-promote">
+            Promote copies only the {current.passedCount} rows that passed; the {current.errorCount} failed rows are left out.
+            You can promote now and add the failed ones later: fix them and upload a file containing just those rows. Rows
+            that are already live fail as duplicates if you upload them again.
+          </Callout>
+        )}
+        {!promoted && current.passedCount === 0 && (
+          <Callout tone="warning" dataCy="nothing-to-promote">
+            No rows passed, so there is nothing to promote. Read the reasons in the Failed rows below, fix the file and upload
+            it again.
+          </Callout>
+        )}
+        {promoted && (
+          <Callout
+            tone="success"
+            dataCy="promoted-next"
+            action={
+              levelBelow && (
+                <Link
+                  to={`/admin/imports/new?country=${current.options.countryCode}&level=${levelBelow.level}`}
+                  className={buttonClassName({ variant: "secondary", size: "sm" })}
+                >
+                  Import {levelBelow.name} areas
+                </Link>
+              )
+            }
+          >
+            {current.promotedCount} {current.options.levelName} areas are live.
+            {levelBelow ? ` Next, import the ${levelBelow.name} areas inside them.` : ` ${current.options.levelName} is the lowest level, so this country's areas are complete.`}
           </Callout>
         )}
       </div>

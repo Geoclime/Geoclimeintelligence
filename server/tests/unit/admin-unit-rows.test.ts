@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchKey, nameKey } from "../../src/modules/admin-units/name-standards";
-import { prepareAdminUnitRows, type AdminUnitRowContext } from "../../src/modules/data-sources/imports/admin-unit-rows";
+import { isLiveDuplicateError, prepareAdminUnitRows, type AdminUnitRowContext } from "../../src/modules/data-sources/imports/admin-unit-rows";
 import { assertMappingFits, suggestMapping } from "../../src/modules/data-sources/imports/column-mapping";
 import type { ParsedFile } from "../../src/modules/data-sources/imports/import.types";
 import { makeUnit } from "../geo-fakes";
@@ -98,6 +98,9 @@ describe("prepareAdminUnitRows", () => {
       '"Eleme" already exists under this parent; it can\'t be imported twice',
       'Code "NG033009" is already used by a live LGA',
     ]);
+    // Only the already-live errors count as "imported before" (the review page's summary line).
+    expect(rows[1]!.errors.some(isLiveDuplicateError)).toBe(false);
+    expect(rows[2]!.errors.every(isLiveDuplicateError)).toBe(true);
   });
 
   it("matches the wards file's LGA spellings to the standard LGA names", () => {

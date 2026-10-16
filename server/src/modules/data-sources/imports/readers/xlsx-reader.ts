@@ -29,7 +29,7 @@ export async function readXlsx(buffer: Buffer, options: XlsxReadOptions = {}): P
   const sheets = workbook.worksheets.map((sheet) => sheet.name);
   const sheet = options.sheetName
     ? workbook.getWorksheet(options.sheetName)
-    : (workbook.getWorksheet("Areas") ?? workbook.worksheets[0]);
+    : (workbook.getWorksheet("Areas") ?? workbook.worksheets.find(hasShapeColumn) ?? workbook.worksheets[0]);
   if (!sheet) {
     throw new ValidationError([
       {
@@ -95,6 +95,19 @@ export function detectHeaderRow(sheet: ExcelJS.Worksheet): number {
   const threshold = Math.max(1, Math.ceil(most * 0.6));
   const index = textCounts.findIndex((count) => count >= threshold);
   return index === -1 ? 1 : index + 1;
+}
+
+/**
+ * Whether a sheet's heading row has a WKT column. Workbooks often lead with a data sheet (the
+ * real file's first sheet is "rainfall", with no shapes), so the areas sheet is opened first.
+ */
+function hasShapeColumn(sheet: ExcelJS.Worksheet): boolean {
+  let found = false;
+  sheet.getRow(detectHeaderRow(sheet)).eachCell({ includeEmpty: false }, (cell) => {
+    const heading = cell.text.trim().toLowerCase();
+    if (heading.includes("wkt") || heading === "geometry") found = true;
+  });
+  return found;
 }
 
 function fileError(message: string): ValidationError {

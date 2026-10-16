@@ -9,7 +9,7 @@ import { CountryRepository } from "../../admin-units/country.repository";
 import type { ICountryRepository } from "../../admin-units/country.types";
 import { DataSourceRepository } from "../data-source.repository";
 import type { IDataSourceRepository } from "../data-source.types";
-import { prepareAdminUnitRows } from "./admin-unit-rows";
+import { isLiveDuplicateError, prepareAdminUnitRows } from "./admin-unit-rows";
 import { buildAdminUnitTemplateGeoJson, buildAdminUnitTemplateXlsx, type TemplateFile } from "./admin-unit-template";
 import { assertMappingFits, suggestMapping } from "./column-mapping";
 import { ImportRepository } from "./import.repository";
@@ -129,6 +129,14 @@ export class ImportService {
     const warnings = bbox
       ? []
       : [`${target.country.countryName} has no rough bounding box, so shapes were not checked against it. Add one on the country's edit page.`];
+    // Re-uploading a file is the usual cause; say so once instead of leaving it to every row.
+    const alreadyLive = rows.filter((row) => row.errors.some(isLiveDuplicateError)).length;
+    if (alreadyLive > 0) {
+      warnings.push(
+        `${alreadyLive} of these ${target.levelName} areas are already live (imported before), so they fail as duplicates and are left out. ` +
+          "That's expected if this file was imported already. To add only the missing areas, upload a file containing just those.",
+      );
+    }
 
     return this.imports.createCheckedRun(
       {

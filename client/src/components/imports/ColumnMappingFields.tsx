@@ -12,6 +12,8 @@ interface ColumnMappingFieldsProps {
   parentLevelName: string | null;
   /** The live areas one level up, for "one parent for every row". */
   parents: AdminUnitSummary[];
+  /** The file's first data row, to show what a chosen column holds. */
+  sampleRow: Record<string, string | null> | undefined;
 }
 
 const DESCRIPTIONS: Record<TemplateColumn, string> = {
@@ -26,13 +28,19 @@ const DESCRIPTIONS: Record<TemplateColumn, string> = {
  * is what lets a real file whose headings differ from the template (like the lga_boundaries sheet)
  * import without being converted by hand first.
  */
-export function ColumnMappingFields({ headings, fileType, level, levelName, parentLevelName, parents }: ColumnMappingFieldsProps) {
+export function ColumnMappingFields({ headings, fileType, level, levelName, parentLevelName, parents, sampleRow }: ColumnMappingFieldsProps) {
   const {
     register,
     control,
     formState: { errors },
   } = useFormContext<ImportFormValues>();
-  const parentMode = useWatch({ control, name: "parentMode" });
+  const [parentMode, mapping] = useWatch({ control, name: ["parentMode", "columnMapping"] });
+
+  /** "First row: "Rivers"" for a chosen column, so the admin can see they picked the right one. */
+  const example = (heading: string, fallback: string) => {
+    const value = heading ? sampleRow?.[heading] : null;
+    return value ? `First row: "${value.length > 60 ? `${value.slice(0, 60)}…` : value}"` : fallback;
+  };
 
   const options = (
     <>
@@ -50,6 +58,7 @@ export function ColumnMappingFields({ headings, fileType, level, levelName, pare
       <div className="form-grid form-grid--2">
         <SelectField
           label={`${DESCRIPTIONS.unit_name} of each ${levelName}`}
+          hint={example(mapping.unit_name, `The column with each ${levelName}'s name.`)}
           error={errors.columnMapping?.unit_name?.message}
           data-cy="map-unit_name"
           {...register("columnMapping.unit_name")}
@@ -58,7 +67,7 @@ export function ColumnMappingFields({ headings, fileType, level, levelName, pare
         </SelectField>
         <SelectField
           label={DESCRIPTIONS.unit_code}
-          hint="The source's own code, e.g. a pcode or ward code."
+          hint={example(mapping.unit_code, "The source's own code, e.g. a pcode or ward code. Leave as \"Not in this file\" if there isn't one.")}
           error={errors.columnMapping?.unit_code?.message}
           data-cy="map-unit_code"
           {...register("columnMapping.unit_code")}
@@ -82,26 +91,37 @@ export function ColumnMappingFields({ headings, fileType, level, levelName, pare
 
       {level > 1 && parentLevelName && (
         <fieldset className="mapping-parent">
-          <legend className="field__label">Which {parentLevelName} does each row belong to?</legend>
+          <legend className="field__label">Which {parentLevelName} is each {levelName} in?</legend>
+          <p className="field__help">
+            Every {levelName} must belong to a {parentLevelName} that is already live. If the file has a column naming it
+            (e.g. one called "{parentLevelName.toLowerCase()}"), pick that column. If the whole file is inside one{" "}
+            {parentLevelName}, choose it for every row instead.
+          </p>
           <div className="mapping-parent__modes">
             <label>
-              <input type="radio" value="column" {...register("parentMode")} data-cy="parent-mode-column" /> A column in the file
+              <input type="radio" value="column" {...register("parentMode")} data-cy="parent-mode-column" /> A column in the file names it
             </label>
             <label>
               <input type="radio" value="fixed" {...register("parentMode")} data-cy="parent-mode-fixed" /> The same {parentLevelName} for every row
             </label>
           </div>
-          {parentMode === "column" ? (
+          {/* Both stay mounted and only the unused one is hidden: a guessed column set while its
+              <select> was unmounted was lost when it came back. */}
+          <div hidden={parentMode !== "column"}>
             <SelectField
               label={`${parentLevelName} column`}
-              hint={`Holds each row's ${parentLevelName} code or name. Spelling variants are matched to the standard names.`}
+              hint={example(
+                mapping.parent_code,
+                `Holds each row's ${parentLevelName} code or name. Spelling variants are matched to the standard names.`,
+              )}
               error={errors.columnMapping?.parent_code?.message}
               data-cy="map-parent_code"
               {...register("columnMapping.parent_code")}
             >
               {options}
             </SelectField>
-          ) : (
+          </div>
+          <div hidden={parentMode !== "fixed"}>
             <SelectField label={parentLevelName} error={errors.parentId?.message} data-cy="fixed-parent" {...register("parentId")}>
               <option value="">Choose…</option>
               {parents.map((parent) => (
@@ -110,7 +130,7 @@ export function ColumnMappingFields({ headings, fileType, level, levelName, pare
                 </option>
               ))}
             </SelectField>
-          )}
+          </div>
         </fieldset>
       )}
       {errors.columnMapping?.message && <p className="field__error">{errors.columnMapping.message}</p>}

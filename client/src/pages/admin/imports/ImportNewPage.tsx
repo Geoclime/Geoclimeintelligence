@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router";
 import { ColumnMappingFields } from "../../../components/imports/ColumnMappingFields";
 import { DataSourceDialog } from "../../../components/imports/DataSourceDialog";
 import { FilePreviewTable } from "../../../components/imports/FilePreviewTable";
+import { ImportGuide, levelAvailable, nextLevel } from "../../../components/imports/ImportGuide";
 import {
   EMPTY_MAPPING,
   importFormSchema,
@@ -61,9 +62,9 @@ export function ImportNewPage() {
     },
   });
   const { register, control, setValue, setError, handleSubmit, formState } = methods;
-  const [countryCode, levelText, parentMode, parentId, headerRow] = useWatch({
+  const [countryCode, levelText, headerRow] = useWatch({
     control,
-    name: ["countryCode", "level", "parentMode", "parentId", "headerRow"],
+    name: ["countryCode", "level", "headerRow"],
   });
   const level = Number(levelText) || 0;
 
@@ -90,14 +91,14 @@ export function ImportNewPage() {
         file: next,
         ...options,
         countryCode: countryCode || undefined,
+        // No parentId, even in "one parent" mode: the guess should still look for a parent column,
+        // or a sheet without one would stop every later sheet from finding theirs.
         level: level || undefined,
-        parentId: parentMode === "fixed" && parentId ? parentId : undefined,
       });
+      // The form values are applied in the effect below, once the new sheet's headings exist as
+      // <option>s. Setting them here selected options that weren't rendered yet, so a guess that
+      // only the new sheet has (the lga_boundaries "state" column) showed as "Not in this file".
       setFilePreview(result);
-      setValue("fileType", result.fileType);
-      setValue("sheetName", result.sheetName ?? "");
-      setValue("headerRow", result.headerRow ? String(result.headerRow) : "");
-      setValue("columnMapping", mappingToForm(result.suggestedMapping));
     } catch (error) {
       setFilePreview(null);
       setPreviewError(errorMessage(error));
@@ -106,7 +107,38 @@ export function ImportNewPage() {
     }
   };
 
-  const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+  // Choosing a country preselects the level to import next (States, then LGAs, then Wards). A
+  // preset from ?country=&level= is set again here, once the countries have loaded and the
+  // <option>s exist, or the dropdowns would show "Choose…" while the form holds the preset.
+  useEffect(() => {
+    if (!country) return;
+    setValue("countryCode", country.countryCode);
+    const next = levelText || String(nextLevel(country) ?? "");
+    if (next) setValue("level", next);
+  }, [country, levelText, setValue]);
+
+  useEffect(() => {
+    if (!filePreview) return;
+    setValue("fileType", filePreview.fileType);
+    setValue("sheetName", filePreview.sheetName ?? "");
+    setValue("headerRow", filePreview.headerRow ? String(filePreview.headerRow) : "");
+    setValue("columnMapping", mappingToForm(filePreview.suggestedMapping));
+  }, [filePreview, setValue]);
+
+  // With one live parent and no parent column found in the file, every row can only belong to
+  // that parent, so pick it. A guessed parent column wins: a file may hold areas of several parents.
+  const onlyParentId = parents.units.length === 1 ? parents.units[0]!.id : null;
+  useEffect(() => {
+    if (!filePreview || level < 2) return;
+    if (filePreview.suggestedMapping.parent_code) {
+      setValue("parentMode", "column");
+    } else if (onlyParentId) {
+      setValue("parentMode", "fixed");
+      setValue("parentId", onlyParentId);
+    }
+  }, [filePreview, onlyParentId, level, setValue]);
+
+  const onFileChange =(event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.files?.[0] ?? null;
     setFile(next);
     setFilePreview(null);
@@ -134,6 +166,7 @@ export function ImportNewPage() {
   });
 
   const ready = Boolean(country && levelName);
+  const liveAtLevel = country?.levels[level - 1]?.unitCount ?? 0;
 
   return (
     <div className="page" data-cy="import-new-page">
@@ -149,6 +182,8 @@ export function ImportNewPage() {
         </div>
       </header>
 
+      <ImportGuide country={country} level={level} onPickLevel={(next) => setValue("level", String(next), { shouldValidate: true })} />
+
       <FormProvider {...methods}>
         <form className="import-steps" onSubmit={onSubmit} noValidate data-cy="import-form">
           {formState.errors.root?.server && (
@@ -163,7 +198,12 @@ export function ImportNewPage() {
             </h2>
             <p className="form-section__lead">The country, the level the areas belong to, and where the data comes from.</p>
             <div className="form-grid form-grid--2">
-              <SelectField label="Country" error={formState.errors.countryCode?.message} data-cy="import-country" {...register("countryCode")}>
+              <SelectField
+                label="Country"
+                error={formState.errors.countryCode?.message}
+                data-cy="import-country"
+                {...register("countryCode", { onChange: () => setValue("level", "") })}
+              >
                 <option value="">Choose…</option>
                 {countries.map((c) => (
                   <option key={c.countryCode} value={c.countryCode}>
@@ -171,15 +211,41 @@ export function ImportNewPage() {
                   </option>
                 ))}
               </SelectField>
-              <SelectField label="Level" error={formState.errors.level?.message} disabled={!country} data-cy="import-level" {...register("level")}>
+              <SelectField
+                label="Level"
+                hint={country ? "Levels open in order: a level's areas need their parents to be live first." : undefined}
+                error={formState.errors.level?.message}
+                disabled={!country}
+                data-cy="import-level"
+                {...register("level")}
+              >
                 <option value="">Choose…</option>
-                {country?.levels.map((l) => (
-                  <option key={l.level} value={String(l.level)}>
-                    {l.level}. {l.name} ({l.unitCount} live)
-                  </option>
-                ))}
+                {country?.levels.map((l) => {
+                  const available = levelAvailable(country, l.level);
+                  return (
+                    <option key={l.level} value={String(l.level)} disabled={!available}>
+                      {l.level}. {l.name} {available ? `(${l.unitCount} live)` : `(import ${country.levels[l.level - 2]?.name ?? "the level above"} first)`}
+                    </option>
+                  );
+                })}
               </SelectField>
             </div>
+            {country && levelName && !levelAvailable(country, level) && (
+              <div className="section-gap">
+                <Callout tone="warning" dataCy="level-locked">
+                  No {parentLevelName} areas are live yet, so {levelName} areas have nothing to belong to. Import and promote the{" "}
+                  {parentLevelName} level first.
+                </Callout>
+              </div>
+            )}
+            {liveAtLevel > 0 && (
+              <div className="section-gap">
+                <Callout tone="info" dataCy="level-has-areas">
+                  {liveAtLevel} {levelName} areas are already live. Any of them in your file will fail as duplicates and be left
+                  out, so it's simplest to upload only the {levelName} areas that are missing.
+                </Callout>
+              </div>
+            )}
             <div className="source-picker section-gap">
               {/* Controlled, so a source added from the dialog is selected once its option exists. */}
               <Controller
@@ -200,8 +266,13 @@ export function ImportNewPage() {
                 Add a source
               </Button>
             </div>
+            <p className="field__help">
+              {sources.length === 0
+                ? "Who published this data? There are no sources yet: press Add a source and enter the publisher, dataset, licence and download date from the file's README."
+                : "Who published this data? It's recorded with every area, for credit and licensing. Not listed? Add a source."}
+            </p>
             <div className="template-actions section-gap">
-              <span className="muted">Need a blank file?</span>
+              <span className="muted">Building a file by hand? Start from a blank one. Already have a file? Skip this and upload it below.</span>
               <Button variant="ghost" size="sm" icon={<Icon name="download" size={16} />} disabled={!ready} loading={template.downloading} onClick={() => void downloadTemplate("xlsx")} data-cy="download-xlsx">
                 Excel template
               </Button>
@@ -242,6 +313,11 @@ export function ImportNewPage() {
                   <div className="form-grid form-grid--2">
                     <SelectField
                       label="Sheet"
+                      hint={
+                        filePreview.sheets.length > 1
+                          ? `This workbook has ${filePreview.sheets.length} sheets. Use the one that holds the areas and their shapes.`
+                          : undefined
+                      }
                       data-cy="import-sheet"
                       {...register("sheetName", { onChange: (event) => void readFile(file, { sheetName: event.target.value }) })}
                     >
@@ -280,6 +356,7 @@ export function ImportNewPage() {
                 levelName={levelName ?? "area"}
                 parentLevelName={parentLevelName}
                 parents={parents.units}
+                sampleRow={filePreview.sampleRows[0]}
               />
               <div className="form-actions">
                 <Button variant="secondary" onClick={() => navigate("/admin/imports")}>

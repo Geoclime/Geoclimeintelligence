@@ -34,7 +34,9 @@ export const importFormSchema = z
     };
     need("unit_name", "Choose the column that holds each area's name");
     if (values.fileType === "xlsx") need("geometry_wkt", "Choose the column that holds each area's shape (WKT)");
-    if (level > 1 && values.parentMode === "column") need("parent_code", "Choose the column that names each area's parent");
+    if (level > 1 && values.parentMode === "column") {
+      need("parent_code", "Choose the column that names each area's parent, or pick one parent for every row above");
+    }
     if (level > 1 && values.parentMode === "fixed" && !values.parentId) {
       ctx.addIssue({ code: "custom", path: ["parentId"], message: "Choose the parent every row belongs to" });
     }

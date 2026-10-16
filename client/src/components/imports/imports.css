@@ -6,6 +6,81 @@
   max-width: 980px;
 }
 
+.import-guide {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 980px;
+  margin-bottom: var(--space-5);
+}
+
+.import-guide__title {
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.import-guide__how {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.import-guide__levels {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.import-guide__level {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.import-guide__level[aria-current="step"] {
+  border-color: var(--color-primary);
+}
+
+.import-guide__level--locked {
+  opacity: 0.6;
+}
+
+.import-guide__marker {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.import-guide__level--done .import-guide__marker {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.import-guide__text {
+  display: grid;
+  flex: 1;
+  font-size: var(--text-sm);
+}
+
+.field__help {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
 .import-step__number {
   display: inline-grid;
   place-items: center;
