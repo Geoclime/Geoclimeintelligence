@@ -19,7 +19,7 @@ export const importFormSchema = z
     headerRow: z.string().regex(/^\d*$/, "A row number, e.g. 2"),
     parentMode: z.enum(["column", "fixed"]),
     parentId: z.string(),
-    fileType: z.enum(["xlsx", "geojson", ""]),
+    fileType: z.enum(["xlsx", "geojson", "shapefile", "csv", ""]),
     columnMapping: z.object({
       unit_name: optionalHeading,
       unit_code: optionalHeading,
@@ -33,7 +33,7 @@ export const importFormSchema = z
       if (!values.columnMapping[column]) ctx.addIssue({ code: "custom", path: ["columnMapping", column], message });
     };
     need("unit_name", "Choose the column that holds each area's name");
-    if (values.fileType === "xlsx") need("geometry_wkt", "Choose the column that holds each area's shape (WKT)");
+    if (values.fileType === "xlsx" || values.fileType === "csv") need("geometry_wkt", "Choose the column that holds each area's shape (WKT)");
     if (level > 1 && values.parentMode === "column") {
       need("parent_code", "Choose the column that names each area's parent, or pick one parent for every row above");
     }
@@ -47,6 +47,11 @@ export const importFormSchema = z
   });
 
 export type ImportFormValues = z.infer<typeof importFormSchema>;
+
+/** GeoJSON features and shapefile records carry their own shape; Excel and CSV keep it in a WKT column. */
+export function carriesRowShapes(fileType: ImportFileType | ""): boolean {
+  return fileType === "geojson" || fileType === "shapefile";
+}
 
 export const EMPTY_MAPPING: ImportFormValues["columnMapping"] = { unit_name: "", unit_code: "", parent_code: "", geometry_wkt: "" };
 
@@ -63,7 +68,7 @@ export function toStartImport(values: ImportFormValues, file: File, fileType: Im
   for (const [column, heading] of Object.entries(values.columnMapping) as [TemplateColumn, string][]) {
     if (!heading) continue;
     if (column === "parent_code" && (level === 1 || fixedParent)) continue;
-    if (column === "geometry_wkt" && fileType === "geojson") continue;
+    if (column === "geometry_wkt" && carriesRowShapes(fileType)) continue;
     columnMapping[column] = heading;
   }
   return {

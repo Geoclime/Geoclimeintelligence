@@ -17,6 +17,7 @@ function xlsx(rows: Record<string, string | null>[]): ParsedFile {
     headerRow: 1,
     headings: Object.keys(rows[0] ?? {}),
     rows: rows.map((values, i) => ({ rowNumber: i + 2, values, geometry: null })),
+    warnings: [],
   };
 }
 
@@ -114,6 +115,7 @@ describe("prepareAdminUnitRows", () => {
         { rowNumber: 1, values: { wardname: "Rumuodara", wardcode: "RVSBAK01", lganame: "Obio/Akpor" }, geometry: '{"type":"Polygon"}' },
         { rowNumber: 2, values: { wardname: "Omward 5", wardcode: "RVSBER05", lganame: "Emuoha" }, geometry: null },
       ],
+      warnings: [],
     };
     const rows = prepareAdminUnitRows(
       wards,
@@ -145,6 +147,20 @@ describe("column mapping", () => {
     expect(
       suggestMapping(["shapeName", "shapeISO", "shapeID", "shapeGroup"], { fileType: "geojson", needsParentColumn: false }),
     ).toEqual({ unit_name: "shapeName", unit_code: "shapeISO" });
+  });
+
+  it("treats a shapefile like GeoJSON (the shape travels with each row) and a CSV like Excel (a shape column)", () => {
+    const headings = ["lga_name", "adm2_pcode", "geometry_wkt"];
+    expect(suggestMapping(headings, { fileType: "shapefile", needsParentColumn: false })).toEqual({ unit_name: "lga_name", unit_code: "adm2_pcode" });
+    expect(suggestMapping(headings, { fileType: "csv", needsParentColumn: false })).toEqual({
+      unit_name: "lga_name",
+      unit_code: "adm2_pcode",
+      geometry_wkt: "geometry_wkt",
+    });
+    expect(() => assertMappingFits({ unit_name: "lga_name" }, headings, { fileType: "shapefile", needsParentColumn: false })).not.toThrow();
+    expect(() => assertMappingFits({ unit_name: "lga_name" }, headings, { fileType: "csv", needsParentColumn: false })).toThrow(
+      expect.objectContaining({ errors: [expect.objectContaining({ field: "columnMapping.geometry_wkt" })] }),
+    );
   });
 
   it("refuses a mapping that misses a required column or names one the file lacks", () => {

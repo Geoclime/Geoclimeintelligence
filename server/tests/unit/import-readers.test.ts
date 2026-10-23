@@ -108,7 +108,7 @@ describe("detectFileType", () => {
     expect(detectFileType({ originalName: "a.geojson", buffer: Buffer.from("") })).toBe("geojson");
     expect(detectFileType({ originalName: "upload", buffer: Buffer.from("PK\u0003\u0004") })).toBe("xlsx");
     expect(detectFileType({ originalName: "upload", buffer: Buffer.from(' {"type":1}') })).toBe("geojson");
-    expect(() => detectFileType({ originalName: "rain.csv", buffer: Buffer.from("a,b") })).toThrow(ValidationError);
+    expect(() => detectFileType({ originalName: "boundary.kml", buffer: Buffer.from("<kml/>") })).toThrow(ValidationError);
   });
 });
 

@@ -64,7 +64,7 @@ export function readGeoJson(buffer: Buffer): ParsedFile {
     };
   });
 
-  return { fileType: "geojson", sheets: [], sheetName: null, headerRow: null, headings, rows };
+  return { fileType: "geojson", sheets: [], sheetName: null, headerRow: null, headings, rows, warnings: [] };
 }
 
 function toText(value: unknown): string | null {

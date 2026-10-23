@@ -2,6 +2,9 @@ import type { ImportPreview } from "../../types/import.types";
 
 /** The first rows of the uploaded file as the server read them, so the admin recognises the columns. */
 export function FilePreviewTable({ preview }: { preview: ImportPreview }) {
+  if (preview.headings.length === 0) {
+    return <p className="muted">The file has {preview.rowCount} shapes but no attribute columns (no names or codes).</p>;
+  }
   if (preview.sampleRows.length === 0) {
     return <p className="muted">The file has headings but no data rows below them.</p>;
   }

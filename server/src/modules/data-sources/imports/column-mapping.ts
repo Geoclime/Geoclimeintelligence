@@ -1,5 +1,5 @@
 import { ValidationError } from "../../../common/errors/app-error";
-import { ADMIN_UNIT_TEMPLATE_COLUMNS, type ColumnMapping, type ImportFileType, type TemplateColumn } from "./import.types";
+import { ADMIN_UNIT_TEMPLATE_COLUMNS, carriesRowShapes, type ColumnMapping, type ImportFileType, type TemplateColumn } from "./import.types";
 
 /**
  * Headings that usually mean each template column, best first. These cover the template
@@ -26,8 +26,8 @@ export function suggestMapping(headings: string[], needs: MappingNeeds): ColumnM
   const mapping: ColumnMapping = {};
   for (const column of ADMIN_UNIT_TEMPLATE_COLUMNS) {
     if (column === "parent_code" && !needs.needsParentColumn) continue;
-    // GeoJSON carries the shape in each feature, not in a column.
-    if (column === "geometry_wkt" && needs.fileType === "geojson") continue;
+    // GeoJSON features and shapefile records carry their shape themselves, not in a column.
+    if (column === "geometry_wkt" && carriesRowShapes(needs.fileType)) continue;
     for (const synonym of SYNONYMS[column]) {
       const match = headings.find((heading) => {
         if (used.has(heading)) return false;
@@ -49,7 +49,7 @@ export function assertMappingFits(mapping: ColumnMapping, headings: string[], ne
   const errors: { field: string; message: string }[] = [];
   const required: TemplateColumn[] = ["unit_name"];
   if (needs.needsParentColumn) required.push("parent_code");
-  if (needs.fileType === "xlsx") required.push("geometry_wkt");
+  if (!carriesRowShapes(needs.fileType)) required.push("geometry_wkt");
 
   for (const column of required) {
     if (!mapping[column]) errors.push({ field: `columnMapping.${column}`, message: `Choose the column that holds ${column}` });

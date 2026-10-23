@@ -3,7 +3,7 @@ import type { BBox } from "./admin-unit.types";
 
 // Mirrors server/src/modules/data-sources/imports/import.types.ts.
 
-export type ImportFileType = "xlsx" | "geojson";
+export type ImportFileType = "xlsx" | "geojson" | "shapefile" | "csv";
 export type ImportRunStatus = "checked" | "promoted";
 export type StagingRowStatus = "pending" | "passed" | "failed";
 
@@ -25,6 +25,8 @@ export interface ImportPreview {
   sampleRows: Record<string, string | null>[];
   templateColumns: TemplateColumn[];
   suggestedMapping: ColumnMapping;
+  /** What the server assumed or noticed in the file (a shapefile with no .prj, say). */
+  warnings: string[];
 }
 
 export interface ImportOptions {

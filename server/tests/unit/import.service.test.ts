@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ConflictError, NotFoundError, UnprovenDataError, ValidationError } from "../../src/common/errors/app-error";
 import { ImportService } from "../../src/modules/data-sources/imports/import.service";
 import { asAuthUser, makeUser } from "../fakes";
+import { buildDbf, buildShp, buildZip, outerRing, partsRecord, square, WGS84_PRJ } from "../shapefile-fixtures";
 import {
   InMemoryAdminUnitRepository,
   InMemoryCountryRepository,
@@ -108,6 +109,60 @@ describe("ImportService.start", () => {
     await expect(setup().service.start(await lgaWorkbook([]), startInput, admin)).rejects.toMatchObject({
       errors: [{ field: "file" }],
     });
+  });
+});
+
+describe("ImportService with shapefiles and CSV", () => {
+  const shp = buildShp(5, [partsRecord(5, [outerRing(square(7, 4.8, 0.05))]), partsRecord(5, [outerRing(square(7.2, 4.8, 0.05))])]);
+  const dbf = buildDbf(
+    [{ name: "lga_name", type: "C", length: 20 }, { name: "lga_code", type: "C", length: 10 }],
+    [["Okrika", "NG033018"], ["Bonny", "NG033003"]],
+  );
+  const fixedParent = { ...startInput, parentId: rivers.id, columnMapping: { unit_name: "lga_name", unit_code: "lga_code" } };
+
+  it("stages a zipped shapefile's shapes as GeoJSON beside the .dbf's names, with no shape column to map", async () => {
+    const { imports, service } = setup();
+    const zip = { originalName: "lgas.zip", buffer: buildZip({ "lgas.shp": shp, "lgas.dbf": dbf, "lgas.prj": WGS84_PRJ }) };
+    const run = await service.start(zip, fixedParent, admin);
+    expect(run.rowCount).toBe(2);
+    expect(imports.created!.run).toMatchObject({ fileType: "shapefile", sheetName: null, warnings: [] });
+    expect(imports.created!.rows.map((r) => [r.fields.unitName, r.geomFormat])).toEqual([
+      ["Okrika", "geojson"],
+      ["Bonny", "geojson"],
+    ]);
+    expect(JSON.parse(imports.created!.rows[0]!.geomSource!)).toMatchObject({ type: "Polygon" });
+  });
+
+  it("passes the reader's warnings to the run, so an assumed coordinate system is on record", async () => {
+    const { imports, service } = setup();
+    const withoutPrj = { originalName: "lgas.zip", buffer: buildZip({ "lgas.shp": shp, "lgas.dbf": dbf }) };
+    await service.start(withoutPrj, fixedParent, admin);
+    expect(imports.created!.run.warnings).toHaveLength(1);
+    expect(imports.created!.run.warnings[0]).toMatch(/No coordinate system \(\.prj\).*assumed to be WGS84/);
+  });
+
+  it("previews a bare .shp with its warnings, and won't start a run from it because it has no names", async () => {
+    const { imports, service } = setup();
+    const bare = { originalName: "Rivers_State_LGA.shp", buffer: shp };
+    const preview = await service.preview(bare, { level: 2 });
+    expect(preview).toMatchObject({ fileType: "shapefile", headings: [], rowCount: 2, suggestedMapping: {} });
+    expect(preview.warnings).toHaveLength(2);
+
+    await expect(service.start(bare, fixedParent, admin)).rejects.toMatchObject({
+      errors: [{ field: "file", message: expect.stringContaining("no attribute columns") }],
+    });
+    expect(imports.created).toBeUndefined();
+  });
+
+  it("reads a CSV whose shape column holds WKT, the same as an Excel sheet", async () => {
+    const { imports, service } = setup();
+    const csv = {
+      originalName: "lgas.csv",
+      buffer: Buffer.from(`unit_name,unit_code,parent_code,geometry_wkt\nOkrika,NG033018,NG-RI,"${WKT}"\n`),
+    };
+    await service.start(csv, startInput, admin);
+    expect(imports.created!.run.fileType).toBe("csv");
+    expect(imports.created!.rows[0]).toMatchObject({ geomSource: WKT, geomFormat: "wkt", fields: { unitName: "Okrika", parentId: rivers.id } });
   });
 });
 

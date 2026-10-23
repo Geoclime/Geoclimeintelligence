@@ -39,6 +39,8 @@ export interface ImportPreviewDto {
   sampleRows: Record<string, string | null>[];
   templateColumns: readonly TemplateColumn[];
   suggestedMapping: ColumnMapping;
+  /** What the reader assumed or noticed (a shapefile with no .prj, say), shown before checking. */
+  warnings: string[];
 }
 
 /** Where a run's rows will go: the country, the level, and the parents they can attach to. */
@@ -93,6 +95,7 @@ export class ImportService {
       sampleRows: parsed.rows.slice(0, SAMPLE_ROWS).map((row) => shorten(row.values)),
       templateColumns: ADMIN_UNIT_TEMPLATE_COLUMNS,
       suggestedMapping: suggestMapping(parsed.headings, { fileType: parsed.fileType, needsParentColumn }),
+      warnings: parsed.warnings,
     };
   }
 
@@ -112,6 +115,16 @@ export class ImportService {
     if (parsed.rows.length === 0) {
       throw new ValidationError([{ field: "file", message: "The file has no data rows below its headings" }]);
     }
+    if (parsed.headings.length === 0) {
+      throw new ValidationError([
+        {
+          field: "file",
+          message:
+            "The file has shapes but no attribute columns, so there are no names or codes to match to areas. " +
+            "For a shapefile, upload a .zip that holds the .shp together with its .dbf and .prj.",
+        },
+      ]);
+    }
     const needs = { fileType: parsed.fileType, needsParentColumn: input.level > 1 && !target.fixedParent };
     assertMappingFits(input.columnMapping, parsed.headings, needs);
 
@@ -126,9 +139,10 @@ export class ImportService {
     });
 
     const bbox = toBBox(target.country.bbox);
-    const warnings = bbox
-      ? []
-      : [`${target.country.countryName} has no rough bounding box, so shapes were not checked against it. Add one on the country's edit page.`];
+    const warnings = [...parsed.warnings];
+    if (!bbox) {
+      warnings.push(`${target.country.countryName} has no rough bounding box, so shapes were not checked against it. Add one on the country's edit page.`);
+    }
     // Re-uploading a file is the usual cause; say so once instead of leaving it to every row.
     const alreadyLive = rows.filter((row) => row.errors.some(isLiveDuplicateError)).length;
     if (alreadyLive > 0) {
