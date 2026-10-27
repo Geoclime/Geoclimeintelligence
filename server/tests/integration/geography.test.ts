@@ -27,6 +27,7 @@ const rivers = makeUnit({ level: 1, levelName: "State", unitName: "Rivers", unit
 const source = makeSource();
 let imports: RecordingImportRepository;
 let countries: InMemoryCountryRepository;
+let sources: InMemoryDataSourceRepository;
 
 beforeEach(() => {
   const users = new InMemoryUserRepository([
@@ -35,7 +36,7 @@ beforeEach(() => {
   ]);
   countries = new InMemoryCountryRepository([makeCountry()]);
   const units = new InMemoryAdminUnitRepository([rivers]);
-  const sources = new InMemoryDataSourceRepository([source]);
+  sources = new InMemoryDataSourceRepository([source]);
   imports = new RecordingImportRepository();
 
   vi.spyOn(AuthService, "Instance", "get").mockReturnValue(new AuthService(users, new FakeTokenVerifier()));
@@ -287,5 +288,33 @@ describe("data sources", () => {
       .send({ provider: "X", datasetName: "Y", url: "ftp://example.com", license: "CC BY 4.0", downloadedOn: "2999-01-01" });
     expect(res.status).toBe(400);
     expect(res.body.errors.map((e: { field: string }) => e.field).sort()).toEqual(["downloadedOn", "url"]);
+  });
+
+  it("lets only administrators delete a source nothing uses", async () => {
+    const unused = await sources.create({
+      provider: "Na",
+      datasetName: "Na",
+      url: "https://example.com",
+      license: "CC BY 4.0",
+      downloadedOn: "2026-09-22",
+      notes: null,
+      createdBy: "admin",
+    });
+
+    expect((await request(app).delete(`/api/v1/data-sources/${unused.id}`).set(asMember)).status).toBe(403);
+    expect((await request(app).delete(`/api/v1/data-sources/${unused.id}`).set(asAdmin)).status).toBe(200);
+    expect(sources.rows.map((s) => s.id)).toEqual([source.id]);
+  });
+
+  it("refuses to delete a source that areas or layers still point at", async () => {
+    sources.inUse.add(source.id);
+    const res = await request(app).delete(`/api/v1/data-sources/${source.id}`).set(asAdmin);
+    expect(res.status).toBe(409);
+    expect(sources.rows).toHaveLength(1);
+  });
+
+  it("404s an unknown source and 400s a malformed id", async () => {
+    expect((await request(app).delete("/api/v1/data-sources/99999999-9999-4999-8999-999999999999").set(asAdmin)).status).toBe(404);
+    expect((await request(app).delete("/api/v1/data-sources/not-a-uuid").set(asAdmin)).status).toBe(400);
   });
 });

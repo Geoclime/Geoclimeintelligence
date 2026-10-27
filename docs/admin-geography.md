@@ -58,6 +58,7 @@ All under `/api/v1/`, mounted in [`app.ts`](../server/src/app.ts) after the sing
 | `GET /admin-units/geojson?level=&bbox=&zoom=` | Everyone | A map layer. `bbox` is **required**: a request without one gets `400` |
 | `GET /admin-units/locate?lon=&lat=` | Everyone | The state, LGA and ward containing the point; `404` if no mapped area does |
 | `GET /data-sources`, `POST /data-sources` | Everyone / Administrator | List and add data sources |
+| `DELETE /data-sources/:id` | Administrator | Delete a source nothing uses; `409` if areas, map layers, imports or a country still point at it. The screen for this is **Configuration** (`/admin/configuration`) |
 
 The import routes (`/imports/...`) are in [data-import.md](data-import.md). Every route has a Zod schema (`*.validation.ts`), a thin controller and a service. Area reads are **not** narrowed by a user's region scope: the map of areas is shared reference data, and a scope limits what a user may do *to records inside* an area, not which areas exist.
 

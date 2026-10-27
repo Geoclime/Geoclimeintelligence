@@ -24,6 +24,7 @@ const AdminUsersPage = page(() => import("./pages/admin/AdminUsersPage"), (m) =>
 const AdminCountriesPage = page(() => import("./pages/admin/countries/AdminCountriesPage"), (m) => m.AdminCountriesPage);
 const CountryFormPage = page(() => import("./pages/admin/countries/CountryFormPage"), (m) => m.CountryFormPage);
 const CountryDetailPage = page(() => import("./pages/admin/countries/CountryDetailPage"), (m) => m.CountryDetailPage);
+const ConfigurationPage = page(() => import("./pages/admin/configuration/ConfigurationPage"), (m) => m.ConfigurationPage);
 const ImportHistoryPage = page(() => import("./pages/admin/imports/ImportHistoryPage"), (m) => m.ImportHistoryPage);
 const ImportNewPage = page(() => import("./pages/admin/imports/ImportNewPage"), (m) => m.ImportNewPage);
 const ImportReviewPage = page(() => import("./pages/admin/imports/ImportReviewPage"), (m) => m.ImportReviewPage);
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
                   { path: "countries/new", element: <CountryFormPage /> },
                   { path: "countries/:code", element: <CountryDetailPage /> },
                   { path: "countries/:code/edit", element: <CountryFormPage /> },
+                  { path: "configuration", element: <ConfigurationPage /> },
                   { path: "imports", element: <ImportHistoryPage /> },
                   { path: "imports/new", element: <ImportNewPage /> },
                   { path: "imports/:id", element: <ImportReviewPage /> },

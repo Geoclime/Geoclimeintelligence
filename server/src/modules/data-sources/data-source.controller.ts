@@ -23,4 +23,13 @@ export class DataSourceController {
       next(err);
     }
   }
+
+  static async remove(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      await DataSourceService.Instance.delete(req.params.id);
+      return res.json(ok(null, "Data source deleted"));
+    } catch (err) {
+      next(err);
+    }
+  }
 }

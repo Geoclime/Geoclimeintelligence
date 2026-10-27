@@ -388,7 +388,7 @@ export function ImportNewPage() {
                 <p className="field__help">
                   {sources.length === 0
                     ? "Who published this data? There are no sources yet: press Add a source and enter the publisher, dataset, licence and download date from the file's README."
-                    : "Who published this data? It's recorded with every feature, for credit and licensing. Not listed? Add a source."}
+                    : "Who published this data? It's recorded with every feature, for credit and licensing. Not listed? Add a source here, or remove old ones under Configuration."}
                 </p>
               </>
             )}

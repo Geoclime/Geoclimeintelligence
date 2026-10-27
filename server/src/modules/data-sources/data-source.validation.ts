@@ -6,6 +6,10 @@ export const listDataSourcesSchema = z.object({
 });
 export type ListDataSourcesQuery = z.infer<typeof listDataSourcesSchema>["query"];
 
+export const deleteDataSourceSchema = z.object({
+  params: z.object({ id: z.uuid("Not a valid data source id") }),
+});
+
 const text = (field: string, max: number) =>
   z.string({ error: `${field} is required` }).trim().min(1, `${field} is required`).max(max);
 

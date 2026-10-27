@@ -14,6 +14,17 @@ The map can now show what lies inside the boundaries: **roads**, **waterways** (
 
 The web client side (toggles, legend, the "Data sources" panel) is in [features/map-layers.md](features/map-layers.md).
 
+## What a settlement is
+
+A **settlement** is a named place where people live: a village, hamlet or town. On the map it is a point with a name, such as "Okrika" or "Bori". Roads and waterways show the terrain. Settlements show where people are, which is what lets the platform later relate climate hazards (a flood-prone river, a ward) to the communities they affect. This layer only supplies the data for that. It doesn't do the analysis.
+
+- **Source.** The GRID3 settlement-names dataset for Nigeria ([`rivers_state_settlement_names.geojson`](../rivers_state_settlement_names.geojson), 1,149 points for Rivers State). Each point carries GRID3's own id (`set_id`), a name, a ward code, a "primary" flag and an origin, which records who GRID3 got the point from (OSGOF, OCHA, INEC polling units and so on).
+- **Storage.** One row per point in `settlement_points` ([`settlement-point.entity.ts`](../server/src/modules/map-layers/settlement-point.entity.ts)): `settlement_name`, `is_primary` (the ward's main community), `data_origin`, a `Point` geometry and a required `source_id`.
+- **Link to a ward.** `admin_unit_id` points at the ward the settlement sits in. The loader finds it by matching the file's ward code to an imported ward. The link may be null: if the ward isn't loaded yet, the settlement is still stored, and the next loader run links it.
+- **Served by** `GET /api/v1/settlements/geojson?bbox=&zoom=`, with properties `id`, `name` and `isPrimary`. It is never thinned by zoom, and a reply holds at most 5,000, primary settlements first.
+
+**How it differs from roads and waterways.** Roads and waterways belong to a **country**: `layers:clear` deletes them by country, and they stop the country from being deleted. Settlements belong to **wards**. Clearing and re-importing wards never deletes them (they become unlinked until the next load), `layers:clear` doesn't touch them, and they don't block a country delete.
+
 ## How it works
 
 All paths are relative to `server/`. The module is [`src/modules/map-layers/`](../server/src/modules/map-layers/). Requests flow validation → auth → controller → service → repository → PostGIS, as in [architecture.md](architecture.md).

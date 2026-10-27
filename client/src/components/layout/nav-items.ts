@@ -32,6 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/admin/users", label: "Users", icon: "users", roles: ["administrator"], description: "Roles and region scopes" },
       { to: "/admin/countries", label: "Countries", icon: "globe", roles: ["administrator"], description: "Countries and their levels" },
       { to: "/admin/imports", label: "Imports", icon: "upload", roles: ["administrator"], description: "Load boundary data through staging and review" },
+      { to: "/admin/configuration", label: "Configuration", icon: "database", roles: ["administrator"], description: "Data sources and platform settings" },
     ],
   },
   {
