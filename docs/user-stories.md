@@ -219,7 +219,8 @@ The stories are in the order you'd naturally go through them: set up, become the
 - [ ] Row A fails: `No LGA called or coded "Lagos Island" exists yet`.
 - [ ] Row B fails: `The shape lies outside NGA's bounding box. Check its coordinates…` (this is the rectangle from 2.2 doing its job).
 - [ ] Promote is disabled ("Nothing passed"), so neither row can reach the live data. Don't promote anything here.
-4. *(error case)* Upload a `.csv` file. You should see "Upload an Excel workbook (.xlsx) or a GeoJSON file".
+4. *(error case)* Upload a `.kml` file (or any other type that isn't a shapefile, GeoJSON, Excel or CSV file). You should see "This file type isn't supported yet", followed by the list of types that are.
+5. *(shapefile)* Upload `Rivers_State_LGA.shp` on its own. The preview reads 23 shapes and warns that there is no `.prj` (so WGS84 is assumed) and no `.dbf` (so the shapes have no names); **Check the file** is refused with "no attribute columns". Zip the `.shp` with its `.dbf` and `.prj` and upload the `.zip` instead, and the names appear as columns to match.
 
 ### 2.10 See every past import
 *As an administrator, I want a history of imports, so that I can see who loaded what and when.*

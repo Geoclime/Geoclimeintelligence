@@ -72,7 +72,7 @@ export async function readXlsx(buffer: Buffer, options: XlsxReadOptions = {}): P
     rows.push({ rowNumber: r, values, geometry: null });
   }
 
-  return { fileType: "xlsx", sheets, sheetName: sheet.name, headerRow, headings, rows };
+  return { fileType: "xlsx", sheets, sheetName: sheet.name, headerRow, headings, rows, warnings: [] };
 }
 
 /**

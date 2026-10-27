@@ -3,8 +3,16 @@ import type { BBox } from "../../../common/geo/geo";
 import type { OffsetPageQuery } from "../../../common/pagination/pagination";
 import type { PageMeta } from "../../../common/response/api-response";
 
-export const IMPORT_FILE_TYPES = ["xlsx", "geojson"] as const;
+export const IMPORT_FILE_TYPES = ["xlsx", "geojson", "shapefile", "csv"] as const;
 export type ImportFileType = (typeof IMPORT_FILE_TYPES)[number];
+
+/**
+ * Whether each row of this kind of file carries its own shape (a GeoJSON feature's geometry, a
+ * shapefile record) rather than keeping it as WKT text in a column (Excel, CSV).
+ */
+export function carriesRowShapes(fileType: ImportFileType): boolean {
+  return fileType === "geojson" || fileType === "shapefile";
+}
 
 /** Which live table a run feeds. Phase 5 adds the rainfall feed here. */
 export type ImportTarget = "admin_units";
@@ -20,23 +28,31 @@ export type ColumnMapping = Partial<Record<TemplateColumn, string>>;
 
 /** One data row as read from the file, before any checks. */
 export interface ParsedRow {
-  /** Excel row number, or the 1-based feature number in a GeoJSON file: what the admin can find. */
+  /**
+   * Excel or CSV row number, or the 1-based feature number in a GeoJSON or shapefile: what the
+   * admin can find.
+   */
   rowNumber: number;
-  /** Heading -> cell text (or GeoJSON property, as text). */
+  /** Heading -> cell text (or GeoJSON property / shapefile attribute, as text). */
   values: Record<string, string | null>;
-  /** A GeoJSON feature's geometry, as JSON text. Excel rows carry their shape in a column instead. */
+  /**
+   * The row's own shape, as GeoJSON geometry text (GeoJSON features and shapefile records).
+   * Excel and CSV rows carry their shape in a column instead.
+   */
   geometry: string | null;
 }
 
 export interface ParsedFile {
   fileType: ImportFileType;
-  /** Every sheet in a workbook; empty for GeoJSON. */
+  /** Every sheet in a workbook; empty for every other kind of file. */
   sheets: string[];
   sheetName: string | null;
-  /** The Excel row holding the headings; null for GeoJSON. */
+  /** The Excel or CSV row holding the headings; null for GeoJSON and shapefiles. */
   headerRow: number | null;
   headings: string[];
   rows: ParsedRow[];
+  /** Things the reader noticed or assumed that the admin should see (a missing .prj, say). */
+  warnings: string[];
 }
 
 export interface UploadedFile {

@@ -27,6 +27,7 @@ const lgaPreview = {
     parent_code: "state",
     geometry_wkt: "geometry_wkt (EPSG:4326)",
   },
+  warnings: [],
 };
 
 describe("Administrator: imports", () => {
@@ -88,10 +89,10 @@ describe("Administrator: imports", () => {
       cy.interceptApi("POST", "/imports/preview", {
         statusCode: 400,
         message: "Validation failed",
-        errors: [{ field: "file", message: "Upload an Excel workbook (.xlsx) or a GeoJSON file (.geojson)." }],
+        errors: [{ field: "file", message: "This file type isn't supported yet. Upload a shapefile, an Excel workbook, a GeoJSON file or a CSV file." }],
       });
       cy.visit("/admin/imports/new?country=NGA&level=2");
-      cy.dataCy("import-file").selectFile({ contents: Cypress.Buffer.from("a,b"), fileName: "rainfall.csv" });
+      cy.dataCy("import-file").selectFile({ contents: Cypress.Buffer.from("a,b"), fileName: "boundary.kml" });
       cy.dataCy("preview-error").should("contain", "Validation failed");
     });
 

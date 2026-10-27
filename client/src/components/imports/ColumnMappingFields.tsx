@@ -2,7 +2,7 @@ import { useFormContext, useWatch } from "react-hook-form";
 import type { AdminUnitSummary } from "../../types/admin-unit.types";
 import type { ImportFileType, TemplateColumn } from "../../types/import.types";
 import { SelectField } from "../shared/SelectField";
-import type { ImportFormValues } from "./import-form.schema";
+import { carriesRowShapes, type ImportFormValues } from "./import-form.schema";
 
 interface ColumnMappingFieldsProps {
   headings: string[];
@@ -74,7 +74,7 @@ export function ColumnMappingFields({ headings, fileType, level, levelName, pare
         >
           {options}
         </SelectField>
-        {fileType === "xlsx" ? (
+        {!carriesRowShapes(fileType) ? (
           <SelectField
             label={DESCRIPTIONS.geometry_wkt}
             hint="WKT text (POLYGON / MULTIPOLYGON) in EPSG:4326."
@@ -85,7 +85,9 @@ export function ColumnMappingFields({ headings, fileType, level, levelName, pare
             {options}
           </SelectField>
         ) : (
-          <p className="mapping-note">The shape is taken from each GeoJSON feature's geometry.</p>
+          <p className="mapping-note">
+            {fileType === "shapefile" ? "The shape is taken from each shape in the shapefile." : "The shape is taken from each GeoJSON feature's geometry."}
+          </p>
         )}
       </div>
 

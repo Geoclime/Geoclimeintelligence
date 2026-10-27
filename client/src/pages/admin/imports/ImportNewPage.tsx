@@ -28,8 +28,15 @@ import { useImportUpload } from "../../../hooks/useImportUpload";
 import { useTemplateDownload } from "../../../hooks/useTemplateDownload";
 import { useToast } from "../../../hooks/useToast";
 import { errorMessage } from "../../../transport/api-error";
-import type { ImportPreview, TemplateFormat } from "../../../types/import.types";
+import type { ImportFileType, ImportPreview, TemplateFormat } from "../../../types/import.types";
 import { applySubmitError } from "../../../utils/form-errors";
+
+const FILE_TYPE_LABELS: Record<ImportFileType, string> = {
+  xlsx: "Excel workbook",
+  geojson: "GeoJSON",
+  shapefile: "Shapefile",
+  csv: "CSV file",
+};
 
 const SERVER_FIELDS = [
   "countryCode", "level", "sourceId", "sheetName", "headerRow", "parentId",
@@ -287,10 +294,13 @@ export function ImportNewPage() {
             <h2 id="step-2" className="import-step__title form-section__title">
               <span className="import-step__number">2</span>Upload the file
             </h2>
-            <p className="form-section__lead">An Excel workbook (.xlsx) with shapes as WKT text, or a GeoJSON file. Up to 20 MB.</p>
+            <p className="form-section__lead">
+              A shapefile (the .shp, or a .zip of its .shp, .dbf and .prj), a GeoJSON file, an Excel workbook (.xlsx) or a CSV file. Excel and
+              CSV hold shapes as WKT text. Up to 20 MB.
+            </p>
             <label className="field">
               <span className="field__label">File</span>
-              <input type="file" accept=".xlsx,.geojson,.json" className="field__input" onChange={onFileChange} data-cy="import-file" />
+              <input type="file" accept=".shp,.zip,.geojson,.json,.xlsx,.csv,.tsv" className="field__input" onChange={onFileChange} data-cy="import-file" />
             </label>
             {previewing && <p className="muted section-gap">Reading the file…</p>}
             {previewError && (
@@ -306,7 +316,7 @@ export function ImportNewPage() {
                   <span>
                     <strong>{filePreview.rowCount}</strong> data rows
                   </span>
-                  <span>{filePreview.fileType === "xlsx" ? "Excel workbook" : "GeoJSON"}</span>
+                  <span>{FILE_TYPE_LABELS[filePreview.fileType]}</span>
                   {filePreview.headerRow && <span>Headings in row {filePreview.headerRow}</span>}
                 </p>
                 {filePreview.fileType === "xlsx" && (
@@ -338,6 +348,11 @@ export function ImportNewPage() {
                     </div>
                   </div>
                 )}
+                {filePreview.warnings.map((warning) => (
+                  <Callout key={warning} tone="warning" dataCy="preview-warning">
+                    {warning}
+                  </Callout>
+                ))}
                 <FilePreviewTable preview={filePreview} />
               </div>
             )}

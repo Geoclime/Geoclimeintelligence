@@ -17,7 +17,7 @@ upload file ─► read it ─► stage every row ─► check every row ─► 
 ### 1. The tables
 
 From [`1791200400000-CreateImportTables.ts`](../server/src/migrations/1791200400000-CreateImportTables.ts):
-- **`import_runs`**: one row per upload. It records who uploaded, the file name and type (`xlsx` / `geojson`), the sheet, the column mapping, the data source, the status (`checked` → `promoted`), counts (rows, passed, failed, promoted), run-level warnings, and when it was created and promoted. `target` says which live table it feeds; Phase 2 has one, `admin_units`.
+- **`import_runs`**: one row per upload. It records who uploaded, the file name and type (`xlsx` / `geojson` / `shapefile` / `csv`), the sheet, the column mapping, the data source, the status (`checked` → `promoted`), counts (rows, passed, failed, promoted), run-level warnings, and when it was created and promoted. `target` says which live table it feeds; Phase 2 has one, `admin_units`.
 - **`import_staging_rows`**: one row per data row. `raw` holds the row exactly as read and is never edited. `geom_source` holds the original shape text. `geom` holds the cleaned shape, `fields` the cleaned values, and `errors`/`warnings` the check results, with a `status` of `passed` or `failed`.
 - **`import_parse_geometry(text, format)`**: a small PostgreSQL function that reads WKT or GeoJSON text and returns `NULL` instead of throwing. One unreadable shape fails that row only, not the whole file.
 
@@ -25,7 +25,8 @@ From [`1791200400000-CreateImportTables.ts`](../server/src/migrations/1791200400
 
 - **Excel** ([`readers/xlsx-reader.ts`](../server/src/modules/data-sources/imports/readers/xlsx-reader.ts)) uses **exceljs** (standard section 4). It reads the chosen sheet; if none is chosen, it uses "Areas", else the first sheet. It finds the **heading row** by itself: the first row near the top that is mostly text. A merged title banner counts as one cell, so it never wins. In the real `lga_boundaries` sheet that is **row 2**, under a title banner in row 1, so data starts at row 3. The admin can override the guess. Shapes are read straight from the WKT column; nothing is converted to GeoJSON first.
 - **GeoJSON** ([`readers/geojson-reader.ts`](../server/src/modules/data-sources/imports/readers/geojson-reader.ts)) turns each feature into a row: its properties become columns, and its geometry is the shape. A file that declares any CRS other than WGS84 is refused (AI rule 7: never store a shape in an unknown CRS).
-- [`readers/read-import-file.ts`](../server/src/modules/data-sources/imports/readers/read-import-file.ts) works out the type from the file name, then from its first bytes. Anything else (CSV, for now) is refused with a `400` the screen can show.
+- **Shapefiles, CSV files and zips** have their own readers: see [shapefile-and-csv-imports.md](shapefile-and-csv-imports.md). A shapefile's shapes arrive as GeoJSON per row (like a GeoJSON feature); a CSV keeps its shapes as WKT in a column (like an Excel sheet).
+- [`readers/read-import-file.ts`](../server/src/modules/data-sources/imports/readers/read-import-file.ts) works out the type from the file name, then from its first bytes. Anything else is refused with a `400` the screen can show, listing what is accepted.
 - Uploads go through **multer with memory storage only**, never local disk (standard section 14), with a 20 MB limit (`413` above it).
 
 ### 3. Matching columns
@@ -103,13 +104,13 @@ When this was run end to end on a scratch database with the real files:
 - re-uploading the LGA sheet failed all 23 rows as duplicates.
 
 **Tests:**
-- [`tests/unit/import-readers.test.ts`](../server/tests/unit/import-readers.test.ts): the readers, heading-row detection and the templates.
+- [`tests/unit/import-readers.test.ts`](../server/tests/unit/import-readers.test.ts): the Excel and GeoJSON readers, heading-row detection and the templates. Shapefiles, zips and CSV: `import-shapefile.test.ts` and `import-csv.test.ts`.
 - [`tests/unit/admin-unit-rows.test.ts`](../server/tests/unit/admin-unit-rows.test.ts): name standardisation, parent matching, duplicates and the column guesses for the three real files.
 - [`tests/unit/import.service.test.ts`](../server/tests/unit/import.service.test.ts): the service rules.
 - [`tests/integration/geography.test.ts`](../server/tests/integration/geography.test.ts): uploads over HTTP, including bad files and non-admins.
 
 **Flagged for the team (NEEDS VERIFICATION):**
-- CSV and Shapefile aren't readers yet; the standard lists them for the pipeline. CSV arrives with the rainfall feed in Phase 5.
+- Shapefile and CSV readers now exist ([shapefile-and-csv-imports.md](shapefile-and-csv-imports.md)); the Phase 5 rainfall feed can reuse the CSV reader.
 - Staged rows are kept after promotion, as an audit trail. Decide on a clean-up period before files get large.
 - The "import completed / failed" emails (backend standard section 15) aren't sent yet.
 

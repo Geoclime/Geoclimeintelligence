@@ -4,6 +4,9 @@ export const MAX_IMPORT_ROWS = 20_000;
 /** Upload size cap (multer limit). The real Phase 2 files are all under 1 MB. */
 export const MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024;
 
+/** The most a zip upload may unpack to, counting only the files read from it. Guards against zip bombs. */
+export const MAX_UNZIPPED_BYTES = 100 * 1024 * 1024;
+
 /** Makes headings unique ("name", "name (2)") so no column silently shadows another. */
 export function uniqueHeadings(headings: string[]): string[] {
   const seen = new Map<string, number>();

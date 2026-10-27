@@ -7,7 +7,7 @@ Platform*. Per-feature explanations live in [`../docs/`](../docs/). Start with t
 
 **Status:** Phase 1 (Foundation & Authentication) and Phase 2 (Admin Geography) are done. See
 [`docs/phase-1-authentication.md`](../docs/phase-1-authentication.md), [`docs/admin-geography.md`](../docs/admin-geography.md)
-and [`docs/data-import.md`](../docs/data-import.md).
+[`docs/data-import.md`](../docs/data-import.md) and [`docs/shapefile-and-csv-imports.md`](../docs/shapefile-and-csv-imports.md).
 
 ## Prerequisites
 

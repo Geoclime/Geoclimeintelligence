@@ -17,6 +17,7 @@ import {
   makeUnit,
   RecordingImportRepository,
 } from "../geo-fakes";
+import { buildDbf, buildShp, buildZip, outerRing, partsRecord, square, WGS84_PRJ } from "../shapefile-fixtures";
 
 // Drives the real Express app (middleware order, role guards, validation, multer, error
 // handler) with every repository swapped for an in-memory fake. Spatial SQL is not exercised
@@ -198,6 +199,29 @@ describe("imports", () => {
     });
   });
 
+  it("previews a zipped shapefile and a lone .shp, and says why the lone one has no names", async () => {
+    const shp = buildShp(5, [partsRecord(5, [outerRing(square(7, 4.8, 0.05))])]);
+    const dbf = buildDbf([{ name: "lga_name", type: "C", length: 20 }], [["Okrika"]]);
+
+    const zipped = await request(app)
+      .post("/api/v1/imports/preview")
+      .set(asAdmin)
+      .field("level", "2")
+      .attach("file", buildZip({ "lgas.shp": shp, "lgas.dbf": dbf, "lgas.prj": WGS84_PRJ }), "lgas.zip");
+    expect(zipped.status).toBe(200);
+    expect(zipped.body.data).toMatchObject({ fileType: "shapefile", headings: ["lga_name"], rowCount: 1, warnings: [] });
+    expect(zipped.body.data.suggestedMapping).toEqual({ unit_name: "lga_name" });
+
+    const lone = await request(app).post("/api/v1/imports/preview").set(asAdmin).attach("file", shp, "Rivers_State_LGA.shp");
+    expect(lone.status).toBe(200);
+    expect(lone.body.data.headings).toEqual([]);
+    expect(lone.body.data.warnings.join(" ")).toMatch(/No \.dbf attribute table/);
+
+    const index = await request(app).post("/api/v1/imports/preview").set(asAdmin).attach("file", Buffer.alloc(108), "Rivers_State_LGA.shx");
+    expect(index.status).toBe(400);
+    expect(index.body.errors[0].message).toMatch(/only one part of a shapefile/);
+  });
+
   it("starts a run from a multipart upload", async () => {
     const res = await request(app)
       .post("/api/v1/imports")
@@ -217,7 +241,7 @@ describe("imports", () => {
     expect(noFile.status).toBe(400);
     expect(noFile.body.errors).toEqual([{ field: "file", message: "Choose a file to upload" }]);
 
-    const badFile = await request(app).post("/api/v1/imports").set(asAdmin).field(fields).attach("file", Buffer.from("a,b\n1,2"), "rain.csv");
+    const badFile = await request(app).post("/api/v1/imports").set(asAdmin).field(fields).attach("file", Buffer.from("<kml/>"), "boundary.kml");
     expect(badFile.status).toBe(400);
     expect(badFile.body.errors[0].field).toBe("file");
 

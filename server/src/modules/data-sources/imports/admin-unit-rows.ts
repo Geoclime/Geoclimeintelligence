@@ -1,6 +1,6 @@
 import type { AdminUnitLookupRow } from "../../admin-units/admin-unit.types";
 import { findNameStandard, matchKey, standardName } from "../../admin-units/name-standards";
-import type { AdminUnitStagedFields, ColumnMapping, ParsedFile, StagedRowInput } from "./import.types";
+import { carriesRowShapes, type AdminUnitStagedFields, type ColumnMapping, type ParsedFile, type StagedRowInput } from "./import.types";
 
 export interface AdminUnitRowContext {
   countryCode: string;
@@ -54,10 +54,11 @@ export function prepareAdminUnitRows(file: ParsedFile, mapping: ColumnMapping, c
       return heading ? (row.values[heading]?.trim() ?? null) || null : null;
     };
 
-    // The shape: a GeoJSON feature's geometry, or the mapped text column (WKT, or GeoJSON text).
+    // The shape: the row's own geometry (GeoJSON feature, shapefile record), or the mapped text
+    // column of an Excel or CSV file (WKT, or GeoJSON text).
     let geomSource = row.geometry;
     let geomFormat: StagedRowInput["geomFormat"] = row.geometry ? "geojson" : null;
-    if (file.fileType === "xlsx" && mapping.geometry_wkt) {
+    if (!carriesRowShapes(file.fileType) && mapping.geometry_wkt) {
       geomSource = cell("geometry_wkt");
       geomFormat = geomSource ? (geomSource.startsWith("{") ? "geojson" : "wkt") : null;
       delete raw[mapping.geometry_wkt];

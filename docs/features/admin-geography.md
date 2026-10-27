@@ -61,7 +61,7 @@ Stable reference data (countries, area lists, area details) goes through `cache/
 **7. Admin imports.** `pages/admin/imports/`:
 - **`ImportNewPage.tsx`** takes three steps:
   1. Choose the country, level and data source; "Add a source" opens `DataSourceDialog.tsx`. "Excel template" and "GeoJSON sample" download the blank file.
-  2. Upload the file. The server previews it, so the admin sees the detected sheet, heading row and first rows (`FilePreviewTable.tsx`).
+  2. Upload the file: a shapefile (the `.shp`, or a `.zip` of its `.shp`, `.dbf` and `.prj`), GeoJSON, Excel or CSV. The server previews it, so the admin sees the detected sheet, heading row and first rows (`FilePreviewTable.tsx`), and any warning the reader raised, such as a shapefile with no `.prj` (shown as warning callouts). A shapefile needs no shape column to match; Excel and CSV do. See [shapefile-and-csv-imports.md](../shapefile-and-csv-imports.md).
   3. Match the columns (`ColumnMappingFields.tsx`, preset to the server's guess), then "Check the file".
 - **`ImportReviewPage.tsx`:**
   - counts (rows, passed, failed, live) and the run's warnings;

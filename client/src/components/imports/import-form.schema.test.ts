@@ -25,6 +25,14 @@ describe("importFormSchema", () => {
     expect(importFormSchema.safeParse({ ...base, parentMode: "fixed", parentId: "" }).error!.issues[0]!.path).toEqual(["parentId"]);
   });
 
+  it("needs a shape column for CSV (WKT, like Excel) but not for a shapefile, whose records carry their shapes", () => {
+    const noShape = { ...base, columnMapping: { ...base.columnMapping, geometry_wkt: "" } };
+    expect(importFormSchema.safeParse({ ...noShape, fileType: "csv" }).error!.issues.map((issue) => issue.path.join("."))).toEqual([
+      "columnMapping.geometry_wkt",
+    ]);
+    expect(importFormSchema.safeParse({ ...noShape, fileType: "shapefile" }).success).toBe(true);
+  });
+
   it("refuses one file column matched twice", () => {
     const result = importFormSchema.safeParse({ ...base, columnMapping: { ...base.columnMapping, unit_code: "lga_name_standard" } });
     expect(result.success).toBe(false);
@@ -50,5 +58,16 @@ describe("toStartImport", () => {
     );
     expect(input).toMatchObject({ parentId: "p1", sheetName: undefined, headerRow: undefined });
     expect(input.columnMapping).toEqual({ unit_name: "lga_name_standard", unit_code: "adm2_pcode" });
+  });
+
+  it("sends no shape column or sheet fields for a shapefile, but keeps the shape column for CSV", () => {
+    const zip = new File(["x"], "lgas.zip");
+    const shapefile = toStartImport({ ...base, fileType: "shapefile" }, zip, "shapefile");
+    expect(shapefile).toMatchObject({ sheetName: undefined, headerRow: undefined });
+    expect(shapefile.columnMapping).not.toHaveProperty("geometry_wkt");
+
+    const csv = toStartImport({ ...base, fileType: "csv" }, new File(["x"], "lgas.csv"), "csv");
+    expect(csv).toMatchObject({ sheetName: undefined, headerRow: undefined });
+    expect(csv.columnMapping.geometry_wkt).toBe("geometry_wkt (EPSG:4326)");
   });
 });
