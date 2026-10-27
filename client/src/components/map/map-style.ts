@@ -1,7 +1,9 @@
+import type { ExpressionSpecification } from "mapbox-gl";
 import type { LayerProps } from "react-map-gl/mapbox";
 import type { ResolvedTheme } from "../../contexts/ThemeContext";
 import { brand } from "../../styles/theme";
 import type { BBox } from "../../types/admin-unit.types";
+import type { OverlayLayerId } from "../../types/map-layer.types";
 
 /**
  * Colours and layer definitions for the boundary map, in one place so the map, the legend and the
@@ -16,6 +18,11 @@ export const DEFAULT_VIEW = { longitude: 7.0, latitude: 4.85, zoom: 8 };
 
 export type BoundaryLayerId = "state" | "lga" | "ward";
 
+/** Every switchable layer: the boundaries, then the roads, waterways and settlements drawn over them. */
+export type MapLayerId = BoundaryLayerId | OverlayLayerId;
+export const BOUNDARY_LAYER_IDS: BoundaryLayerId[] = ["state", "lga", "ward"];
+export const OVERLAY_LAYER_IDS: OverlayLayerId[] = ["roads", "waterways", "settlements"];
+
 export interface MapPalette {
   state: string;
   lga: string;
@@ -26,6 +33,14 @@ export interface MapPalette {
   labelHalo: string;
   passed: string;
   failed: string;
+  roadMajor: string;
+  roadSecondary: string;
+  roadLocal: string;
+  water: string;
+  waterFill: string;
+  waterFillOpacity: number;
+  settlement: string;
+  settlementStroke: string;
 }
 
 export function mapPalette(theme: ResolvedTheme): MapPalette {
@@ -40,6 +55,14 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         labelHalo: "#061819",
         passed: brand.tealBright,
         failed: "#f97066",
+        roadMajor: "#ff9c66",
+        roadSecondary: "#fec84b",
+        roadLocal: "#98a2b3",
+        water: "#53b1fd",
+        waterFill: "#2e90fa",
+        waterFillOpacity: 0.35,
+        settlement: "#b692f6",
+        settlementStroke: "#101828",
       }
     : {
         state: brand.tealDeep,
@@ -51,6 +74,14 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         labelHalo: "#ffffff",
         passed: brand.teal,
         failed: "#b42318",
+        roadMajor: "#b93815",
+        roadSecondary: "#dc6803",
+        roadLocal: "#667085",
+        water: "#1570ef",
+        waterFill: "#84caff",
+        waterFillOpacity: 0.55,
+        settlement: "#6941c6",
+        settlementStroke: "#ffffff",
       };
 }
 
@@ -110,6 +141,109 @@ export function boundaryLayers(palette: MapPalette, selectedLgaId: string | null
     paint: { "text-color": palette.label, "text-halo-color": palette.labelHalo, "text-halo-width": 1.5 },
   };
   return { state, lgaFill, lgaLine, lgaSelected, wardFill, wardLine, lgaLabels };
+}
+
+const MAJOR_ROADS = ["motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link"];
+const SECONDARY_ROADS = ["secondary", "secondary_link", "tertiary", "tertiary_link"];
+
+const isRoadOf = (classes: string[]): ExpressionSpecification => ["in", ["get", "roadClass"], ["literal", classes]];
+
+/**
+ * Roads, waterways and settlements, drawn under the boundary lines. The server thins each layer
+ * by zoom (layer-rules.ts), so these paint rules only decide how what arrives looks: main roads
+ * heavier and warmer, creeks thinner than rivers, primary settlements larger and labelled first.
+ */
+export function overlayLayers(palette: MapPalette) {
+  const waterFill: LayerProps = {
+    id: "waterways-fill",
+    type: "fill",
+    filter: ["==", ["geometry-type"], "Polygon"],
+    paint: { "fill-color": palette.waterFill, "fill-opacity": palette.waterFillOpacity, "fill-outline-color": palette.water },
+  };
+  const waterLine: LayerProps = {
+    id: "waterways-line",
+    type: "line",
+    filter: ["==", ["geometry-type"], "LineString"],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": palette.water,
+      "line-width": [
+        "interpolate", ["linear"], ["zoom"],
+        8, ["match", ["get", "waterClass"], "river", 1.4, 0.6],
+        14, ["match", ["get", "waterClass"], "river", 4, "creek", 2, 1.2],
+      ],
+    },
+  };
+
+  const roadWidth = (min: number, max: number) => ["interpolate", ["linear"], ["zoom"], 8, min, 14, max] as unknown as number;
+  const roadLocal: LayerProps = {
+    id: "roads-local",
+    type: "line",
+    filter: ["!", ["any", isRoadOf(MAJOR_ROADS), isRoadOf(SECONDARY_ROADS)]],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": palette.roadLocal, "line-width": roadWidth(0.4, 2) },
+  };
+  const roadSecondary: LayerProps = {
+    id: "roads-secondary",
+    type: "line",
+    filter: isRoadOf(SECONDARY_ROADS),
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": palette.roadSecondary, "line-width": roadWidth(0.8, 3) },
+  };
+  const roadMajor: LayerProps = {
+    id: "roads-major",
+    type: "line",
+    filter: isRoadOf(MAJOR_ROADS),
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": palette.roadMajor, "line-width": roadWidth(1.2, 4.5) },
+  };
+  const roadLabels: LayerProps = {
+    id: "roads-labels",
+    type: "symbol",
+    minzoom: 13,
+    filter: ["!=", ["get", "name"], null],
+    layout: {
+      "symbol-placement": "line",
+      "text-field": ["get", "name"],
+      "text-size": 11,
+      "text-font": ["DIN Pro Medium", "Arial Unicode MS Regular"],
+    },
+    paint: { "text-color": palette.label, "text-halo-color": palette.labelHalo, "text-halo-width": 1.5 },
+  };
+
+  const primary: ExpressionSpecification = ["get", "isPrimary"];
+  const settlementDots: LayerProps = {
+    id: "settlements-dots",
+    type: "circle",
+    paint: {
+      "circle-color": palette.settlement,
+      "circle-stroke-color": palette.settlementStroke,
+      "circle-stroke-width": 1,
+      "circle-radius": [
+        "interpolate", ["linear"], ["zoom"],
+        8, ["case", primary, 3, 2],
+        13, ["case", primary, 6.5, 4.5],
+      ],
+    },
+  };
+  const settlementLabels: LayerProps = {
+    id: "settlements-labels",
+    type: "symbol",
+    minzoom: 10,
+    layout: {
+      "text-field": ["get", "name"],
+      "text-size": 11,
+      "text-font": ["DIN Pro Medium", "Arial Unicode MS Regular"],
+      "text-anchor": "top",
+      "text-offset": [0, 0.7],
+      "text-optional": true,
+      // Lower sorts first and wins a collision, so a ward's primary settlement keeps its name.
+      "symbol-sort-key": ["case", primary, 0, 1],
+    },
+    paint: { "text-color": palette.label, "text-halo-color": palette.labelHalo, "text-halo-width": 1.5 },
+  };
+
+  return { waterFill, waterLine, roadLocal, roadSecondary, roadMajor, roadLabels, settlementDots, settlementLabels };
 }
 
 /** Import review map: passed shapes in teal, failed shapes in red. */

@@ -26,6 +26,8 @@ const envSchema = z
     // Public Mapbox token (pk.*). Optional: without it the app still runs, and every map shows a
     // "map unavailable" notice instead (components/map/ClimateMap.tsx).
     VITE_MAPBOX_TOKEN: z.string().trim().optional(),
+    // Displayed on the Imports screen to match the server's IMPORT_MAX_FILE_MB.
+    VITE_IMPORT_MAX_FILE_MB: z.coerce.number().int().positive().default(60),
   })
   .and(IS_E2E ? firebaseSchema.partial() : firebaseSchema);
 

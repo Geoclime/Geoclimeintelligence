@@ -63,6 +63,42 @@ export const SOURCE = {
   createdAt: "2026-10-05T10:00:00.000Z",
 };
 
+export const OSM_SOURCE = {
+  id: stubId(710),
+  provider: "OpenStreetMap contributors via HDX",
+  datasetName: "Roads of Nigeria (HDX)",
+  url: "https://data.humdata.org/dataset/hotosm_nga_roads",
+  license: "Open Database License (ODC-ODbL)",
+  downloadedOn: "2026-10-27",
+  notes: null,
+  createdAt: "2026-10-27T10:00:00.000Z",
+};
+
+export const GRID3_SETTLEMENT_SOURCE = {
+  ...OSM_SOURCE,
+  id: stubId(711),
+  provider: "GRID3",
+  datasetName: "GRID3 Nigeria settlement names",
+  url: "https://data.grid3.org",
+  license: "CC BY 4.0",
+};
+
+/** GET /map-layers: what is loaded for roads, waterways and settlements, and from where. */
+export function buildMapLayers(counts: [number, number, number] = [47507, 4033, 1149]) {
+  const sources = [[OSM_SOURCE], [OSM_SOURCE], [GRID3_SETTLEMENT_SOURCE]];
+  return (["roads", "waterways", "settlements"] as const).map((id, i) => ({
+    id,
+    label: id.charAt(0).toUpperCase() + id.slice(1),
+    featureCount: counts[i],
+    sources: counts[i] === 0 ? [] : sources[i],
+  }));
+}
+
+/** A roads/waterways/settlements reply with nothing in view. `truncated` is the server's "cut short" flag. */
+export function emptyLayer(truncated = false) {
+  return { type: "FeatureCollection", features: [], truncated };
+}
+
 export function detail(unit: StubUnit, parent: StubUnit | null = null) {
   const { id, countryCode, level, levelName, unitName, unitCode } = parent ?? unit;
   return {
@@ -150,4 +186,9 @@ export function stubGeography() {
   layer("1", [STATE]).as("stateLayer");
   layer("2", [OBIO_AKPOR, PORT_HARCOURT]).as("lgaLayer");
   layer("3", [WARD]).as("wardLayer");
+
+  cy.interceptApi("GET", "/map-layers", { data: buildMapLayers() }).as("getMapLayers");
+  cy.interceptApi("GET", "/roads/geojson?*", { data: emptyLayer() }).as("roadsLayer");
+  cy.interceptApi("GET", "/waterways/geojson?*", { data: emptyLayer() }).as("waterwaysLayer");
+  cy.interceptApi("GET", "/settlements/geojson?*", { data: emptyLayer() }).as("settlementsLayer");
 }

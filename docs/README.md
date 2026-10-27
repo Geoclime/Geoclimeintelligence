@@ -30,24 +30,28 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 15. [shapefile-and-csv-imports.md](shapefile-and-csv-imports.md): reading shapefiles (`.shp`, or a `.zip` with its `.dbf` and `.prj`), CSV files and zips; what each part of a shapefile is, and the coordinate-system rules.
 16. [user-profiles.md](user-profiles.md): profile details (phone, organisation, job title), `PATCH /api/v1/auth/me`, and searching and filtering the user list.
 
+**Phase 3: Map layers**
+17. [map-layers.md](map-layers.md): roads, waterways and settlements: the tables, the four read endpoints, thinning by zoom and the cap, the `npm run layers:load` and `npm run layers:clear` scripts, and the country-delete `409`.
+
 **Deployment**
-17. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
+18. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
 
 ## Web client ([`client/`](../client/))
 
 Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engineering Standards*. They use the same four parts.
 
-18. [features/phase-1-client.md](features/phase-1-client.md): the client's Phase 1 overview. Start here for the frontend.
-19. [features/client-architecture.md](features/client-architecture.md): layers, folders, configuration, and the lint rules that enforce the standard.
-20. [features/signing-in-with-firebase.md](features/signing-in-with-firebase.md): sign-in, sign-up, password reset, `AuthContext` and the route guards.
-21. [features/ui-foundations.md](features/ui-foundations.md): design tokens, light/dark theme, shared components, Modal and toasts.
-22. [features/admin-user-management-ui.md](features/admin-user-management-ui.md): the Administrator Users page.
-23. [features/client-testing.md](features/client-testing.md): unit tests and the offline Cypress suite.
-24. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
-25. [features/auth-email-templates.md](features/auth-email-templates.md): the verification and password-reset emails, and the Firebase console settings behind them.
-26. [features/admin-geography.md](features/admin-geography.md): Phase 2 on the client: the dashboard sidebar and top bar, the home map, Places, and the admin Countries and Imports screens.
-27. [features/email-verification-before-sign-in.md](features/email-verification-before-sign-in.md): new accounts aren't signed in until their email is verified.
-28. [features/usability-and-profile.md](features/usability-and-profile.md): the compact layout, the profile page, name at sign-up, quick search (Ctrl+K), the Help page, the admin setup checklist, and user search on the Users page.
+19. [features/phase-1-client.md](features/phase-1-client.md): the client's Phase 1 overview. Start here for the frontend.
+20. [features/client-architecture.md](features/client-architecture.md): layers, folders, configuration, and the lint rules that enforce the standard.
+21. [features/signing-in-with-firebase.md](features/signing-in-with-firebase.md): sign-in, sign-up, password reset, `AuthContext` and the route guards.
+22. [features/ui-foundations.md](features/ui-foundations.md): design tokens, light/dark theme, shared components, Modal and toasts.
+23. [features/admin-user-management-ui.md](features/admin-user-management-ui.md): the Administrator Users page.
+24. [features/client-testing.md](features/client-testing.md): unit tests and the offline Cypress suite.
+25. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
+26. [features/auth-email-templates.md](features/auth-email-templates.md): the verification and password-reset emails, and the Firebase console settings behind them.
+27. [features/admin-geography.md](features/admin-geography.md): Phase 2 on the client: the dashboard sidebar and top bar, the home map, Places, and the admin Countries and Imports screens.
+28. [features/email-verification-before-sign-in.md](features/email-verification-before-sign-in.md): new accounts aren't signed in until their email is verified.
+29. [features/usability-and-profile.md](features/usability-and-profile.md): the compact layout, the profile page, name at sign-up, quick search (Ctrl+K), the Help page, the admin setup checklist, and user search on the Users page.
+30. [features/map-layers.md](features/map-layers.md): the Roads, Waterways and Settlements toggles, their legend rows, the Data sources panel, and the layer-toggle fix on the home map.
 
 ## Adding a new doc
 

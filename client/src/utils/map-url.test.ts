@@ -14,15 +14,22 @@ describe("map URL state", () => {
     expect(readMapView(new URLSearchParams("lng=abc&lat=4&z=9"))).toBeNull();
   });
 
+  const everything = { state: true, lga: true, ward: true, roads: true, waterways: true, settlements: true };
+  const nothing = { state: false, lga: false, ward: false, roads: false, waterways: false, settlements: false };
+
   it("shows every layer by default and only lists layers when some are off", () => {
-    expect(readLayers(new URLSearchParams(""))).toEqual({ state: true, lga: true, ward: true });
-    const params = writeLayers(new URLSearchParams(""), { state: true, lga: false, ward: true });
-    expect(params.get("layers")).toBe("state,ward");
-    expect(readLayers(params)).toEqual({ state: true, lga: false, ward: true });
-    expect(writeLayers(params, { state: true, lga: true, ward: true }).has("layers")).toBe(false);
+    expect(readLayers(new URLSearchParams(""))).toEqual(everything);
+    const params = writeLayers(new URLSearchParams(""), { ...everything, lga: false, roads: false });
+    expect(params.get("layers")).toBe("state,ward,waterways,settlements");
+    expect(readLayers(params)).toEqual({ ...everything, lga: false, roads: false });
+    expect(writeLayers(params, everything).has("layers")).toBe(false);
+  });
+
+  it("carries the roads, waterways and settlements layers in the link", () => {
+    expect(readLayers(new URLSearchParams("layers=roads,settlements"))).toEqual({ ...nothing, roads: true, settlements: true });
   });
 
   it("drops unknown layer names", () => {
-    expect(readLayers(new URLSearchParams("layers=rainfall,lga"))).toEqual({ state: false, lga: true, ward: false });
+    expect(readLayers(new URLSearchParams("layers=rainfall,lga"))).toEqual({ ...nothing, lga: true });
   });
 });

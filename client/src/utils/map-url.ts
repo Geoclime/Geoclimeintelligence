@@ -1,4 +1,4 @@
-import type { BoundaryLayerId } from "../components/map/map-style";
+import { BOUNDARY_LAYER_IDS, OVERLAY_LAYER_IDS, type MapLayerId } from "../components/map/map-style";
 
 /**
  * Shareable map links: the view, the selected LGA and the visible layers live in the address,
@@ -12,7 +12,7 @@ export interface MapUrlView {
   zoom: number;
 }
 
-const ALL_LAYERS: BoundaryLayerId[] = ["state", "lga", "ward"];
+const ALL_LAYERS: MapLayerId[] = [...BOUNDARY_LAYER_IDS, ...OVERLAY_LAYER_IDS];
 
 function num(value: string | null, min: number, max: number): number | null {
   if (value === null || value.trim() === "") return null;
@@ -36,13 +36,13 @@ export function writeMapView(params: URLSearchParams, view: MapUrlView): URLSear
 }
 
 /** Every layer is on unless the link says otherwise; unknown names are ignored. */
-export function readLayers(params: URLSearchParams): Record<BoundaryLayerId, boolean> {
+export function readLayers(params: URLSearchParams): Record<MapLayerId, boolean> {
   const raw = params.get("layers");
-  const listed = raw === null ? ALL_LAYERS : raw.split(",").filter((l): l is BoundaryLayerId => ALL_LAYERS.includes(l as BoundaryLayerId));
-  return { state: listed.includes("state"), lga: listed.includes("lga"), ward: listed.includes("ward") };
+  const listed = raw === null ? ALL_LAYERS : raw.split(",").filter((l): l is MapLayerId => ALL_LAYERS.includes(l as MapLayerId));
+  return Object.fromEntries(ALL_LAYERS.map((id) => [id, listed.includes(id)])) as Record<MapLayerId, boolean>;
 }
 
-export function writeLayers(params: URLSearchParams, layers: Record<BoundaryLayerId, boolean>): URLSearchParams {
+export function writeLayers(params: URLSearchParams, layers: Record<MapLayerId, boolean>): URLSearchParams {
   const next = new URLSearchParams(params);
   const on = ALL_LAYERS.filter((id) => layers[id]);
   if (on.length === ALL_LAYERS.length) next.delete("layers");

@@ -1,12 +1,14 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AdminBoundaryLayers } from "../../components/map/AdminBoundaryLayers";
 import { AdminUnitPopup } from "../../components/map/AdminUnitPopup";
 import { ClimateMap, type MapView } from "../../components/map/ClimateMap";
 import { LayerToggle, type LayerOption } from "../../components/map/LayerToggle";
+import { MapLayerSources } from "../../components/map/MapLayerSources";
 import { MapLegend } from "../../components/map/MapLegend";
+import { MapOverlayLayers } from "../../components/map/MapOverlayLayers";
 import { MapOverviewPanel } from "../../components/map/MapOverviewPanel";
-import { INTERACTIVE_LAYERS, mapPalette, WARD_MIN_ZOOM, type BoundaryLayerId } from "../../components/map/map-style";
+import { INTERACTIVE_LAYERS, mapPalette, OVERLAY_LAYER_IDS, WARD_MIN_ZOOM, type MapLayerId } from "../../components/map/map-style";
 import { Button, buttonClassName } from "../../components/shared/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { Icon } from "../../components/shared/Icon";
@@ -17,9 +19,12 @@ import { useCountries } from "../../hooks/useCountries";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useLocatePoint } from "../../hooks/useLocatePoint";
+import { useMapLayer } from "../../hooks/useMapLayer";
+import { useMapLayerCatalog } from "../../hooks/useMapLayerCatalog";
 import { useTheme } from "../../hooks/useTheme";
 import type { BBox, LonLat } from "../../types/admin-unit.types";
 import { readLayers, readMapView, writeLayers, writeMapView } from "../../utils/map-url";
+import { overlayHint } from "../../utils/overlay-layers";
 import { hasAnyRole } from "../../utils/roles";
 import "./MapPage.css";
 
@@ -30,9 +35,18 @@ const LEGEND = [
   { key: "selected", label: "Selected LGA", swatch: "selected" },
 ];
 
+/** Legend rows for the feature layers; a row shows only while its layer is switched on. */
+const OVERLAY_LEGEND = [
+  { key: "roads", label: "Roads (main to local)", swatch: "roads", layer: "roads" },
+  { key: "waterways", label: "Rivers and creeks", swatch: "waterways", layer: "waterways" },
+  { key: "waterbodies", label: "Wide rivers and water bodies", swatch: "waterbodies", layer: "waterways" },
+  { key: "settlements", label: "Settlements", swatch: "settlements", layer: "settlements" },
+] as const;
+
 /**
  * The home screen: a full-screen map of Rivers State with its LGAs (named on the map) and, zoomed
- * in, its wards. Each layer is fetched only for the visible area. The view, the selected LGA and
+ * in, its wards, with roads, waterways and settlements over them. Each layer is fetched only for
+ * the visible area. The view, the selected LGA and
  * the visible layers live in the URL, so a link opens the same view (utils/map-url.ts).
  */
 export function MapPage() {
@@ -57,6 +71,10 @@ export function MapPage() {
   const stateLayer = useAdminUnitLayer(view?.bbox ?? null, 1, { enabled: layers.state, zoom });
   const lgaLayer = useAdminUnitLayer(view?.bbox ?? null, 2, { enabled: layers.lga, zoom });
   const wardLayer = useAdminUnitLayer(view?.bbox ?? null, 3, { enabled: layers.ward && zoom >= WARD_MIN_ZOOM, zoom });
+  const roadLayer = useMapLayer("roads", view?.bbox ?? null, { enabled: layers.roads, zoom });
+  const waterwayLayer = useMapLayer("waterways", view?.bbox ?? null, { enabled: layers.waterways, zoom });
+  const settlementLayer = useMapLayer("settlements", view?.bbox ?? null, { enabled: layers.settlements, zoom });
+  const { catalog } = useMapLayerCatalog();
   const located = useLocatePoint();
   const geolocation = useGeolocation();
 
@@ -65,8 +83,20 @@ export function MapPage() {
   const selectedLga = lgaList.find((lga) => lga.id === selectedLgaId) ?? null;
   const isAdmin = user ? hasAnyRole(user.role, ["administrator"]) : false;
 
+  // Two updates can land in the same tick (a layer tick and the map's own "moved" event). The router
+  // builds each from the params of the last render, so the second would overwrite the first; this
+  // keeps the latest params so every update starts from the one before it.
+  const latestParams = useRef(searchParams);
+  useEffect(() => {
+    latestParams.current = searchParams;
+  }, [searchParams]);
+
   const updateParams = useCallback(
-    (update: (params: URLSearchParams) => URLSearchParams) => setSearchParams((params) => update(params), { replace: true }),
+    (update: (params: URLSearchParams) => URLSearchParams) => {
+      const next = update(new URLSearchParams(latestParams.current));
+      latestParams.current = next;
+      setSearchParams(next, { replace: true });
+    },
     [setSearchParams],
   );
 
@@ -105,8 +135,13 @@ export function MapPage() {
     await handleMapClick(point);
   };
 
-  const toggleLayer = (id: BoundaryLayerId, checked: boolean) =>
+  const toggleLayer = (id: MapLayerId, checked: boolean) =>
     updateParams((params) => writeLayers(params, { ...layers, [id]: checked }));
+
+  // Empty until the layer list has loaded, so a layer is never called empty before we know.
+  const featureCountOf = (id: (typeof OVERLAY_LAYER_IDS)[number]) => catalog.find((layer) => layer.id === id)?.featureCount ?? null;
+  const hintFor = (id: (typeof OVERLAY_LAYER_IDS)[number], truncated: boolean | undefined) =>
+    overlayHint(id, { zoom, truncated: truncated === true, featureCount: featureCountOf(id) });
 
   const layerOptions: LayerOption[] = [
     { id: "state", label: "State", checked: layers.state, loading: stateLayer.loading },
@@ -118,10 +153,34 @@ export function MapPage() {
       loading: wardLayer.loading,
       hint: zoom < WARD_MIN_ZOOM ? "Zoom in to see wards" : undefined,
     },
+    {
+      id: "roads",
+      label: "Roads",
+      checked: layers.roads,
+      loading: roadLayer.loading,
+      hint: hintFor("roads", roadLayer.data?.truncated),
+    },
+    {
+      id: "waterways",
+      label: "Waterways",
+      checked: layers.waterways,
+      loading: waterwayLayer.loading,
+      hint: hintFor("waterways", waterwayLayer.data?.truncated),
+    },
+    {
+      id: "settlements",
+      label: "Settlements",
+      checked: layers.settlements,
+      loading: settlementLayer.loading,
+      hint: hintFor("settlements", settlementLayer.data?.truncated),
+    },
   ];
+  const legendItems = [...LEGEND, ...OVERLAY_LEGEND.filter((item) => layers[item.layer])];
+  const visibleOverlays = OVERLAY_LAYER_IDS.filter((id) => layers[id]);
 
   const noCountry = !countriesLoading && countries.length === 0;
-  const layerError = stateLayer.error ?? lgaLayer.error ?? wardLayer.error;
+  const layerError =
+    stateLayer.error ?? lgaLayer.error ?? wardLayer.error ?? roadLayer.error ?? waterwayLayer.error ?? settlementLayer.error;
 
   return (
     <div className="map-page" data-cy="map-page">
@@ -136,6 +195,12 @@ export function MapPage() {
         className="map-page__map"
         dataCy="home-map"
       >
+        <MapOverlayLayers
+          palette={palette}
+          roads={roadLayer.data}
+          waterways={waterwayLayer.data}
+          settlements={settlementLayer.data}
+        />
         <AdminBoundaryLayers
           palette={palette}
           state={stateLayer.data}
@@ -167,14 +232,15 @@ export function MapPage() {
         />
         {layerError && (
           <p className="map-panel map-page__error" role="alert" data-cy="layer-error">
-            Some boundaries couldn't load: {layerError}
+            Some map layers couldn't load: {layerError}
           </p>
         )}
       </div>
 
       <div className={`map-page__panels${panelsOpen ? " is-open" : ""}`} id="map-panels">
         <LayerToggle layers={layerOptions} onChange={toggleLayer} />
-        <MapLegend items={LEGEND} note="Boundaries: geoBoundaries (CC BY 4.0). Wards: GRID3 operational placeholders (CC BY 4.0)." />
+        <MapLegend items={legendItems} note="Boundaries: geoBoundaries (CC BY 4.0). Wards: GRID3 operational placeholders (CC BY 4.0)." />
+        <MapLayerSources catalog={catalog} visible={visibleOverlays} />
       </div>
       <Button
         variant="secondary"

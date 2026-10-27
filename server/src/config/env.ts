@@ -31,6 +31,9 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
     ),
+  IMPORT_MAX_FILE_MB: z.coerce.number().int().positive().default(60),
+  IMPORT_MAX_UNZIPPED_MB: z.coerce.number().int().positive().default(100),
+  IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(100_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -18,7 +18,9 @@
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
     "migration:show": "npm run typeorm -- migration:show",
-    "user:set-access": "tsx src/scripts/set-user-access.ts"
+    "user:set-access": "tsx src/scripts/set-user-access.ts",
+    "layers:load": "tsx src/scripts/load-map-layers.ts",
+    "layers:clear": "tsx src/scripts/clear-map-layers.ts"
   },
   "dependencies": {
     "cors": "^2.8.6",

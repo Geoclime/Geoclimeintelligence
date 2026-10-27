@@ -1,4 +1,4 @@
-import { OBIO_AKPOR, PORT_HARCOURT, STATE, WARD, stubGeography } from "../../support/geo-factories";
+import { OBIO_AKPOR, PORT_HARCOURT, STATE, WARD, buildMapLayers, emptyLayer, stubGeography } from "../../support/geo-factories";
 
 const locateReply = {
   point: [7.0134, 4.7774],
@@ -20,7 +20,10 @@ function stubGeolocation(win: Window, coords: { longitude: number; latitude: num
   });
 }
 
-describe("Home map", () => {
+// Layer requests wait for the map's own load event, and headless Electron draws WebGL in software,
+// so a load takes about 3-4 s: right at Cypress's default 4 s wait. A longer wait here costs nothing
+// when the app is fine and only delays a real failure.
+describe("Home map", { defaultCommandTimeout: 10000 }, () => {
   beforeEach(() => {
     cy.login("general_public");
     stubGeography();
@@ -88,6 +91,55 @@ describe("Home map", () => {
     cy.visit("/");
     cy.dataCy("map-empty").should("contain", "No map data yet");
     cy.dataCy("setup-first-country").should("not.exist");
+  });
+
+  it("offers roads, waterways and settlements, each with where its data came from", () => {
+    cy.visit("/?lng=7.0&lat=4.85&z=8");
+    cy.wait("@getMapLayers");
+    cy.dataCy("layer-toggle").should("contain", "Roads").and("contain", "Waterways").and("contain", "Settlements");
+    cy.dataCy("map-legend").should("contain", "Roads (main to local)").and("contain", "Settlements");
+    cy.dataCy("map-source-roads").should("contain", "OpenStreetMap contributors via HDX").and("contain", "ODbL");
+    cy.dataCy("map-source-roads").should("contain", "27 Oct 2026");
+    cy.dataCy("map-source-settlements").should("contain", "GRID3").and("contain", "CC BY 4.0");
+  });
+
+  it("fetches each feature layer only for the visible area, with the zoom", () => {
+    cy.visit("/?lng=7.0&lat=4.85&z=9.6");
+    for (const alias of ["@roadsLayer", "@waterwaysLayer", "@settlementsLayer"] as const) {
+      cy.wait(alias).then(({ request }) => {
+        expect(request.query).to.include({ zoom: "10" });
+        expect(String(request.query.bbox)).to.match(/^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/);
+      });
+    }
+  });
+
+  it("drops a layer's legend row and source when it is switched off, and keeps that in the address", () => {
+    cy.visit("/?lng=7.0&lat=4.85&z=9.5");
+    cy.dataCy("map-legend").should("contain", "Roads (main to local)");
+    cy.dataCy("layer-roads").find("input").uncheck();
+    cy.dataCy("map-legend").should("not.contain", "Roads (main to local)");
+    cy.dataCy("map-source-roads").should("not.exist");
+    cy.location("search").should("contain", "layers=state%2Clga%2Cward%2Cwaterways%2Csettlements");
+  });
+
+  it("says so when a layer has no data loaded yet, instead of looking sourced", () => {
+    cy.interceptApi("GET", "/map-layers", { data: buildMapLayers([0, 4033, 1149]) });
+    cy.visit("/?lng=7.0&lat=4.85&z=9.5");
+    cy.dataCy("layer-roads").should("contain", "No data loaded yet");
+    cy.dataCy("map-source-roads").should("contain", "No data loaded yet");
+    cy.dataCy("layer-settlements").should("not.contain", "No data loaded yet");
+  });
+
+  it("tells you to zoom in when the server had to cut a layer short", () => {
+    cy.interceptApi("GET", "/roads/geojson?*", { data: emptyLayer(true) });
+    cy.visit("/?lng=7.0&lat=4.85&z=14");
+    cy.dataCy("layer-roads").should("contain", "Too many here to show: zoom in");
+  });
+
+  it("names a broken feature layer too", () => {
+    cy.interceptApi("GET", "/roads/geojson?*", { statusCode: 500, message: "Roads are down" });
+    cy.visit("/?lng=7.0&lat=4.85&z=9");
+    cy.dataCy("layer-error").should("contain", "Roads are down");
   });
 
   it("names a broken layer instead of failing silently", () => {

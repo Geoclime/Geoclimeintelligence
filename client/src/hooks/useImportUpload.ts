@@ -1,9 +1,12 @@
 import { useCallback } from "react";
+import { CACHE_KEYS, invalidateCached } from "../cache/localCache";
 import { previewImportFile, startImport } from "../endpoints/import.endpoints";
+import { clearMapLayers, uploadMapLayer } from "../endpoints/map-layer.endpoints";
 import type { ImportPreview, ImportRun, PreviewImportInput, StartImportInput } from "../types/import.types";
+import type { ClearMapLayerInput, MapLayerClearReport, MapLayerLoadReport, UploadMapLayerInput } from "../types/map-layer.types";
 
 /**
- * The two upload steps of the import screen. Both reject with an ApiError so the form can show the
+ * The upload steps of the import screen. All reject with an ApiError so the form can show the
  * server's field errors ("file", "sheetName", "columnMapping.unit_name"...). Submitting state lives
  * in the form.
  */
@@ -22,5 +25,21 @@ export function useImportUpload() {
     return response.data;
   }, []);
 
-  return { preview, start };
+  /** Uploads a map-layer file (roads, waterways, settlements or delivery zip) straight into PostGIS. */
+  const uploadLayer = useCallback(async (input: UploadMapLayerInput): Promise<MapLayerLoadReport> => {
+    const response = await uploadMapLayer(input);
+    if (!response.data) throw new Error(response.message || "The server returned no load report.");
+    invalidateCached(CACHE_KEYS.mapLayers);
+    return response.data;
+  }, []);
+
+  /** Clears a country's map layer(s) so they can be re-imported from scratch. */
+  const clearLayer = useCallback(async (input: ClearMapLayerInput): Promise<MapLayerClearReport> => {
+    const response = await clearMapLayers(input);
+    if (!response.data) throw new Error(response.message || "The server returned no clear report.");
+    invalidateCached(CACHE_KEYS.mapLayers);
+    return response.data;
+  }, []);
+
+  return { preview, start, uploadLayer, clearLayer };
 }
