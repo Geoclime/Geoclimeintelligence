@@ -1,7 +1,7 @@
 /**
- * ADMINISTRATOR-ONLY script: loads the data team's roads, waterways and settlement files into the
- * database so they show on the map. It exists because the Imports screen takes boundary polygons
- * under 20,000 rows, and these files are lines and points (47,507 road segments).
+ * ADMINISTRATOR-ONLY script: loads the data team's roads, waterways, settlement and infrastructure
+ * files into the database so they show on the map. It exists because the Imports screen takes
+ * boundary polygons under 20,000 rows, and these files are lines and points (47,507 road segments).
  *
  * Needs direct database credentials (DATABASE_URL), which is what restricts it to administrators.
  * Exempt from region checks under AI rule 9 for that reason. Safe to run twice: rows already
@@ -11,10 +11,13 @@
  *   npm run layers:load -- --zip ../rivers_map_layers_2026-10-27.zip --dry-run
  *   npm run layers:load -- --zip ../rivers_map_layers_2026-10-27.zip
  *   npm run layers:load -- --settlements ../rivers_state_settlement_names.geojson --settlements-source <data-source-uuid>
+ *   npm run layers:load -- --infrastructure ../osm-20261027T194914Z-1-001.zip --infrastructure-source <data-source-uuid>
  *
- * --zip                  the delivery zip (provenance.json + roads, waterways, waterway areas)
- * --settlements          the GRID3 settlement-names GeoJSON
- * --settlements-source   id of that file's data source (add it on Imports > Add a source first)
+ * --zip                     the delivery zip (provenance.json + roads, waterways, waterway areas)
+ * --settlements             the GRID3 settlement-names GeoJSON
+ * --settlements-source      id of that file's data source (add it on Imports > Add a source first)
+ * --infrastructure          Geofabrik's OpenStreetMap extract: the zip of .gpkg files, or one facility .gpkg
+ * --infrastructure-source   id of that extract's data source (add it on Imports > Add a source first)
  * --country              country code, default NGA
  * --ward-level           the admin level that holds wards, default 3
  * --dry-run              do everything, then roll back: shows the counts and keeps nothing
@@ -33,13 +36,20 @@ const argsSchema = z
     zip: z.string().min(1).optional(),
     settlements: z.string().min(1).optional(),
     "settlements-source": z.uuid("--settlements-source must be a data source id (uuid)").optional(),
+    infrastructure: z.string().min(1).optional(),
+    "infrastructure-source": z.uuid("--infrastructure-source must be a data source id (uuid)").optional(),
     country: z.string().length(3).default("NGA"),
     "ward-level": z.coerce.number().int().min(1).max(6).default(3),
     "dry-run": z.boolean().default(false),
   })
-  .refine((args) => args.zip || args.settlements, { message: "Give --zip, --settlements, or both" })
+  .refine((args) => args.zip || args.settlements || args.infrastructure, {
+    message: "Give --zip, --settlements, --infrastructure, or a combination",
+  })
   .refine((args) => !args.settlements || args["settlements-source"], {
     message: "--settlements needs --settlements-source <data-source-uuid>: record the file's source first, so no point is unsourced",
+  })
+  .refine((args) => !args.infrastructure || args["infrastructure-source"], {
+    message: "--infrastructure needs --infrastructure-source <data-source-uuid>: record the extract's source first, so no facility is unsourced",
   });
 
 function describe(layer: LayerReport): string {
@@ -49,7 +59,7 @@ function describe(layer: LayerReport): string {
     `  added:         ${layer.inserted.toLocaleString("en")}`,
     `  already there: ${layer.alreadyPresent.toLocaleString("en")}`,
   ];
-  if (layer.layer === "settlements") {
+  if (layer.layer === "settlements" || layer.layer === "infrastructure") {
     lines.push(`  linked later:  ${layer.relinked.toLocaleString("en")}`);
     lines.push(`  no ward found: ${layer.unlinked.toLocaleString("en")}`);
   }
@@ -69,6 +79,8 @@ async function main() {
       zip: { type: "string" },
       settlements: { type: "string" },
       "settlements-source": { type: "string" },
+      infrastructure: { type: "string" },
+      "infrastructure-source": { type: "string" },
       country: { type: "string" },
       "ward-level": { type: "string" },
       "dry-run": { type: "boolean" },
@@ -86,6 +98,13 @@ async function main() {
           fileName: path.basename(args.settlements),
           buffer: readFileSync(args.settlements),
           sourceId: args["settlements-source"]!,
+        }
+      : undefined,
+    infrastructure: args.infrastructure
+      ? {
+          fileName: path.basename(args.infrastructure),
+          buffer: readFileSync(args.infrastructure),
+          sourceId: args["infrastructure-source"]!,
         }
       : undefined,
   };

@@ -10,7 +10,7 @@ The home map (`/`) can now draw roads, waterways and settlements over the State,
 - **Honest hints** under each toggle: "No data loaded yet", "Too many here to show: zoom in", "Smaller roads appear as you zoom in" or "Creeks and small water appear as you zoom in".
 - **A fix to the layer toggles**, which could be undone by the map's own address update (see section 5).
 
-The server side (tables, endpoints, zoom rules and the loader) is in [map-layers.md](../map-layers.md).
+The server side (tables, endpoints, zoom rules and the loader) is in [map-layers.md](../map-layers.md). A fourth toggle, **Facilities**, was added later with its five legend rows; it is covered, server and client, in [infrastructure-layer.md](../infrastructure-layer.md).
 
 ## How it works
 

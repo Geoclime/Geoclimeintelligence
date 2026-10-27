@@ -3,7 +3,20 @@ import type { BBox } from "./admin-unit.types";
 import type { DataSource } from "./data-source.types";
 
 /** The feature layers drawn over the boundaries. Mirrors MapLayerId in server/src/modules/map-layers/layer-rules.ts. */
-export type OverlayLayerId = "roads" | "waterways" | "settlements";
+export type OverlayLayerId = "roads" | "waterways" | "settlements" | "infrastructure";
+
+/** Mirrors FACILITY_TYPES in server/src/modules/map-layers/layer-rules.ts. */
+export type FacilityType =
+  | "health"
+  | "emergency"
+  | "education"
+  | "government"
+  | "market"
+  | "transport"
+  | "community"
+  | "worship"
+  | "water"
+  | "telecom";
 
 export type WaterClass = "river" | "creek" | "other";
 
@@ -41,14 +54,25 @@ export type RoadFeatureCollection = LayerFeatureCollection<MultiLineString, Road
 export type WaterwayFeatureCollection = LayerFeatureCollection<MultiLineString | MultiPolygon, WaterwayFeatureProperties>;
 export type SettlementFeatureCollection = LayerFeatureCollection<Point, SettlementFeatureProperties>;
 
+export interface InfrastructureFeatureProperties {
+  id: string;
+  name: string | null;
+  facilityType: FacilityType;
+  /** The OSM class as delivered, e.g. "clinic" within "health". */
+  osmClass: string;
+}
+
+export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
+
 /** Which collection each layer's endpoint returns. */
 export interface OverlayCollections {
   roads: RoadFeatureCollection;
   waterways: WaterwayFeatureCollection;
   settlements: SettlementFeatureCollection;
+  infrastructure: InfrastructureFeatureCollection;
 }
 
-/** GET /api/v1/{roads,waterways,settlements}/geojson. bbox is required: the server refuses a request without one. */
+/** GET /api/v1/{roads,waterways,settlements,infrastructure}/geojson. bbox is required: the server refuses a request without one. */
 export interface OverlayLayerParams {
   bbox: BBox;
   zoom?: number;
@@ -73,7 +97,7 @@ export interface UploadMapLayerInput {
 }
 
 export interface MapLayerLoadItemReport {
-  layer: "roads" | "waterways" | "waterway areas" | "settlements";
+  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure";
   file: string;
   sourceId: string | null;
   sourceCreated: boolean;

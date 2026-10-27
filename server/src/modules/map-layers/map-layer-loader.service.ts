@@ -2,9 +2,11 @@ import { ValidationError } from "../../common/errors/app-error";
 import type { BBox } from "../../common/geo/geo";
 import { CountryRepository } from "../admin-units/country.repository";
 import type { ICountryRepository } from "../admin-units/country.types";
-import { parseLayerGeoJson, prepareRoads, prepareSettlements, prepareWaterways, type LayerFeature } from "./map-layer-rows";
+import { readGeoPackage } from "./gpkg-reader";
+import { parseLayerGeoJson, prepareInfrastructure, prepareRoads, prepareSettlements, prepareWaterways, type LayerFeature } from "./map-layer-rows";
 import { findEntry, openLayerZip, sourceFromEntry } from "./map-layer-provenance";
 import { MapLayerLoadRepository } from "./map-layer-load.repository";
+import { facilityFiles } from "./osm-extract";
 import type {
   BatchResult,
   ILayerLoadStore,
@@ -29,12 +31,17 @@ export interface LoadRequest {
   waterways?: { fileName: string; buffer: Buffer; sourceId: string };
   /** The GRID3 settlement-names file, with the id of the data source already recorded for it. */
   settlements?: { fileName: string; buffer: Buffer; sourceId: string };
+  /**
+   * Geofabrik's OpenStreetMap extract (the zipped folder of GeoPackages, or one facility .gpkg),
+   * with the id of the data source already recorded for it. Only the facility files are read.
+   */
+  infrastructure?: { fileName: string; buffer: Buffer; sourceId: string };
   /** Run every step, then roll the transaction back, so nothing is kept. */
   dryRun: boolean;
 }
 
 export interface LayerReport {
-  layer: "roads" | "waterways" | "waterway areas" | "settlements";
+  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure";
   file: string;
   /** The data source the rows point at, and whether this run had to record it. */
   sourceId: string | null;
@@ -54,7 +61,7 @@ export interface LoadReport {
 }
 
 /** The layers layers:clear can remove. */
-export const CLEARABLE_LAYERS = ["roads", "waterways", "settlements"] as const;
+export const CLEARABLE_LAYERS = ["roads", "waterways", "settlements", "infrastructure"] as const;
 export type ClearableLayer = (typeof CLEARABLE_LAYERS)[number];
 
 export interface ClearRequest {
@@ -80,6 +87,8 @@ interface LayerPlan {
   prepared: PreparedRows<unknown>;
   /** The source to record, or the id of one that already exists. */
   source: { record: NewLayerSource } | { existingId: string };
+  /** The request field (and script flag) naming an existing source, for the error when it doesn't exist. */
+  sourceField: string;
   insert(tx: LayerLoadTx, sourceId: string): Promise<BatchResult>;
 }
 
@@ -102,8 +111,10 @@ export class MapLayerLoaderService {
   ) {}
 
   async load(request: LoadRequest): Promise<LoadReport> {
-    if (!request.zip && !request.roads && !request.waterways && !request.settlements) {
-      throw new ValidationError([{ message: "Nothing to load: give a delivery zip, a roads file, a waterways file, a settlements file, or a combination." }]);
+    if (!request.zip && !request.roads && !request.waterways && !request.settlements && !request.infrastructure) {
+      throw new ValidationError([
+        { message: "Nothing to load: give a delivery zip, a roads file, a waterways file, a settlements file, an OpenStreetMap extract for infrastructure, or a combination." },
+      ]);
     }
     const country = await this.countries.findByCode(request.countryCode);
     if (!country) {
@@ -119,6 +130,7 @@ export class MapLayerLoaderService {
       ...this.roadPlans(request, country.countryCode, bbox),
       ...this.waterwayPlans(request, country.countryCode, bbox),
       ...this.settlementPlans(request, country.countryCode, bbox),
+      ...(await this.infrastructurePlans(request, country.countryCode, bbox)),
     ];
     const report: LoadReport = { dryRun: request.dryRun, layers: [] };
 
@@ -134,7 +146,7 @@ export class MapLayerLoaderService {
   }
 
   /**
-   * Removes a country's roads and/or waterways (npm run layers:clear), so a layer can be loaded
+   * Removes a country's roads, waterways or infrastructure (npm run layers:clear), so a layer can be loaded
    * again from scratch, or the country deleted (its foreign keys refuse while they exist). One
    * transaction. Data source records are kept: other rows, or the history, may still cite them.
    * Settlements are not touched: they belong to wards, not to the country.
@@ -153,12 +165,7 @@ export class MapLayerLoaderService {
     try {
       await this.store.inTransaction(async (tx) => {
         for (const layer of layers) {
-          report.deleted[layer] =
-            layer === "roads"
-              ? await tx.deleteRoads(country.countryCode)
-              : layer === "waterways"
-                ? await tx.deleteWaterways(country.countryCode)
-                : await tx.deleteSettlements();
+          report.deleted[layer] = await deleteLayer(tx, layer, country.countryCode);
         }
         if (request.dryRun) throw new DryRunRollback();
       });
@@ -175,8 +182,8 @@ export class MapLayerLoaderService {
       if (!(await tx.sourceExists(plan.source.existingId))) {
         throw new ValidationError([
           {
-            field: "settlements-source",
-            message: `No data source with id ${plan.source.existingId}. Add the settlements' source on Imports > Add a source first, then pass its id.`,
+            field: plan.sourceField,
+            message: `No data source with id ${plan.source.existingId}. Add the ${plan.layer} file's source on Imports > Add a source first, then pass its id.`,
           },
         ]);
       }
@@ -221,6 +228,7 @@ export class MapLayerLoaderService {
         featuresInFile: features.length,
         prepared,
         source: { record: sourceFromEntry(entry, clippedWith) },
+        sourceField: "zip",
         insert: (tx, sourceId) => inBatches(prepared.rows, (batch) => insert(tx, batch, { countryCode, bbox, sourceId })),
       };
     };
@@ -244,6 +252,7 @@ export class MapLayerLoaderService {
         featuresInFile: features.length,
         prepared,
         source: { existingId: file.sourceId },
+        sourceField: "roads-source",
         insert: (tx, sourceId) =>
           inBatches(prepared.rows, (batch) => tx.insertRoads(batch, { countryCode, bbox, sourceId })),
       },
@@ -262,6 +271,7 @@ export class MapLayerLoaderService {
         featuresInFile: features.length,
         prepared,
         source: { existingId: file.sourceId },
+        sourceField: "waterways-source",
         insert: (tx, sourceId) =>
           inBatches(prepared.rows, (batch) => tx.insertWaterways(batch, { countryCode, bbox, sourceId })),
       },
@@ -280,12 +290,50 @@ export class MapLayerLoaderService {
         featuresInFile: features.length,
         prepared,
         source: { existingId: file.sourceId },
+        sourceField: "settlements-source",
         insert: (tx, sourceId) =>
           inBatches(prepared.rows, (batch) =>
             tx.insertSettlements(batch, { countryCode, bbox, sourceId, wardLevel: request.wardLevel }),
           ),
       },
     ];
+  }
+
+  /** One plan per facility GeoPackage (points of interest, places of worship, transport; points and areas). */
+  private async infrastructurePlans(request: LoadRequest, countryCode: string, bbox: BBox | null): Promise<LayerPlan[]> {
+    const upload = request.infrastructure;
+    if (!upload) return [];
+    const plans: LayerPlan[] = [];
+    for (const file of facilityFiles(upload.buffer, upload.fileName)) {
+      const features = await readGeoPackage(file.buffer, file.fileName);
+      const prepared = prepareInfrastructure(features);
+      plans.push({
+        layer: "infrastructure",
+        file: file.fileName,
+        featuresInFile: features.length,
+        prepared,
+        source: { existingId: upload.sourceId },
+        sourceField: "infrastructure-source",
+        insert: (tx, sourceId) =>
+          inBatches(prepared.rows, (batch) =>
+            tx.insertInfrastructure(batch, { countryCode, bbox, sourceId, wardLevel: request.wardLevel }),
+          ),
+      });
+    }
+    return plans;
+  }
+}
+
+function deleteLayer(tx: LayerLoadTx, layer: ClearableLayer, countryCode: string): Promise<number> {
+  switch (layer) {
+    case "roads":
+      return tx.deleteRoads(countryCode);
+    case "waterways":
+      return tx.deleteWaterways(countryCode);
+    case "settlements":
+      return tx.deleteSettlements();
+    case "infrastructure":
+      return tx.deleteInfrastructure(countryCode);
   }
 }
 

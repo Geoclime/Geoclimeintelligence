@@ -8,7 +8,7 @@
  * the loader uses roadClassRank to fill roads.class_rank when it stores a road.
  */
 
-export const MAP_LAYER_IDS = ["roads", "waterways", "settlements"] as const;
+export const MAP_LAYER_IDS = ["roads", "waterways", "settlements", "infrastructure"] as const;
 export type MapLayerId = (typeof MAP_LAYER_IDS)[number];
 
 /** Lower = more important. Anything not listed (track, path, footway, construction...) is minor. */
@@ -65,11 +65,83 @@ export function waterClassesAtZoom(zoom?: number): WaterClass[] {
   return zoom >= 9 ? ["river", "creek"] : ["river"];
 }
 
+/**
+ * The kinds of facility the infrastructure layer keeps (the ERD's `facility_type`), most
+ * important first: that order is the order a capped reply keeps them in. Every other
+ * OpenStreetMap class (shops, kiosks, sports pitches, hotels...) is left out by the loader.
+ */
+export const FACILITY_TYPES = [
+  "health",
+  "emergency",
+  "education",
+  "government",
+  "market",
+  "transport",
+  "community",
+  "worship",
+  "water",
+  "telecom",
+] as const;
+export type FacilityType = (typeof FACILITY_TYPES)[number];
+
+/** Geofabrik's `fclass` values that make up each facility type. */
+const FACILITY_CLASSES: Readonly<Record<string, FacilityType>> = {
+  hospital: "health",
+  clinic: "health",
+  doctors: "health",
+  dentist: "health",
+  pharmacy: "health",
+  chemist: "health",
+  nursing_home: "health",
+  police: "emergency",
+  fire_station: "emergency",
+  school: "education",
+  college: "education",
+  university: "education",
+  kindergarten: "education",
+  town_hall: "government",
+  courthouse: "government",
+  post_office: "government",
+  marketplace: "market",
+  mall: "market",
+  ferry_terminal: "transport",
+  bus_station: "transport",
+  railway_station: "transport",
+  airport: "transport",
+  airfield: "transport",
+  helipad: "transport",
+  community_centre: "community",
+  library: "community",
+  water_well: "water",
+  drinking_water: "water",
+  water_tower: "water",
+  water_works: "water",
+  wastewater_plant: "water",
+  comms_tower: "telecom",
+};
+
+/** Places of worship come from Geofabrik's pofw layer, named by religion: christian, christian_anglican, muslim... */
+const WORSHIP_CLASS = /^(christian|muslim|jewish|hindu|buddhist|sikh|taoist|shintoist)(_|$)/;
+
+/** The facility type of a Geofabrik `fclass`, or null for a class the layer doesn't keep. */
+export function facilityTypeOf(osmClass: string): FacilityType | null {
+  const normalised = osmClass.trim().toLowerCase();
+  return FACILITY_CLASSES[normalised] ?? (WORSHIP_CLASS.test(normalised) ? "worship" : null);
+}
+
+/** Health and emergency from the start, then services people travel to, then everything up close. */
+export function facilityTypesAtZoom(zoom?: number): FacilityType[] {
+  if (zoom === undefined || zoom >= 12) return [...FACILITY_TYPES];
+  const nearby: FacilityType[] = ["health", "emergency"];
+  return zoom >= 10 ? [...nearby, "education", "government", "market", "transport"] : nearby;
+}
+
 /** The most features one map-layer response may hold. Past it, `truncated` is true. */
 export const LAYER_FEATURE_LIMIT: Readonly<Record<MapLayerId, number>> = {
   roads: 12_000,
   waterways: 6_000,
   settlements: 5_000,
+  infrastructure: 5_000,
 };
 
 /**

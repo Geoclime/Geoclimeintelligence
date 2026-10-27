@@ -49,6 +49,19 @@ export interface SettlementRow {
   shape: string;
 }
 
+/** One facility (school, clinic, police station...) from a Geofabrik OpenStreetMap GeoPackage. */
+export interface InfrastructureRow {
+  /** OpenStreetMap's id as Geofabrik writes it (digits only, so `fromArea` is part of the key). */
+  osmId: string;
+  /** Mapped in OSM as an outline: the database stores a point inside it. */
+  fromArea: boolean;
+  name: string | null;
+  facilityType: string;
+  /** Geofabrik's `fclass` as delivered: hospital, school, ferry_terminal... */
+  osmClass: string;
+  shape: string;
+}
+
 /** Why a row was left out, with how many rows: shown to the person running the loader. */
 export type RejectCounts = Record<string, number>;
 
@@ -65,8 +78,8 @@ export interface BatchContext {
   sourceId: string;
 }
 
-export interface SettlementBatchContext extends BatchContext {
-  /** The admin level that holds wards (3 for Nigeria), where `wardCode` is looked up. */
+export interface WardBatchContext extends BatchContext {
+  /** The admin level that holds wards (3 for Nigeria), where each row's ward is looked up. */
   wardLevel: number;
 }
 
@@ -76,9 +89,9 @@ export interface BatchResult {
   inserted: number;
   /** Already stored from an earlier run, so left alone (never overwritten). */
   alreadyPresent: number;
-  /** Settlements only: stored earlier without a ward, and linked to one this time. */
+  /** Settlements and infrastructure: stored earlier without a ward, and linked to one this time. */
   relinked: number;
-  /** Settlements only: stored now, but their ward code matched no live ward. */
+  /** Settlements and infrastructure: stored now, but no live ward matched (by code, or by position). */
   unlinked: number;
   /** Rows the PostGIS checks refused: unreadable, wrong type, empty, outside the country's box... */
   rejected: RejectCounts;
@@ -96,13 +109,16 @@ export interface LayerLoadTx {
   sourceExists(id: string): Promise<boolean>;
   insertRoads(rows: RoadRow[], context: BatchContext): Promise<BatchResult>;
   insertWaterways(rows: WaterwayRow[], context: BatchContext): Promise<BatchResult>;
-  insertSettlements(rows: SettlementRow[], context: SettlementBatchContext): Promise<BatchResult>;
+  insertSettlements(rows: SettlementRow[], context: WardBatchContext): Promise<BatchResult>;
+  insertInfrastructure(rows: InfrastructureRow[], context: WardBatchContext): Promise<BatchResult>;
   /** Deletes every road of the country; returns how many went. */
   deleteRoads(countryCode: string): Promise<number>;
   /** Deletes every waterway (lines and areas) of the country; returns how many went. */
   deleteWaterways(countryCode: string): Promise<number>;
   /** Deletes every settlement point; returns how many went. */
   deleteSettlements(): Promise<number>;
+  /** Deletes every facility of the country; returns how many went. */
+  deleteInfrastructure(countryCode: string): Promise<number>;
 }
 
 /** What the loader service depends on, so it can be unit-tested with an in-memory fake (section 2). */

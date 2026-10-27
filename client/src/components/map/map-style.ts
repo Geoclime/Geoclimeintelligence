@@ -3,7 +3,7 @@ import type { LayerProps } from "react-map-gl/mapbox";
 import type { ResolvedTheme } from "../../contexts/ThemeContext";
 import { brand } from "../../styles/theme";
 import type { BBox } from "../../types/admin-unit.types";
-import type { OverlayLayerId } from "../../types/map-layer.types";
+import type { FacilityType, OverlayLayerId } from "../../types/map-layer.types";
 
 /**
  * Colours and layer definitions for the boundary map, in one place so the map, the legend and the
@@ -21,7 +21,27 @@ export type BoundaryLayerId = "state" | "lga" | "ward";
 /** Every switchable layer: the boundaries, then the roads, waterways and settlements drawn over them. */
 export type MapLayerId = BoundaryLayerId | OverlayLayerId;
 export const BOUNDARY_LAYER_IDS: BoundaryLayerId[] = ["state", "lga", "ward"];
-export const OVERLAY_LAYER_IDS: OverlayLayerId[] = ["roads", "waterways", "settlements"];
+export const OVERLAY_LAYER_IDS: OverlayLayerId[] = ["roads", "waterways", "settlements", "infrastructure"];
+
+/**
+ * The ten facility types are drawn in five colour groups, so the legend stays short: health,
+ * schools, police and government, places that can shelter people, and everything else.
+ */
+export const FACILITY_GROUPS = ["health", "education", "civic", "community", "other"] as const;
+export type FacilityGroup = (typeof FACILITY_GROUPS)[number];
+
+export const FACILITY_GROUP_OF: Readonly<Record<FacilityType, FacilityGroup>> = {
+  health: "health",
+  education: "education",
+  emergency: "civic",
+  government: "civic",
+  community: "community",
+  worship: "community",
+  market: "other",
+  transport: "other",
+  water: "other",
+  telecom: "other",
+};
 
 export interface MapPalette {
   state: string;
@@ -41,6 +61,7 @@ export interface MapPalette {
   waterFillOpacity: number;
   settlement: string;
   settlementStroke: string;
+  facility: Record<FacilityGroup, string>;
 }
 
 export function mapPalette(theme: ResolvedTheme): MapPalette {
@@ -63,6 +84,7 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         waterFillOpacity: 0.35,
         settlement: "#b692f6",
         settlementStroke: "#101828",
+        facility: { health: "#f97066", education: "#fac515", civic: "#f670c7", community: "#32d583", other: "#98a2b3" },
       }
     : {
         state: brand.tealDeep,
@@ -82,6 +104,7 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         waterFillOpacity: 0.55,
         settlement: "#6941c6",
         settlementStroke: "#ffffff",
+        facility: { health: "#d92d20", education: "#ca8504", civic: "#c11574", community: "#039855", other: "#667085" },
       };
 }
 
@@ -243,7 +266,51 @@ export function overlayLayers(palette: MapPalette) {
     paint: { "text-color": palette.label, "text-halo-color": palette.labelHalo, "text-halo-width": 1.5 },
   };
 
-  return { waterFill, waterLine, roadLocal, roadSecondary, roadMajor, roadLabels, settlementDots, settlementLabels };
+  // Colour by group; the server already thins the layer by zoom (health and police first).
+  const facilityColour = [
+    "match",
+    ["get", "facilityType"],
+    ...(Object.entries(FACILITY_GROUP_OF) as [FacilityType, FacilityGroup][]).flatMap(([type, group]) => [type, palette.facility[group]]),
+    palette.facility.other,
+  ] as unknown as string;
+  const infrastructureDots: LayerProps = {
+    id: "infrastructure-dots",
+    type: "circle",
+    paint: {
+      "circle-color": facilityColour,
+      "circle-stroke-color": palette.settlementStroke,
+      "circle-stroke-width": 1,
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 6],
+    },
+  };
+  const infrastructureLabels: LayerProps = {
+    id: "infrastructure-labels",
+    type: "symbol",
+    minzoom: 13,
+    filter: ["!=", ["get", "name"], null],
+    layout: {
+      "text-field": ["get", "name"],
+      "text-size": 10,
+      "text-font": ["DIN Pro Medium", "Arial Unicode MS Regular"],
+      "text-anchor": "top",
+      "text-offset": [0, 0.6],
+      "text-optional": true,
+    },
+    paint: { "text-color": palette.label, "text-halo-color": palette.labelHalo, "text-halo-width": 1.5 },
+  };
+
+  return {
+    waterFill,
+    waterLine,
+    roadLocal,
+    roadSecondary,
+    roadMajor,
+    roadLabels,
+    settlementDots,
+    settlementLabels,
+    infrastructureDots,
+    infrastructureLabels,
+  };
 }
 
 /** Import review map: passed shapes in teal, failed shapes in red. */

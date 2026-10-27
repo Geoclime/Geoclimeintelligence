@@ -41,11 +41,16 @@ const OVERLAY_LEGEND = [
   { key: "waterways", label: "Rivers and creeks", swatch: "waterways", layer: "waterways" },
   { key: "waterbodies", label: "Wide rivers and water bodies", swatch: "waterbodies", layer: "waterways" },
   { key: "settlements", label: "Settlements", swatch: "settlements", layer: "settlements" },
+  { key: "facility-health", label: "Hospitals, clinics, pharmacies", swatch: "facility-health", layer: "infrastructure" },
+  { key: "facility-education", label: "Schools and colleges", swatch: "facility-education", layer: "infrastructure" },
+  { key: "facility-civic", label: "Police and government", swatch: "facility-civic", layer: "infrastructure" },
+  { key: "facility-community", label: "Community centres and worship", swatch: "facility-community", layer: "infrastructure" },
+  { key: "facility-other", label: "Markets, transport, water, telecom", swatch: "facility-other", layer: "infrastructure" },
 ] as const;
 
 /**
  * The home screen: a full-screen map of Rivers State with its LGAs (named on the map) and, zoomed
- * in, its wards, with roads, waterways and settlements over them. Each layer is fetched only for
+ * in, its wards, with roads, waterways, settlements and facilities over them. Each layer is fetched only for
  * the visible area. The view, the selected LGA and
  * the visible layers live in the URL, so a link opens the same view (utils/map-url.ts).
  */
@@ -74,6 +79,7 @@ export function MapPage() {
   const roadLayer = useMapLayer("roads", view?.bbox ?? null, { enabled: layers.roads, zoom });
   const waterwayLayer = useMapLayer("waterways", view?.bbox ?? null, { enabled: layers.waterways, zoom });
   const settlementLayer = useMapLayer("settlements", view?.bbox ?? null, { enabled: layers.settlements, zoom });
+  const infrastructureLayer = useMapLayer("infrastructure", view?.bbox ?? null, { enabled: layers.infrastructure, zoom });
   const { catalog } = useMapLayerCatalog();
   const located = useLocatePoint();
   const geolocation = useGeolocation();
@@ -174,13 +180,26 @@ export function MapPage() {
       loading: settlementLayer.loading,
       hint: hintFor("settlements", settlementLayer.data?.truncated),
     },
+    {
+      id: "infrastructure",
+      label: "Facilities",
+      checked: layers.infrastructure,
+      loading: infrastructureLayer.loading,
+      hint: hintFor("infrastructure", infrastructureLayer.data?.truncated),
+    },
   ];
   const legendItems = [...LEGEND, ...OVERLAY_LEGEND.filter((item) => layers[item.layer])];
   const visibleOverlays = OVERLAY_LAYER_IDS.filter((id) => layers[id]);
 
   const noCountry = !countriesLoading && countries.length === 0;
   const layerError =
-    stateLayer.error ?? lgaLayer.error ?? wardLayer.error ?? roadLayer.error ?? waterwayLayer.error ?? settlementLayer.error;
+    stateLayer.error ??
+    lgaLayer.error ??
+    wardLayer.error ??
+    roadLayer.error ??
+    waterwayLayer.error ??
+    settlementLayer.error ??
+    infrastructureLayer.error;
 
   return (
     <div className="map-page" data-cy="map-page">
@@ -200,6 +219,7 @@ export function MapPage() {
           roads={roadLayer.data}
           waterways={waterwayLayer.data}
           settlements={settlementLayer.data}
+          infrastructure={infrastructureLayer.data}
         />
         <AdminBoundaryLayers
           palette={palette}

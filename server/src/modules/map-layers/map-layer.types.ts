@@ -1,7 +1,7 @@
 import type { FeatureCollection, Geometry, MultiLineString, MultiPolygon, Point } from "geojson";
 import type { BBox } from "../../common/geo/geo";
 import type { DataSourceDto } from "../data-sources/data-source.types";
-import type { MapLayerId, WaterClass } from "./layer-rules";
+import type { FacilityType, MapLayerId, WaterClass } from "./layer-rules";
 
 /**
  * A map-layer reply: GeoJSON plus `truncated`. It is true when more features were in view than
@@ -37,6 +37,16 @@ export type RoadFeatureCollection = LayerFeatureCollection<MultiLineString, Road
 export type WaterwayFeatureCollection = LayerFeatureCollection<MultiLineString | MultiPolygon, WaterwayFeatureProperties>;
 export type SettlementFeatureCollection = LayerFeatureCollection<Point, SettlementFeatureProperties>;
 
+export interface InfrastructureFeatureProperties {
+  id: string;
+  name: string | null;
+  facilityType: FacilityType;
+  /** The OSM class as delivered, e.g. "clinic" within "health". */
+  osmClass: string;
+}
+
+export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
+
 /** The visible area, and optionally the zoom, which thins the layer and simplifies its shapes. */
 export interface LayerGeoJsonQuery {
   bbox: BBox;
@@ -70,5 +80,10 @@ export interface IWaterwayRepository {
 
 export interface ISettlementRepository {
   findGeoJson(query: LayerGeoJsonQuery): Promise<SettlementFeatureCollection>;
+  summarise(): Promise<LayerSummary>;
+}
+
+export interface IInfrastructureRepository {
+  findGeoJson(query: LayerGeoJsonQuery): Promise<InfrastructureFeatureCollection>;
   summarise(): Promise<LayerSummary>;
 }

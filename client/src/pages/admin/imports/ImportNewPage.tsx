@@ -53,6 +53,7 @@ const LAYER_LABELS: Record<string, string> = {
   roads: "Roads",
   waterways: "Waterways",
   settlements: "Settlements",
+  infrastructure: "Infrastructure",
   zip: "Map layers delivery zip",
 };
 
@@ -175,7 +176,8 @@ export function ImportNewPage() {
       clearErrors("columnMapping");
     }
     const effectiveLayer = parseLayerChoice(detectedLayer ?? levelText);
-    if (effectiveLayer === "zip") {
+    // The delivery zip and the OpenStreetMap extract have no columns to match, so nothing to preview.
+    if (effectiveLayer === "zip" || effectiveLayer === "infrastructure") {
       setPreviewError(null);
       return;
     }
@@ -288,7 +290,7 @@ export function ImportNewPage() {
               </SelectField>
               <SelectField
                 label="Level"
-                hint={country ? "Choose an administrative boundary level, or a map feature layer (Roads, Waterways, Settlements)." : undefined}
+                hint={country ? "Choose an administrative boundary level, or a map feature layer (Roads, Waterways, Settlements, Infrastructure)." : undefined}
                 error={formState.errors.level?.message}
                 disabled={!country}
                 data-cy="import-level"
@@ -313,6 +315,7 @@ export function ImportNewPage() {
                     <option value="layer:roads">Map layer: Roads (GeoJSON)</option>
                     <option value="layer:waterways">Map layer: Waterways (GeoJSON)</option>
                     <option value="layer:settlements">Map layer: Settlements (GeoJSON)</option>
+                    <option value="layer:infrastructure">Map layer: Infrastructure (OpenStreetMap extract, .zip or .gpkg)</option>
                     <option value="layer:zip">Map layer: Delivery zip (provenance.json + layers)</option>
                   </optgroup>
                 )}
@@ -390,6 +393,14 @@ export function ImportNewPage() {
                     ? "Who published this data? There are no sources yet: press Add a source and enter the publisher, dataset, licence and download date from the file's README."
                     : "Who published this data? It's recorded with every feature, for credit and licensing. Not listed? Add a source here, or remove old ones under Configuration."}
                 </p>
+                {layerKind === "infrastructure" && (
+                  <Callout tone="info" dataCy="layer-infrastructure-note">
+                    Upload Geofabrik&apos;s OpenStreetMap extract as delivered (the zip of <code>gis_osm_*.gpkg</code> files), or one of its
+                    facility files. Only points of interest, places of worship and transport are read: clinics, schools, police, markets,
+                    ferry terminals, water points and the like. Shops, kiosks and sports pitches are left out. The source is usually
+                    &quot;OpenStreetMap contributors via Geofabrik&quot;, licence ODbL 1.0.
+                  </Callout>
+                )}
               </>
             )}
             {!layerKind && (
@@ -416,7 +427,7 @@ export function ImportNewPage() {
             </p>
             <label className="field">
               <span className="field__label">File</span>
-              <input type="file" accept=".shp,.zip,.geojson,.json,.xlsx,.csv,.tsv" className="field__input" onChange={onFileChange} data-cy="import-file" />
+              <input type="file" accept=".shp,.zip,.geojson,.json,.xlsx,.csv,.tsv,.gpkg" className="field__input" onChange={onFileChange} data-cy="import-file" />
             </label>
             {previewing && <p className="muted section-gap">Reading the file…</p>}
             {previewError && (

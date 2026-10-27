@@ -32,6 +32,12 @@ describe("overlayHint", () => {
     expect(overlayHint("waterways", { zoom: 10.6, ...shown })).toBeUndefined();
   });
 
+  it("explains that facilities beyond health and police arrive with zoom", () => {
+    expect(overlayHint("infrastructure", { zoom: 8, ...shown })).toBe("Health and police first: more appear as you zoom in");
+    expect(overlayHint("infrastructure", { zoom: 11.4, ...shown })).toBe("Health and police first: more appear as you zoom in");
+    expect(overlayHint("infrastructure", { zoom: 12, ...shown })).toBeUndefined();
+  });
+
   it("has nothing to add for settlements, which are always shown in full", () => {
     expect(overlayHint("settlements", { zoom: 8, ...shown })).toBeUndefined();
   });

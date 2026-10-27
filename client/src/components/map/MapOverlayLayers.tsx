@@ -2,6 +2,7 @@ import type { FeatureCollection } from "geojson";
 import { memo, useMemo } from "react";
 import { Layer, Source } from "react-map-gl/mapbox";
 import type {
+  InfrastructureFeatureCollection,
   RoadFeatureCollection,
   SettlementFeatureCollection,
   WaterwayFeatureCollection,
@@ -13,14 +14,15 @@ interface MapOverlayLayersProps {
   roads: RoadFeatureCollection | null;
   waterways: WaterwayFeatureCollection | null;
   settlements: SettlementFeatureCollection | null;
+  infrastructure: InfrastructureFeatureCollection | null;
 }
 
 const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 /**
- * Waterways, roads and settlements as native Mapbox sources and layers (standard section 10:
- * never React markers for a whole layer), drawn bottom to top in that order and under the
- * boundary lines.
+ * Waterways, roads, settlements and infrastructure as native Mapbox sources and layers (standard
+ * section 10: never React markers for a whole layer), drawn bottom to top in that order and under
+ * the boundary lines.
  *
  * Unlike the boundary layers, every source is always mounted, empty until its data arrives or
  * while its layer is switched off. That keeps the draw order fixed: Mapbox stacks layers in the
@@ -28,7 +30,7 @@ const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
  * ones that landed earlier. An empty source draws nothing, so nothing is drawn from placeholder
  * data.
  */
-export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads, waterways, settlements }: MapOverlayLayersProps) {
+export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads, waterways, settlements, infrastructure }: MapOverlayLayersProps) {
   const layers = useMemo(() => overlayLayers(palette), [palette]);
 
   return (
@@ -46,6 +48,10 @@ export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads,
       <Source id="settlements" type="geojson" data={settlements ?? EMPTY}>
         <Layer {...layers.settlementDots} />
         <Layer {...layers.settlementLabels} />
+      </Source>
+      <Source id="infrastructure" type="geojson" data={infrastructure ?? EMPTY}>
+        <Layer {...layers.infrastructureDots} />
+        <Layer {...layers.infrastructureLabels} />
       </Source>
     </>
   );

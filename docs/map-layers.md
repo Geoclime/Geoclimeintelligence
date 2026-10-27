@@ -12,7 +12,7 @@ The map can now show what lies inside the boundaries: **roads**, **waterways** (
 - **Two scripts, `npm run layers:load` and `npm run layers:clear`**, that load the data team's delivery zip and the GRID3 settlement file into those tables, and remove a country's roads and waterways when they need to be reloaded or the country deleted. There are no write endpoints.
 - **A clearer country delete:** deleting a country that still holds roads or waterways now returns `409` with a plain message, instead of a raw database error.
 
-The web client side (toggles, legend, the "Data sources" panel) is in [features/map-layers.md](features/map-layers.md).
+The web client side (toggles, legend, the "Data sources" panel) is in [features/map-layers.md](features/map-layers.md). The fourth layer, **infrastructure** (clinics, schools, police, markets... from the Geofabrik OpenStreetMap extract), is in [infrastructure-layer.md](infrastructure-layer.md).
 
 ## What a settlement is
 

@@ -191,6 +191,42 @@
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
 }
 
+/* Facilities: one dot per colour group (FACILITY_GROUP_OF in map-style.ts). The toggle shows the health colour. */
+.layer-toggle__swatch--infrastructure,
+.map-legend__swatch--facility-health,
+.map-legend__swatch--facility-education,
+.map-legend__swatch--facility-civic,
+.map-legend__swatch--facility-community,
+.map-legend__swatch--facility-other {
+  width: 9px;
+  height: 9px;
+  margin-inline: 4.5px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+.layer-toggle__swatch--infrastructure,
+.map-legend__swatch--facility-health {
+  background: #d92d20;
+}
+
+.map-legend__swatch--facility-education {
+  background: #ca8504;
+}
+
+.map-legend__swatch--facility-civic {
+  background: #c11574;
+}
+
+.map-legend__swatch--facility-community {
+  background: #039855;
+}
+
+.map-legend__swatch--facility-other {
+  background: #667085;
+}
+
 .map-legend__swatch--passed {
   border: 1.5px solid #0e6b6f;
   background: rgb(14 107 111 / 0.18);
@@ -241,6 +277,36 @@
 :root[data-theme="dark"] .map-legend__swatch--settlements {
   border-color: #101828;
   background: #b692f6;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--infrastructure,
+:root[data-theme="dark"] .map-legend__swatch--facility-health,
+:root[data-theme="dark"] .map-legend__swatch--facility-education,
+:root[data-theme="dark"] .map-legend__swatch--facility-civic,
+:root[data-theme="dark"] .map-legend__swatch--facility-community,
+:root[data-theme="dark"] .map-legend__swatch--facility-other {
+  border-color: #101828;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--infrastructure,
+:root[data-theme="dark"] .map-legend__swatch--facility-health {
+  background: #f97066;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-education {
+  background: #fac515;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-civic {
+  background: #f670c7;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-community {
+  background: #32d583;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-other {
+  background: #98a2b3;
 }
 
 :root[data-theme="dark"] .map-legend__swatch--failed {

@@ -74,4 +74,12 @@ export class MapLayerController {
       next(err);
     }
   }
+
+  static async infrastructure(req: Request, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await MapLayerService.Instance.infrastructureGeoJson(req.query as unknown as LayerGeoJsonQueryInput)));
+    } catch (err) {
+      next(err);
+    }
+  }
 }

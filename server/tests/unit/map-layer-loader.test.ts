@@ -203,9 +203,16 @@ describe("MapLayerLoaderService: bad requests", () => {
 describe("MapLayerLoaderService: clearing a country's layers", () => {
   function withStored() {
     const built = build();
-    built.store.tx.stored = { roads: { NGA: 47507 }, waterways: { NGA: 4033 }, settlements: {} };
+    built.store.tx.stored = { roads: { NGA: 47507 }, waterways: { NGA: 4033 }, settlements: {}, infrastructure: { NGA: 829 } };
     return built;
   }
+
+  it("clears the country's infrastructure", async () => {
+    const { store, service } = withStored();
+    const report = await service.clear({ countryCode: "NGA", layers: ["infrastructure"], dryRun: false });
+    expect(report.deleted).toEqual({ infrastructure: 829 });
+    expect(store.tx.stored.roads.NGA).toBe(47507);
+  });
 
   it("deletes the country's roads and waterways in one transaction, and says how many went", async () => {
     const { store, service } = withStored();

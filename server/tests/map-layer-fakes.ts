@@ -4,14 +4,17 @@ import type {
   BatchResult,
   EnsuredSource,
   ILayerLoadStore,
+  InfrastructureRow,
   LayerLoadTx,
   NewLayerSource,
   RoadRow,
-  SettlementBatchContext,
+  WardBatchContext,
   SettlementRow,
   WaterwayRow,
 } from "../src/modules/map-layers/map-layer-loader.types";
 import type {
+  IInfrastructureRepository,
+  InfrastructureFeatureCollection,
   IRoadRepository,
   ISettlementRepository,
   IWaterwayRepository,
@@ -26,7 +29,7 @@ import type {
 // and SQL are never computed here; the spatial SQL is verified against PostGIS, not faked.
 
 /** Remembers the query it was given and returns an empty, untruncated layer. */
-export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepository, ISettlementRepository {
+export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepository, ISettlementRepository, IInfrastructureRepository {
   queries: LayerGeoJsonQuery[] = [];
 
   constructor(private summary: LayerSummary = { featureCount: 0, sourceIds: [] }) {}
@@ -35,13 +38,16 @@ export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepos
     this.queries.push(query);
     return { type: "FeatureCollection", features: [], truncated: false } as RoadFeatureCollection &
       WaterwayFeatureCollection &
-      SettlementFeatureCollection;
+      SettlementFeatureCollection &
+      InfrastructureFeatureCollection;
   }
 
   async summarise() {
     return this.summary;
   }
 }
+
+type StoredLayer = "roads" | "waterways" | "settlements" | "infrastructure";
 
 export const EMPTY_BATCH: BatchResult = { received: 0, inserted: 0, alreadyPresent: 0, relinked: 0, unlinked: 0, rejected: {} };
 
@@ -55,7 +61,8 @@ export class FakeLoadTx implements LayerLoadTx {
   known = new Set<string>();
   roads: { rows: RoadRow[]; context: BatchContext }[] = [];
   waterways: { rows: WaterwayRow[]; context: BatchContext }[] = [];
-  settlements: { rows: SettlementRow[]; context: SettlementBatchContext }[] = [];
+  settlements: { rows: SettlementRow[]; context: WardBatchContext }[] = [];
+  infrastructure: { rows: InfrastructureRow[]; context: WardBatchContext }[] = [];
 
   async ensureSource(input: NewLayerSource): Promise<EnsuredSource> {
     const index = this.sources.findIndex((source) => JSON.stringify(source) === JSON.stringify(input));
@@ -83,13 +90,18 @@ export class FakeLoadTx implements LayerLoadTx {
     return this.result(rows.map((row) => row.osmId));
   }
 
-  async insertSettlements(rows: SettlementRow[], context: SettlementBatchContext) {
+  async insertSettlements(rows: SettlementRow[], context: WardBatchContext) {
     this.settlements.push({ rows, context });
     return this.result(rows.map((row) => row.setId));
   }
 
+  async insertInfrastructure(rows: InfrastructureRow[], context: WardBatchContext) {
+    this.infrastructure.push({ rows, context });
+    return this.result(rows.map((row) => row.osmId));
+  }
+
   /** Rows each country "holds", for the clear tests; deleting empties the country's count. */
-  stored: Record<"roads" | "waterways" | "settlements", Record<string, number>> = { roads: {}, waterways: {}, settlements: {} };
+  stored: Record<StoredLayer, Record<string, number>> = { roads: {}, waterways: {}, settlements: {}, infrastructure: {} };
 
   async deleteRoads(countryCode: string) {
     return this.take("roads", countryCode);
@@ -103,7 +115,11 @@ export class FakeLoadTx implements LayerLoadTx {
     return this.take("settlements", "NGA");
   }
 
-  private take(layer: "roads" | "waterways" | "settlements", countryCode: string): number {
+  async deleteInfrastructure(countryCode: string) {
+    return this.take("infrastructure", countryCode);
+  }
+
+  private take(layer: StoredLayer, countryCode: string): number {
     const count = this.stored[layer][countryCode] ?? 0;
     this.stored[layer][countryCode] = 0;
     return count;

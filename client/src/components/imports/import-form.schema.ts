@@ -6,7 +6,7 @@ import type { MapLayerUploadKind, UploadMapLayerInput } from "../../types/map-la
  * The import screen's form. Field names follow the backend's startImportSchema
  * (server/src/modules/data-sources/imports/import.validation.ts): countryCode, level, sourceId,
  * sheetName, headerRow, parentId and columnMapping.<column>, so a 400's field errors land on the
- * right input. Level values `layer:roads`, `layer:waterways`, `layer:settlements` and `layer:zip`
+ * right input. Level values `layer:roads`, `layer:waterways`, `layer:settlements`, `layer:infrastructure` and `layer:zip`
  * select map-layer uploads (`POST /api/v1/map-layers/upload`), which skip column matching.
  */
 
@@ -16,6 +16,7 @@ export function parseLayerChoice(levelValue: string): MapLayerUploadKind | null 
   if (levelValue === "layer:roads") return "roads";
   if (levelValue === "layer:waterways") return "waterways";
   if (levelValue === "layer:settlements") return "settlements";
+  if (levelValue === "layer:infrastructure") return "infrastructure";
   if (levelValue === "layer:zip") return "zip";
   return null;
 }
@@ -23,6 +24,8 @@ export function parseLayerChoice(levelValue: string): MapLayerUploadKind | null 
 export function detectLayerChoiceFromFileName(fileName: string): string | null {
   const lower = fileName.toLowerCase();
   if (lower.includes("map_layers") && lower.endsWith(".zip")) return "layer:zip";
+  // Geofabrik's extract: a zip named osm-..., or one of its gis_osm_*.gpkg files.
+  if (lower.endsWith(".gpkg") || (lower.startsWith("osm") && lower.endsWith(".zip"))) return "layer:infrastructure";
   if (lower.includes("road") && (lower.endsWith(".geojson") || lower.endsWith(".json"))) return "layer:roads";
   if (lower.includes("waterway") && (lower.endsWith(".geojson") || lower.endsWith(".json"))) return "layer:waterways";
   if (lower.includes("settlement") && (lower.endsWith(".geojson") || lower.endsWith(".json"))) return "layer:settlements";

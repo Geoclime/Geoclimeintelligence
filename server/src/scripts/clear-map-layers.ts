@@ -1,12 +1,11 @@
 /**
- * ADMINISTRATOR-ONLY script: removes a country's roads and/or waterways, the reverse of
- * layers:load. Use it to reload a layer from scratch, or before deleting a country (the roads and
- * waterways foreign keys refuse the delete while any remain, and there is no API route that
- * removes them).
+ * ADMINISTRATOR-ONLY script: removes a country's map layers, the reverse of layers:load. Use it
+ * to reload a layer from scratch, or before deleting a country (the roads, waterways and
+ * infrastructure foreign keys refuse the delete while any remain).
  *
  * Needs direct database credentials (DATABASE_URL), which is what restricts it to administrators.
  * Exempt from region checks under AI rule 9 for that reason. One transaction: all or nothing.
- * Data source records are kept, and settlements are not touched (they belong to wards).
+ * Data source records are kept.
  *
  * Usage (from server/):
  *   npm run layers:clear -- --country NGA --dry-run
@@ -14,7 +13,7 @@
  *   npm run layers:clear -- --country NGA --layers waterways --yes
  *
  * --country   country code (required: there is no default for a delete)
- * --layers    comma-separated, from: roads, waterways. Default: both
+ * --layers    comma-separated, from: roads, waterways, settlements, infrastructure. Default: all of them
  * --dry-run   delete, count, then roll back: shows what would go and keeps everything
  * --yes       required for a real run, so a mistyped command can't delete by accident
  */

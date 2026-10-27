@@ -83,18 +83,30 @@ export const GRID3_SETTLEMENT_SOURCE = {
   license: "CC BY 4.0",
 };
 
-/** GET /map-layers: what is loaded for roads, waterways and settlements, and from where. */
-export function buildMapLayers(counts: [number, number, number] = [47507, 4033, 1149]) {
-  const sources = [[OSM_SOURCE], [OSM_SOURCE], [GRID3_SETTLEMENT_SOURCE]];
-  return (["roads", "waterways", "settlements"] as const).map((id, i) => ({
-    id,
-    label: id.charAt(0).toUpperCase() + id.slice(1),
-    featureCount: counts[i],
-    sources: counts[i] === 0 ? [] : sources[i],
-  }));
+export const GEOFABRIK_SOURCE = {
+  ...OSM_SOURCE,
+  id: stubId(712),
+  provider: "OpenStreetMap contributors via Geofabrik",
+  datasetName: "Geofabrik OpenStreetMap extract, Rivers State",
+  url: "https://download.geofabrik.de/africa/nigeria.html",
+  license: "ODbL 1.0",
+};
+
+/** GET /map-layers: what is loaded for roads, waterways, settlements and infrastructure, and from where. */
+export function buildMapLayers(counts: [number, number, number, number?] = [47507, 4033, 1149, 826]) {
+  const sources = [[OSM_SOURCE], [OSM_SOURCE], [GRID3_SETTLEMENT_SOURCE], [GEOFABRIK_SOURCE]];
+  return (["roads", "waterways", "settlements", "infrastructure"] as const).map((id, i) => {
+    const featureCount = counts[i] ?? 0;
+    return {
+      id,
+      label: id.charAt(0).toUpperCase() + id.slice(1),
+      featureCount,
+      sources: featureCount === 0 ? [] : sources[i],
+    };
+  });
 }
 
-/** A roads/waterways/settlements reply with nothing in view. `truncated` is the server's "cut short" flag. */
+/** A roads/waterways/settlements/infrastructure reply with nothing in view. `truncated` is the server's "cut short" flag. */
 export function emptyLayer(truncated = false) {
   return { type: "FeatureCollection", features: [], truncated };
 }
@@ -191,4 +203,5 @@ export function stubGeography() {
   cy.interceptApi("GET", "/roads/geojson?*", { data: emptyLayer() }).as("roadsLayer");
   cy.interceptApi("GET", "/waterways/geojson?*", { data: emptyLayer() }).as("waterwaysLayer");
   cy.interceptApi("GET", "/settlements/geojson?*", { data: emptyLayer() }).as("settlementsLayer");
+  cy.interceptApi("GET", "/infrastructure/geojson?*", { data: emptyLayer() }).as("infrastructureLayer");
 }

@@ -5,11 +5,12 @@ import type {
   BatchResult,
   EnsuredSource,
   ILayerLoadStore,
+  InfrastructureRow,
   LayerLoadTx,
   NewLayerSource,
   RejectCounts,
   RoadRow,
-  SettlementBatchContext,
+  WardBatchContext,
   SettlementRow,
   WaterwayRow,
 } from "./map-layer-loader.types";
@@ -18,8 +19,8 @@ import type {
  * Every write the layers:load and layers:clear scripts make. Spatial checks run here in PostGIS (section 8), the
  * same rules as the import pipeline's: readable shape, the right type, EPSG:4326, real
  * coordinates, repaired if invalid, inside the country's rough box. Rows are never updated once
- * stored, except that a settlement saved without a ward is linked when its ward later exists.
- * layers:clear deletes a country's roads and waterways, so they can be reloaded or the country deleted.
+ * stored, except that a settlement or facility saved without a ward is linked when its ward later exists.
+ * layers:clear deletes a country's roads, waterways or infrastructure, so they can be reloaded or the country deleted.
  */
 
 /** Why PostGIS refuses a shape, as the keys of the check query and the words shown to the user. */
@@ -177,7 +178,7 @@ class PostgresLayerLoadTx implements LayerLoadTx {
     return toResult(result[0], rows.length);
   }
 
-  async insertSettlements(rows: SettlementRow[], context: SettlementBatchContext): Promise<BatchResult> {
+  async insertSettlements(rows: SettlementRow[], context: WardBatchContext): Promise<BatchResult> {
     const payload = rows.map((row) => ({
       set_id: row.setId, ward_code: row.wardCode, name: row.name, is_primary: row.isPrimary,
       data_origin: row.dataOrigin, shape: row.shape,
@@ -216,6 +217,49 @@ class PostgresLayerLoadTx implements LayerLoadTx {
     return toResult(result[0], rows.length);
   }
 
+  async insertInfrastructure(rows: InfrastructureRow[], context: WardBatchContext): Promise<BatchResult> {
+    const payload = rows.map((row) => ({
+      osm_id: row.osmId, from_area: row.fromArea, name: row.name, facility_type: row.facilityType,
+      osm_class: row.osmClass, shape: row.shape,
+    }));
+    // An outline becomes a point inside it (ST_PointOnSurface, which unlike a centroid never falls
+    // outside an L-shaped site). The ward is the one at the ward level that covers that point; a
+    // point in no live ward is still stored (unlinked), and the next run links it, as for settlements.
+    const result: CountRow[] = await this.manager.query(
+      `${checkedRowsSql(
+        `osm_id text, from_area boolean, name text, facility_type text, osm_class text, shape text`,
+        ["POINT", "POLYGON", "MULTIPOLYGON"],
+      )},
+       located AS (
+         SELECT c.*, ST_Force2D(CASE WHEN GeometryType(c.g) LIKE '%POLYGON' THEN ST_PointOnSurface(c.g) ELSE c.g END) AS pt
+           FROM checked c WHERE c.reject IS NULL
+       ),
+       ins AS (
+         INSERT INTO infrastructure (country_code, admin_unit_id, osm_id, from_area, name, facility_type,
+                                     osm_class, geom, source_id)
+         SELECT $3::char(3), w.id, l.osm_id, l.from_area, l.name, l.facility_type, l.osm_class, l.pt, $4::uuid
+           FROM located l
+           LEFT JOIN LATERAL (
+             SELECT a.id FROM admin_units a
+              WHERE a.country_code = $3::char(3) AND a.level = $5::smallint
+                AND a.geom && l.pt AND ST_Covers(a.geom, l.pt)
+              ORDER BY a.id LIMIT 1) w ON true
+         ON CONFLICT (osm_id, from_area) DO UPDATE
+            SET admin_unit_id = EXCLUDED.admin_unit_id, updated_at = now()
+          WHERE infrastructure.admin_unit_id IS NULL AND EXCLUDED.admin_unit_id IS NOT NULL
+         RETURNING (xmax = 0) AS was_inserted, (admin_unit_id IS NULL) AS no_ward
+       )
+       SELECT count(*)::int AS received,
+              (SELECT count(*) FILTER (WHERE was_inserted) FROM ins)::int AS inserted,
+              (SELECT count(*) FILTER (WHERE NOT was_inserted) FROM ins)::int AS relinked,
+              (SELECT count(*) FILTER (WHERE no_ward) FROM ins)::int AS unlinked,
+              ${REJECT_COLUMNS}
+         FROM checked`,
+      [JSON.stringify(payload), box(context), context.countryCode, context.sourceId, context.wardLevel],
+    );
+    return toResult(result[0], rows.length);
+  }
+
   async deleteRoads(countryCode: string): Promise<number> {
     const rows: unknown[] = await this.manager.query(`DELETE FROM roads WHERE country_code = $1 RETURNING 1`, [countryCode]);
     return rows.length;
@@ -230,11 +274,16 @@ class PostgresLayerLoadTx implements LayerLoadTx {
     const rows: unknown[] = await this.manager.query(`DELETE FROM settlement_points RETURNING 1`);
     return rows.length;
   }
+
+  async deleteInfrastructure(countryCode: string): Promise<number> {
+    const rows: unknown[] = await this.manager.query(`DELETE FROM infrastructure WHERE country_code = $1 RETURNING 1`, [countryCode]);
+    return rows.length;
+  }
 }
 
 /**
  * Runs the loader's writes in one transaction. Not a BaseRepository: it owns no single table
- * (it writes four), so it opens the transaction itself, like the other repositories that need one.
+ * (it writes five), so it opens the transaction itself, like the other repositories that need one.
  */
 export class MapLayerLoadRepository implements ILayerLoadStore {
   private static _instance?: MapLayerLoadRepository;

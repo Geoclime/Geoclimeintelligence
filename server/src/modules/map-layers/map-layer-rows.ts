@@ -1,8 +1,8 @@
 import type { Geometry } from "geojson";
 import { ValidationError } from "../../common/errors/app-error";
 import { assertWgs84Crs } from "../data-sources/imports/readers/geojson-reader";
-import { isWaterClass, roadClassRank } from "./layer-rules";
-import type { PreparedRows, RejectCounts, RoadRow, SettlementRow, WaterwayRow } from "./map-layer-loader.types";
+import { facilityTypeOf, isWaterClass, roadClassRank } from "./layer-rules";
+import type { InfrastructureRow, PreparedRows, RejectCounts, RoadRow, SettlementRow, WaterwayRow } from "./map-layer-loader.types";
 
 /** One GeoJSON feature, reduced to what the loader needs. */
 export interface LayerFeature {
@@ -171,5 +171,38 @@ export function prepareSettlements(features: LayerFeature[]): PreparedRows<Settl
     };
     const fits = fitsColumns([row.setId, 50], [row.name, 200], [row.wardCode, 100], [row.dataOrigin, 100]);
     return fits ? { row, key: setId } : { reject: TOO_LONG };
+  });
+}
+
+export const NOT_A_FACILITY = "not a facility type the layer keeps (shops, kiosks, sports pitches, hotels...)";
+
+/**
+ * Facilities from Geofabrik's pois, pofw and transport GeoPackages. Only the classes in
+ * layer-rules.ts are kept; the rest are counted under one reason, so the report shows how much
+ * was left out on purpose. An outline (a hospital mapped as its grounds) is stored as a point
+ * inside it, flagged `fromArea`.
+ */
+export function prepareInfrastructure(features: LayerFeature[]): PreparedRows<InfrastructureRow> {
+  return prepare<InfrastructureRow>(features, ({ properties: p, geometry }) => {
+    const osmId = text(p.osm_id);
+    const osmClass = text(p.fclass);
+    if (!osmId) return { reject: "no osm_id" };
+    if (!osmClass) return { reject: "no fclass" };
+    const facilityType = facilityTypeOf(osmClass);
+    if (!facilityType) return { reject: NOT_A_FACILITY };
+    if (!geometry) return { reject: "no shape" };
+
+    const fromArea = geometry.type === "Polygon" || geometry.type === "MultiPolygon";
+    const row: InfrastructureRow = {
+      osmId,
+      fromArea,
+      name: text(p.name),
+      facilityType,
+      osmClass,
+      shape: JSON.stringify(geometry),
+    };
+    const fits = fitsColumns([row.osmId, 40], [row.name, 200], [row.osmClass, 40]);
+    // OSM numbers nodes and ways separately, so a point and an outline may share a number.
+    return fits ? { row, key: `${fromArea ? "area" : "point"}:${osmId}` } : { reject: TOO_LONG };
   });
 }

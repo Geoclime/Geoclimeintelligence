@@ -15,15 +15,17 @@ const source = makeSource({ id: "30000000-0000-4000-8000-000000000001", provider
 let roads: RecordingLayerRepository;
 let waterways: RecordingLayerRepository;
 let settlements: RecordingLayerRepository;
+let infrastructure: RecordingLayerRepository;
 
 beforeEach(() => {
   const users = new InMemoryUserRepository([makeUser({ firebaseUid: "member-uid" })]);
   roads = new RecordingLayerRepository({ featureCount: 47_507, sourceIds: [source.id] });
   waterways = new RecordingLayerRepository({ featureCount: 4_033, sourceIds: [source.id] });
   settlements = new RecordingLayerRepository();
+  infrastructure = new RecordingLayerRepository();
   vi.spyOn(AuthService, "Instance", "get").mockReturnValue(new AuthService(users, new FakeTokenVerifier()));
   vi.spyOn(MapLayerService, "Instance", "get").mockReturnValue(
-    new MapLayerService(roads, waterways, settlements, new InMemoryDataSourceRepository([source])),
+    new MapLayerService({ roads, waterways, settlements, infrastructure }, new InMemoryDataSourceRepository([source])),
   );
 });
 
@@ -39,7 +41,7 @@ describe("GET /api/v1/map-layers", () => {
   it("lists the layers with their sources for any signed-in user", async () => {
     const res = await request(app).get("/api/v1/map-layers").set(asMember);
     expect(res.status).toBe(200);
-    expect(res.body.data.map((layer: { id: string }) => layer.id)).toEqual(["roads", "waterways", "settlements"]);
+    expect(res.body.data.map((layer: { id: string }) => layer.id)).toEqual(["roads", "waterways", "settlements", "infrastructure"]);
     expect(res.body.data[0]).toMatchObject({ featureCount: 47_507, sources: [{ provider: "OpenStreetMap contributors via HDX", license: "ODbL" }] });
   });
 
@@ -52,6 +54,7 @@ describe.each([
   ["roads", () => roads],
   ["waterways", () => waterways],
   ["settlements", () => settlements],
+  ["infrastructure", () => infrastructure],
 ])("GET /api/v1/%s/geojson", (name, repo) => {
   const url = `/api/v1/${name}/geojson`;
 

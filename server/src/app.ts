@@ -10,7 +10,7 @@ import { countriesRouter } from "./modules/admin-units/country.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { dataSourcesRouter } from "./modules/data-sources/data-source.routes";
 import { importsRouter } from "./modules/data-sources/imports/import.routes";
-import { mapLayersRouter, roadsRouter, settlementsRouter, waterwaysRouter } from "./modules/map-layers/map-layer.routes";
+import { infrastructureRouter, mapLayersRouter, roadsRouter, settlementsRouter, waterwaysRouter } from "./modules/map-layers/map-layer.routes";
 import { usersRouter } from "./modules/users/user.routes";
 
 export function createApp(): Express {
@@ -40,6 +40,7 @@ export function createApp(): Express {
   app.use("/api/v1/roads", roadsRouter);
   app.use("/api/v1/waterways", waterwaysRouter);
   app.use("/api/v1/settlements", settlementsRouter);
+  app.use("/api/v1/infrastructure", infrastructureRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

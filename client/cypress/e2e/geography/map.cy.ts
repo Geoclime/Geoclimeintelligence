@@ -103,9 +103,17 @@ describe("Home map", { defaultCommandTimeout: 10000 }, () => {
     cy.dataCy("map-source-settlements").should("contain", "GRID3").and("contain", "CC BY 4.0");
   });
 
+  it("offers facilities, coloured by group, with their OpenStreetMap source", () => {
+    cy.visit("/?lng=7.0&lat=4.85&z=8");
+    cy.wait("@getMapLayers");
+    cy.dataCy("layer-infrastructure").should("contain", "Facilities").and("contain", "Health and police first");
+    cy.dataCy("map-legend").should("contain", "Hospitals, clinics, pharmacies").and("contain", "Schools and colleges");
+    cy.dataCy("map-source-infrastructure").should("contain", "OpenStreetMap contributors via Geofabrik").and("contain", "ODbL 1.0");
+  });
+
   it("fetches each feature layer only for the visible area, with the zoom", () => {
     cy.visit("/?lng=7.0&lat=4.85&z=9.6");
-    for (const alias of ["@roadsLayer", "@waterwaysLayer", "@settlementsLayer"] as const) {
+    for (const alias of ["@roadsLayer", "@waterwaysLayer", "@settlementsLayer", "@infrastructureLayer"] as const) {
       cy.wait(alias).then(({ request }) => {
         expect(request.query).to.include({ zoom: "10" });
         expect(String(request.query.bbox)).to.match(/^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/);
