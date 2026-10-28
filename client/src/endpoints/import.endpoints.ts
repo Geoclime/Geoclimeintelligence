@@ -27,13 +27,17 @@ function uploadForm(input: ImportFileOptions & Record<string, unknown>): FormDat
 }
 
 export async function previewImportFile(input: PreviewImportInput): Promise<ApiResponse<ImportPreview>> {
-  const { data } = await httpClient.post<ApiResponse<ImportPreview>>("/api/v1/imports/preview", uploadForm({ ...input }));
+  const { data } = await httpClient.post<ApiResponse<ImportPreview>>("/api/v1/imports/preview", uploadForm({ ...input }), {
+    timeout: 180_000,
+  });
   return data;
 }
 
 /** Creates a run: the server stages and checks every row. Nothing goes live until promote. */
 export async function startImport(input: StartImportInput): Promise<ApiResponse<ImportRun>> {
-  const { data } = await httpClient.post<ApiResponse<ImportRun>>("/api/v1/imports", uploadForm({ ...input }));
+  const { data } = await httpClient.post<ApiResponse<ImportRun>>("/api/v1/imports", uploadForm({ ...input }), {
+    timeout: 180_000,
+  });
   return data;
 }
 

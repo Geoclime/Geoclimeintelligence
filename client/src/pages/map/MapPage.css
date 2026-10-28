@@ -127,6 +127,9 @@
   z-index: 6;
   display: none;
   gap: var(--space-2);
+  /* Layers + legend + sources can be taller than a short screen: scroll inside the column. */
+  max-height: 60%;
+  overflow-y: auto;
 }
 
 .map-page__panels.is-open {
@@ -171,7 +174,8 @@
     left: auto;
     right: var(--space-4);
     bottom: calc(var(--space-5) + 16px);
-    width: 220px;
+    width: 240px;
+    max-height: calc(100% - 150px);
   }
 
   .map-page__panels-toggle {

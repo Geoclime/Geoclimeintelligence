@@ -22,6 +22,9 @@ All paths are relative to `server/`.
 | `DATABASE_SSL_CA` | no | – | Path to the database provider's CA certificate |
 | `FIREBASE_PROJECT_ID` | **yes** | – | The Firebase project whose ID tokens this API accepts |
 | `CORS_ORIGINS` | no | empty | Comma-separated browser origins allowed to call the API |
+| `IMPORT_MAX_FILE_MB` | no | `60` | Maximum upload size in MB on the Imports routes (413 above it) |
+| `IMPORT_MAX_UNZIPPED_MB` | no | `100` | Maximum unpacked zip size in MB (zip-bomb guard) |
+| `IMPORT_MAX_ROWS` | no | `100000` | Maximum rows or features in one imported file |
 
 Tests don't use `.env`. [`vitest.config.mts`](../server/vitest.config.mts) sets harmless dummy values, because the tests never touch a real database or Firebase.
 

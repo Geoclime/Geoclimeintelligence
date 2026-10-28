@@ -76,7 +76,7 @@ export class CountryService {
 
     // The repository re-checks in the same statement, so areas promoted a moment ago still win.
     if (!(await this.countries.deleteIfEmpty(countryCode))) {
-      throw new ConflictError(`${existing.countryName} now has areas, so it can't be deleted`);
+      throw new ConflictError(`${existing.countryName} now has areas or map layer data (roads, waterways, infrastructure), so it can't be deleted`);
     }
   }
 

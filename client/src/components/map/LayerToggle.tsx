@@ -1,7 +1,7 @@
-import type { BoundaryLayerId } from "./map-style";
+import type { MapLayerId } from "./map-style";
 
 export interface LayerOption {
-  id: BoundaryLayerId;
+  id: MapLayerId;
   label: string;
   checked: boolean;
   /** Shown under the label, e.g. "Zoom in to see wards". */
@@ -11,13 +11,14 @@ export interface LayerOption {
 
 interface LayerToggleProps {
   layers: LayerOption[];
-  onChange: (id: BoundaryLayerId, checked: boolean) => void;
+  onChange: (id: MapLayerId, checked: boolean) => void;
 }
 
 /**
  * The layer switcher. It lists only layers that are actually wired to real data (standard
- * section 10): State, LGA and Ward in Phase 2. Rainfall, flood risk and the rest join once their
- * datasets and endpoints exist, never as placeholder checkboxes.
+ * section 10): State, LGA and Ward boundaries, and the roads, waterways and settlements drawn
+ * over them. Rainfall, flood risk and the rest join once their datasets and endpoints exist,
+ * never as placeholder checkboxes.
  */
 export function LayerToggle({ layers, onChange }: LayerToggleProps) {
   return (

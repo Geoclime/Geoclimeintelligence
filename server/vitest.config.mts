@@ -16,6 +16,11 @@ export default defineConfig({
       DATABASE_SSL: "false",
       FIREBASE_PROJECT_ID: "test-project",
       CORS_ORIGINS: "",
+      // The import limits are pinned to their defaults: tests assert on them, and a deploy
+      // environment may set larger production values (.env.example suggests 200 MB unzipped).
+      IMPORT_MAX_FILE_MB: "60",
+      IMPORT_MAX_UNZIPPED_MB: "100",
+      IMPORT_MAX_ROWS: "100000",
     },
   },
 });

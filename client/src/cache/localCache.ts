@@ -51,4 +51,5 @@ export async function cached<T>(key: string, load: () => Promise<T>, ttlMs?: num
 export const CACHE_KEYS = {
   countries: "countries:",
   adminUnits: "admin-units:",
+  mapLayers: "map-layers:",
 } as const;

@@ -70,7 +70,7 @@ Uses **csv-parse**. It detects comma, semicolon, tab or pipe from the first line
 
 Uses **fflate**. Everything happens in memory; nothing is written to disk, and file names inside the zip are only ever used as lookup keys. The reader finds the one dataset in the zip: a `.shp` (then the `.dbf`, `.prj` and `.cpg` with the same name, whatever the capitals or folder), or a single `.xlsx`, `.geojson`/`.json` or `.csv`. Two shapefiles, or nothing readable, gives a `400` saying so. macOS junk (`__MACOSX/`, `._files`) is ignored.
 
-**Zip bombs.** A tiny zip can claim to unpack to gigabytes. Only the files that are needed are unpacked, and the unpacked total is capped at 100 MB (`MAX_UNZIPPED_BYTES` in [`reader-limits.ts`](../server/src/modules/data-sources/imports/readers/reader-limits.ts)), judged from the sizes the zip declares before anything is inflated. The upload itself is still capped at 20 MB.
+**Zip bombs.** A tiny zip can claim to unpack to gigabytes. Only the files that are needed are unpacked, and the unpacked total is capped at 100 MB (`MAX_UNZIPPED_BYTES` in [`reader-limits.ts`](../server/src/modules/data-sources/imports/readers/reader-limits.ts)), judged from the sizes the zip declares before anything is inflated. The upload itself is still capped at 60 MB.
 
 ### 7. What changed elsewhere
 

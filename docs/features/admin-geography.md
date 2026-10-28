@@ -33,7 +33,7 @@ Stable reference data (countries, area lists, area details) goes through `cache/
 - With no token, or on a device without WebGL (caught by `MapErrorBoundary.tsx`), the map is replaced by a "Map unavailable" notice, and every list and link still works.
 - `AdminBoundaryLayers.tsx` draws the state, LGA and ward shapes as native Mapbox sources and layers, never React markers (section 10). LGA names are placed at the centroids from the list endpoint.
 - Colours live in `map-style.ts` and follow the theme (light or dark base map).
-- `LayerToggle.tsx` lists only State, LGA and Ward, the layers that have data. Rainfall and flood risk join when their data exists, not as placeholder checkboxes.
+- `LayerToggle.tsx` lists only the layers that have data: State, LGA and Ward here, plus Roads, Waterways and Settlements since Phase 3 ([map-layers.md](map-layers.md)). Rainfall and flood risk join when their data exists, not as placeholder checkboxes.
 - The rest of the map pieces: `MapLegend.tsx`, `AdminUnitPopup.tsx` with `LocationSummary.tsx` (the state, LGA and ward at a spot), `SourceBadge.tsx` (where a shape came from) and `AreaOutlineMap.tsx` (the small maps on the profile pages).
 
 **4. The home map, `pages/map/MapPage.tsx`.**

@@ -41,6 +41,9 @@ const envSchema = z.object({
   AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
   // Only for the very longest generations; everything else uses AI_REQUEST_TIMEOUT_MS.
   AI_LONG_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(1_200_000),
+  IMPORT_MAX_FILE_MB: z.coerce.number().int().positive().default(60),
+  IMPORT_MAX_UNZIPPED_MB: z.coerce.number().int().positive().default(100),
+  IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(100_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

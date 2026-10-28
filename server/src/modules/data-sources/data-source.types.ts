@@ -17,6 +17,8 @@ export interface IDataSourceRepository {
   findById(id: string): Promise<DataSourceRecord | null>;
   findPage(query: OffsetPageQuery): Promise<{ items: DataSourceRecord[]; meta: PageMeta }>;
   create(input: NewDataSource): Promise<DataSourceRecord>;
+  /** Deletes the source; false when areas, map layer rows, imports or a country still point at it. */
+  deleteIfUnused(id: string): Promise<boolean>;
 }
 
 export interface DataSourceDto {

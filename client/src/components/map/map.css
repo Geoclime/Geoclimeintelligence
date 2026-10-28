@@ -160,6 +160,73 @@
   border: 3px solid #b54708;
 }
 
+/* Feature layers: a thick line, a thin line, an area and a dot, in the colours map-style.ts draws with. */
+.layer-toggle__swatch--roads,
+.map-legend__swatch--roads {
+  height: 4px;
+  border-radius: 2px;
+  background: #b93815;
+}
+
+.layer-toggle__swatch--waterways,
+.map-legend__swatch--waterways {
+  height: 3px;
+  border-radius: 2px;
+  background: #1570ef;
+}
+
+.map-legend__swatch--waterbodies {
+  border: 1px solid #1570ef;
+  background: rgb(132 202 255 / 0.55);
+}
+
+.layer-toggle__swatch--settlements,
+.map-legend__swatch--settlements {
+  width: 10px;
+  height: 10px;
+  margin-inline: 4px;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  background: #6941c6;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+/* Facilities: one dot per colour group (FACILITY_GROUP_OF in map-style.ts). The toggle shows the health colour. */
+.layer-toggle__swatch--infrastructure,
+.map-legend__swatch--facility-health,
+.map-legend__swatch--facility-education,
+.map-legend__swatch--facility-civic,
+.map-legend__swatch--facility-community,
+.map-legend__swatch--facility-other {
+  width: 9px;
+  height: 9px;
+  margin-inline: 4.5px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+.layer-toggle__swatch--infrastructure,
+.map-legend__swatch--facility-health {
+  background: #d92d20;
+}
+
+.map-legend__swatch--facility-education {
+  background: #ca8504;
+}
+
+.map-legend__swatch--facility-civic {
+  background: #c11574;
+}
+
+.map-legend__swatch--facility-community {
+  background: #039855;
+}
+
+.map-legend__swatch--facility-other {
+  background: #667085;
+}
+
 .map-legend__swatch--passed {
   border: 1.5px solid #0e6b6f;
   background: rgb(14 107 111 / 0.18);
@@ -191,6 +258,57 @@
   border-color: #fdb022;
 }
 
+:root[data-theme="dark"] .layer-toggle__swatch--roads,
+:root[data-theme="dark"] .map-legend__swatch--roads {
+  background: #ff9c66;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--waterways,
+:root[data-theme="dark"] .map-legend__swatch--waterways {
+  background: #53b1fd;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--waterbodies {
+  border-color: #53b1fd;
+  background: rgb(46 144 250 / 0.35);
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--settlements,
+:root[data-theme="dark"] .map-legend__swatch--settlements {
+  border-color: #101828;
+  background: #b692f6;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--infrastructure,
+:root[data-theme="dark"] .map-legend__swatch--facility-health,
+:root[data-theme="dark"] .map-legend__swatch--facility-education,
+:root[data-theme="dark"] .map-legend__swatch--facility-civic,
+:root[data-theme="dark"] .map-legend__swatch--facility-community,
+:root[data-theme="dark"] .map-legend__swatch--facility-other {
+  border-color: #101828;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--infrastructure,
+:root[data-theme="dark"] .map-legend__swatch--facility-health {
+  background: #f97066;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-education {
+  background: #fac515;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-civic {
+  background: #f670c7;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-community {
+  background: #32d583;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-other {
+  background: #98a2b3;
+}
+
 :root[data-theme="dark"] .map-legend__swatch--failed {
   border-color: #f97066;
   background: rgb(249 112 102 / 0.18);
@@ -216,6 +334,38 @@
 .map-legend__note {
   max-width: 30ch;
   margin-top: var(--space-2);
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+}
+
+/* Data sources for the feature layers */
+
+.map-sources__list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.map-sources__item,
+.map-sources__source {
+  display: grid;
+  gap: 1px;
+}
+
+.map-sources__layer {
+  font-weight: 600;
+}
+
+.map-sources__source a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.map-sources__meta {
   color: var(--color-text-subtle);
   font-size: var(--text-xs);
 }

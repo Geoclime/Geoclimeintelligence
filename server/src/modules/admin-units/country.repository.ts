@@ -63,14 +63,21 @@ export class CountryRepository implements ICountryRepository {
   async deleteIfEmpty(countryCode: string): Promise<boolean> {
     // The NOT EXISTS guard and the admin_units foreign key (ON DELETE RESTRICT) both stop a
     // country with areas being deleted, even if an import promotes areas at the same moment.
-    const result = await this.repo
-      .createQueryBuilder()
-      .delete()
-      .from(Country)
-      .where("country_code = :countryCode", { countryCode })
-      .andWhere("NOT EXISTS (SELECT 1 FROM admin_units au WHERE au.country_code = :countryCode)", { countryCode })
-      .execute();
-    return (result.affected ?? 0) > 0;
+    // Roads and waterways reference the country the same way; a country that still holds map
+    // layer data is refused (false) rather than failing with a raw foreign-key error.
+    try {
+      const result = await this.repo
+        .createQueryBuilder()
+        .delete()
+        .from(Country)
+        .where("country_code = :countryCode", { countryCode })
+        .andWhere("NOT EXISTS (SELECT 1 FROM admin_units au WHERE au.country_code = :countryCode)", { countryCode })
+        .execute();
+      return (result.affected ?? 0) > 0;
+    } catch (err) {
+      if (pgCode(err) === FOREIGN_KEY_VIOLATION) return false;
+      throw err;
+    }
   }
 
   async countUsersScopedToLevel(countryCode: string, level: number): Promise<number> {

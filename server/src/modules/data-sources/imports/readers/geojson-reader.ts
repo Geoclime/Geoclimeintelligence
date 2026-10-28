@@ -17,6 +17,17 @@ interface FeatureLike {
 }
 
 /**
+ * Refuses a file that declares any CRS other than WGS84, because the platform never stores a
+ * shape in an unknown or unstated CRS (section 13, rule 7). A file with no CRS member is taken
+ * as WGS84, which is what GeoJSON itself specifies. Shared with the map-layer loader.
+ */
+export function assertWgs84Crs(crsName: unknown): void {
+  if (typeof crsName === "string" && !WGS84_NAMES.has(crsName.toLowerCase())) {
+    throw fileError(`The file's CRS is ${crsName}. Only EPSG:4326 (WGS84) is accepted: re-project the file first.`);
+  }
+}
+
+/**
  * Reads a GeoJSON FeatureCollection (or a single Feature). Each feature becomes one row: its
  * properties are the columns and its geometry is the shape. A file that declares any CRS
  * other than WGS84 is refused, because the platform never stores a shape in an unknown or
@@ -37,10 +48,7 @@ export function readGeoJson(buffer: Buffer): ParsedFile {
   }
   const features: FeatureLike[] = isCollection ? (root.features as FeatureLike[]) : [root as FeatureLike];
 
-  const crsName = root.crs?.properties?.name;
-  if (typeof crsName === "string" && !WGS84_NAMES.has(crsName.toLowerCase())) {
-    throw fileError(`The file's CRS is ${crsName}. Only EPSG:4326 (WGS84) is accepted: re-project the file first.`);
-  }
+  assertWgs84Crs(root.crs?.properties?.name);
   if (features.length > MAX_IMPORT_ROWS) {
     throw fileError(`The file has more than ${MAX_IMPORT_ROWS} features; split it into smaller files.`);
   }

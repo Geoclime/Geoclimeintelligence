@@ -4,6 +4,8 @@
 
 A reusable way for an Administrator to load a dataset from a file, without an engineer writing a script and without anything going live by accident. A file never writes straight into a live table. Its rows wait in **staging**, every row is **checked**, the admin **reviews** the results (including a map of the shapes), and only when they press **Promote** do the rows that passed get copied into the live table, all at once or not at all. Phase 2 uses it to load Rivers State's boundaries; Phase 5 will reuse it for rainfall data.
 
+Roads, waterways and settlements don't go through this pipeline: they're lines and points, and the roads file has 47,507 features (past the 20,000-row limit). An administrator loads them with the `npm run layers:load` script instead, which applies the same shape checks ([map-layers.md](map-layers.md)).
+
 ## How it works
 
 All paths are relative to `server/src/modules/data-sources/imports/`. The backend standard places import runs in the data-sources module. Every route is Administrator-only, and Administrators are never region-scoped (AI rule 9's documented exception).
@@ -27,7 +29,7 @@ From [`1791200400000-CreateImportTables.ts`](../server/src/migrations/1791200400
 - **GeoJSON** ([`readers/geojson-reader.ts`](../server/src/modules/data-sources/imports/readers/geojson-reader.ts)) turns each feature into a row: its properties become columns, and its geometry is the shape. A file that declares any CRS other than WGS84 is refused (AI rule 7: never store a shape in an unknown CRS).
 - **Shapefiles, CSV files and zips** have their own readers: see [shapefile-and-csv-imports.md](shapefile-and-csv-imports.md). A shapefile's shapes arrive as GeoJSON per row (like a GeoJSON feature); a CSV keeps its shapes as WKT in a column (like an Excel sheet).
 - [`readers/read-import-file.ts`](../server/src/modules/data-sources/imports/readers/read-import-file.ts) works out the type from the file name, then from its first bytes. Anything else is refused with a `400` the screen can show, listing what is accepted.
-- Uploads go through **multer with memory storage only**, never local disk (standard section 14), with a 20 MB limit (`413` above it).
+- Uploads go through **multer with memory storage only**, never local disk (standard section 14), with a 60 MB limit (`413` above it).
 
 ### 3. Matching columns
 

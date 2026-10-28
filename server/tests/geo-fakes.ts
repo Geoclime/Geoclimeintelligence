@@ -186,7 +186,8 @@ export function makeSource(overrides: Partial<DataSourceRecord> = {}): DataSourc
 }
 
 export class InMemoryDataSourceRepository implements IDataSourceRepository {
-  constructor(readonly rows: DataSourceRecord[] = []) {}
+  /** `inUse` holds the ids of sources that something still references (the foreign keys refuse those). */
+  constructor(readonly rows: DataSourceRecord[] = [], readonly inUse: Set<string> = new Set()) {}
 
   async findById(id: string) {
     return this.rows.find((s) => s.id === id) ?? null;
@@ -200,6 +201,13 @@ export class InMemoryDataSourceRepository implements IDataSourceRepository {
     const source = makeSource({ ...input, id: `20000000-0000-4000-8000-${String(this.rows.length + 2).padStart(12, "0")}` });
     this.rows.push(source);
     return source;
+  }
+
+  async deleteIfUnused(id: string) {
+    const index = this.rows.findIndex((s) => s.id === id);
+    if (index < 0 || this.inUse.has(id)) return false;
+    this.rows.splice(index, 1);
+    return true;
   }
 }
 
