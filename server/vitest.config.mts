@@ -21,6 +21,7 @@ export default defineConfig({
       IMPORT_MAX_FILE_MB: "60",
       IMPORT_MAX_UNZIPPED_MB: "100",
       IMPORT_MAX_ROWS: "100000",
+      IMPORT_MAX_GPKG_MB: "200",
     },
   },
 });

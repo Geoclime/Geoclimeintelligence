@@ -33,6 +33,8 @@ const envSchema = z.object({
     ),
   IMPORT_MAX_FILE_MB: z.coerce.number().int().positive().default(60),
   IMPORT_MAX_UNZIPPED_MB: z.coerce.number().int().positive().default(100),
+  // One GeoPackage from an OpenStreetMap extract, unpacked on its own and streamed (Rivers State buildings: 104 MB).
+  IMPORT_MAX_GPKG_MB: z.coerce.number().int().positive().default(200),
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(100_000),
 });
 

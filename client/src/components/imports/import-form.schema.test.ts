@@ -53,6 +53,10 @@ describe("OpenStreetMap layers", () => {
     expect(detectLayerChoiceFromFileName("gis_osm_pois_free_1_rivers.gpkg")).toBe("layer:infrastructure");
     // The whole extract defaults to facilities; Buildings is chosen by hand for the same zip.
     expect(detectLayerChoiceFromFileName("osm-20261027T194914Z-1-001.zip")).toBe("layer:infrastructure");
+    expect(detectLayerChoiceFromFileName("Rivers_State_OSM_All_Features_2026-10-29-20261029T182650Z-1-001.zip")).toBe("layer:infrastructure");
+    expect(detectLayerChoiceFromFileName("rivers_buildings_a.gpkg")).toBe("layer:buildings");
+    expect(detectLayerChoiceFromFileName("rivers_pois.gpkg")).toBe("layer:infrastructure");
+    expect(detectLayerChoiceFromFileName("cosmos_boundaries.zip")).toBeNull();
     expect(parseLayerChoice("layer:buildings")).toBe("buildings");
   });
 

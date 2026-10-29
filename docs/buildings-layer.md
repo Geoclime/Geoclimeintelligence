@@ -14,7 +14,20 @@ The backend part is:
 
 On the client, the home map has a **Buildings** toggle and legend row. Below zoom 15 the toggle says "Zoom in to street level to see them", and nothing is fetched.
 
-### What's in the files
+### The two deliveries
+
+The loaders read both:
+
+| Delivery | Buildings | Files | Notes |
+|---|---|---|---|
+| `osm-20261027T194914Z-1-001.zip` | 414,556 | Geofabrik's own names: `gis_osm_buildings_a_free_1_rivers.gpkg` and `_2` | The first part was cut short in transit (see below). No `provenance.json` |
+| `Rivers_State_OSM_All_Features_2026-10-29-…zip` | 406,430 | The team's handover: `rivers_buildings_a.gpkg` (104 MB), `rivers_pois.gpkg` and so on | Clipped to the geoBoundaries Rivers State polygon, so fewer features near the border. Every file complete, with SHA-256 checksums and QA reports. Points are one-point MultiPoints |
+
+Use the second delivery. Its `provenance.json` and `PROVENANCE.md` give the source to record: provider **Geofabrik GmbH / OpenStreetMap contributors**, URL `https://download.geofabrik.de/africa/nigeria-latest-free.gpkg.zip`, licence **OpenStreetMap ODbL 1.0**, downloaded **2026-10-29** (the processing run). The OSM snapshot date is marked UNKNOWN; leave it out rather than guess, as the file asks.
+
+Loading the second delivery after the first adds only what is new: rows are keyed by OSM id, so buildings already stored count as "already there". To replace the first delivery entirely, clear the layer first.
+
+### What's in the files (first delivery)
 
 | File | Rows | Notes |
 |---|---|---|
@@ -65,7 +78,7 @@ The CRS rule doesn't change: a recovered file must still be EPSG:4326.
 
 ### 3. Rows and inserts
 
-- [`osm-extract.ts`](../server/src/modules/map-layers/osm-extract.ts) `osmFiles("buildings", …)` takes only `gis_osm_buildings_a_free_<n>.gpkg` from the extract (about 97 MB unpacked, under the 100 MB `IMPORT_MAX_UNZIPPED_MB` default; raise it if a later extract is bigger).
+- [`osm-extract.ts`](../server/src/modules/map-layers/osm-extract.ts) `osmFiles("buildings", …)` takes only the buildings GeoPackages from the extract, under either naming (`gis_osm_buildings_a_free_<n>.gpkg` or `rivers_buildings_a.gpkg`). Each file may unpack to at most `IMPORT_MAX_GPKG_MB` (default 200 MB), checked per file before anything is unpacked.
 - [`map-layer-rows.ts`](../server/src/modules/map-layers/map-layer-rows.ts) `prepareBuildings` needs an `osm_id` and a shape, and keeps `name` and `type`.
 - [`map-layer-load.repository.ts`](../server/src/modules/map-layers/map-layer-load.repository.ts) `insertBuildings` runs the same PostGIS checks as every layer (readable, polygon, repaired if invalid, real coordinates, inside the country's box). It then stores the outline as a 2D MultiPolygon and links the ward covering `ST_PointOnSurface(outline)`. A building already stored is counted and left alone; one stored without a ward is linked once its ward exists.
 - 414,556 rows go in about 415 batches of 1,000, in one transaction (`--dry-run` rolls it back).

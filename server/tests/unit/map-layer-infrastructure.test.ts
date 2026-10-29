@@ -101,6 +101,41 @@ describe("osmFiles", () => {
     ]);
   });
 
+  it("limits each GeoPackage's unpacked size, not the total, since they are unpacked one at a time", async () => {
+    const small = await makeGeoPackage([]);
+    const zip = Buffer.from(zipSync({ "rivers_pois.gpkg": small, "rivers_pofw.gpkg": small }));
+    // Two files under the limit pass even though together they are over it.
+    expect(osmFiles("infrastructure", zip, "x.zip", small.length + 1)).toHaveLength(2);
+    expect(validationMessageSync(() => osmFiles("infrastructure", zip, "x.zip", small.length - 1))).toMatch(
+      /rivers_pois\.gpkg \(0 MB\), rivers_pofw\.gpkg \(0 MB\) would unpack to more than the 0 MB allowed for one GeoPackage \(IMPORT_MAX_GPKG_MB/,
+    );
+  });
+
+  it("also reads the team's clipped handover, named <area>_<theme>.gpkg", async () => {
+    const gpkg = await makeGeoPackage([]);
+    const folder = "Rivers_State_OSM_All_Features_2026-10-29";
+    const zip = Buffer.from(
+      zipSync({
+        [`${folder}/rivers_pois.gpkg`]: gpkg,
+        [`${folder}/rivers_pois_a.gpkg`]: gpkg,
+        [`${folder}/rivers_pofw.gpkg`]: gpkg,
+        [`${folder}/rivers_transport_a.gpkg`]: gpkg,
+        [`${folder}/rivers_traffic.gpkg`]: gpkg,
+        [`${folder}/rivers_places.gpkg`]: gpkg,
+        [`${folder}/rivers_buildings_a.gpkg`]: gpkg,
+        [`${folder}/rivers_state_boundary.gpkg`]: gpkg,
+        [`${folder}/provenance.json`]: new Uint8Array([123, 125]),
+      }),
+    );
+    expect(osmFiles("infrastructure", zip, "handover.zip").map((file) => file.fileName)).toEqual([
+      "rivers_pofw.gpkg",
+      "rivers_pois_a.gpkg",
+      "rivers_pois.gpkg",
+      "rivers_transport_a.gpkg",
+    ]);
+    expect(osmFiles("buildings", zip, "handover.zip").map((file) => file.fileName)).toEqual(["rivers_buildings_a.gpkg"]);
+  });
+
   it("passes a single .gpkg through, and refuses a zip with no facility files or a file of any other kind", async () => {
     const gpkg = await makeGeoPackage([]);
     const [single, ...others] = osmFiles("infrastructure", gpkg, "x/pois.gpkg");
@@ -153,6 +188,14 @@ describe("prepareInfrastructure", () => {
     expect(rows).toEqual([
       { osmId: "1", fromArea: false, name: "Okrika Clinic", facilityType: "health", osmClass: "clinic", shape: JSON.stringify(point()) },
       { osmId: "2", fromArea: true, name: null, facilityType: "education", osmClass: "school", shape: JSON.stringify(square) },
+    ]);
+  });
+
+  it("treats a one-point MultiPoint (the clipped handover's points) as a point, not an outline", () => {
+    const multiPoint = { type: "MultiPoint", coordinates: [[7.0, 4.8]] };
+    const { rows } = prepareInfrastructure([feature({ osm_id: "3", fclass: "police" }, multiPoint)]);
+    expect(rows).toEqual([
+      { osmId: "3", fromArea: false, name: null, facilityType: "emergency", osmClass: "police", shape: JSON.stringify(multiPoint) },
     ]);
   });
 

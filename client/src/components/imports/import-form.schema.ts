@@ -28,7 +28,8 @@ export function detectLayerChoiceFromFileName(fileName: string): string | null {
   // Geofabrik's extract: a buildings .gpkg, any other gis_osm_*.gpkg, or the zip of them all (osm-...zip,
   // facilities by default: choose Buildings for the same zip).
   if (lower.endsWith(".gpkg") && lower.includes("buildings")) return "layer:buildings";
-  if (lower.endsWith(".gpkg") || (lower.startsWith("osm") && lower.endsWith(".zip"))) return "layer:infrastructure";
+  // A zip with "osm" in its name: osm-20261027....zip, Rivers_State_OSM_All_Features_....zip.
+  if (lower.endsWith(".gpkg") || (/(^|[^a-z])osm([^a-z]|$)/.test(lower) && lower.endsWith(".zip"))) return "layer:infrastructure";
   if (lower.includes("road") && (lower.endsWith(".geojson") || lower.endsWith(".json"))) return "layer:roads";
   if (lower.includes("waterway") && (lower.endsWith(".geojson") || lower.endsWith(".json"))) return "layer:waterways";
   if (lower.includes("settlement") && (lower.endsWith(".geojson") || lower.endsWith(".json"))) return "layer:settlements";

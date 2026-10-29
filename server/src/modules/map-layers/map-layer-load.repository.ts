@@ -224,15 +224,16 @@ class PostgresLayerLoadTx implements LayerLoadTx {
       osm_class: row.osmClass, shape: row.shape,
     }));
     // An outline becomes a point inside it (ST_PointOnSurface, which unlike a centroid never falls
-    // outside an L-shaped site). The ward is the one at the ward level that covers that point; a
+    // outside an L-shaped site). Some deliveries wrap each point as a one-point MultiPoint; the same
+    // function returns that point. The ward is the one at the ward level that covers the point; a
     // point in no live ward is still stored (unlinked), and the next run links it, as for settlements.
     const result: CountRow[] = await this.manager.query(
       `${checkedRowsSql(
         `osm_id text, from_area boolean, name text, facility_type text, osm_class text, shape text`,
-        ["POINT", "POLYGON", "MULTIPOLYGON"],
+        ["POINT", "MULTIPOINT", "POLYGON", "MULTIPOLYGON"],
       )},
        located AS (
-         SELECT c.*, ST_Force2D(CASE WHEN GeometryType(c.g) LIKE '%POLYGON' THEN ST_PointOnSurface(c.g) ELSE c.g END) AS pt
+         SELECT c.*, ST_Force2D(CASE WHEN GeometryType(c.g) = 'POINT' THEN c.g ELSE ST_PointOnSurface(c.g) END) AS pt
            FROM checked c WHERE c.reject IS NULL
        ),
        ins AS (

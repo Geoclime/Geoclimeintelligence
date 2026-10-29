@@ -16,6 +16,8 @@ On the client, the home map has a **Facilities** toggle and five legend rows. Th
 
 ### What's in the extract, and what this layer uses
 
+Both deliveries work: Geofabrik's own names (`gis_osm_pois_free_1_rivers.gpkg`...) and the team's 2026-10-29 handover (`rivers_pois.gpkg`, `rivers_pois_a.gpkg`...). The handover wraps each point as a one-point MultiPoint, which is stored as that point. From the handover the layer keeps **821** facilities; the figures below are from the first extract.
+
 Of the extract's 21 files, this layer reads six: points of interest, places of worship and transport, each as points and as areas (`gis_osm_{pois,pofw,transport}[_a]_free_1_rivers.gpkg`). From the current extract that gives **826 facilities out of 2,288 features**:
 
 | Type | Kept | OSM classes |

@@ -399,7 +399,7 @@ export function ImportNewPage() {
                 </p>
                 {layerKind === "infrastructure" && (
                   <Callout tone="info" dataCy="layer-infrastructure-note">
-                    Upload Geofabrik&apos;s OpenStreetMap extract as delivered (the zip of <code>gis_osm_*.gpkg</code> files), or one of its
+                    Upload Geofabrik&apos;s OpenStreetMap extract as delivered (the zip of GeoPackages, named <code>gis_osm_pois_free_1.gpkg</code> or <code>rivers_pois.gpkg</code>), or one of its
                     facility files. Only points of interest, places of worship and transport are read: clinics, schools, police, markets,
                     ferry terminals, water points and the like. Shops, kiosks and sports pitches are left out. The source is usually
                     &quot;OpenStreetMap contributors via Geofabrik&quot;, licence ODbL 1.0.
@@ -407,7 +407,7 @@ export function ImportNewPage() {
                 )}
                 {layerKind === "buildings" && (
                   <Callout tone="info" dataCy="layer-buildings-note">
-                    Upload the same OpenStreetMap extract (the zip), or one <code>gis_osm_buildings_a_free_*.gpkg</code> file. Only the building
+                    Upload the same OpenStreetMap extract (the zip), or one buildings <code>.gpkg</code> file (<code>rivers_buildings_a.gpkg</code>, <code>gis_osm_buildings_a_free_1.gpkg</code>...). Only the building
                     files are read. Rivers State has about 414,000 buildings, so loading takes a few minutes: keep this page open until the
                     report appears. Use the same source as Infrastructure if it&apos;s the same extract.
                   </Callout>
