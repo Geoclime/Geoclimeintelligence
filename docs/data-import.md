@@ -102,6 +102,8 @@ The example is only on the Instructions sheet, so uploading an untouched templat
 
 ### 8. Rainfall (Phase 5)
 
+Why the platform needs rainfall, what "mm" means and how to read a high or low figure are in [rainfall.md](rainfall.md). This section covers loading it.
+
 The same pipeline loads monthly rainfall per area into **`rainfall_observations`** (the ERD's `RAINFALL_OBSERVATIONS`; migration [`1791600000000-CreateRainfallObservations.ts`](../server/src/migrations/1791600000000-CreateRainfallObservations.ts)). A run's `target` is `rainfall_observations`. Its rows have no shapes: each one attaches to a live area, so the LGAs must be promoted first.
 
 - **The table:** one row per area per month: `admin_unit_id`, `year_month` (`YYYY-MM`), `mean_rainfall_mm` (3 decimals, or null for an incomplete month), `data_type` (`OBSERVED`, per the ERD), `source_id` and the `import_run_id` that last wrote it. It is unique on (area, month). Deleting an area deletes its rainfall (`ON DELETE CASCADE`), so clearing a level to re-import its boundaries also clears that level's rainfall; upload the file again afterwards.

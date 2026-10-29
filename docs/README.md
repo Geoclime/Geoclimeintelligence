@@ -55,6 +55,11 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 31. [features/usability-and-profile.md](features/usability-and-profile.md): the compact layout, the profile page, name at sign-up, quick search (Ctrl+K), the Help page, the admin setup checklist, and user search on the Users page.
 32. [features/map-layers.md](features/map-layers.md): the Roads, Waterways and Settlements toggles, their legend rows, the Data sources panel, and the layer-toggle fix on the home map.
 
+## Phase 5: Rainfall
+
+33. [rainfall.md](rainfall.md): why the platform needs rainfall, what "mm" means, how to tell a high month or year from a low one, why no single mm value means "flood" and what it would take to find one, with the loading steps in [data-import.md](data-import.md), section 8.
+34. [rainfall-automation.md](rainfall-automation.md): the plan (not built yet) for fetching rainfall on a schedule instead of by hand, plus daily rainfall and the other data to get (gauges, river levels, a longer baseline), as a checklist.
+
 ## Adding a new doc
 
 Every feature, endpoint or migration ships with its own `docs/<feature-name>.md` (backend) or `docs/features/<feature-name>.md` (client) in the four-part format above. It isn't finished without one (standard sections 12, 13 and 18). Add it to this list, and link to it from any related doc.
