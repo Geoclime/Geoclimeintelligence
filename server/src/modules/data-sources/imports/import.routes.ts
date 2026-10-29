@@ -12,6 +12,7 @@ import {
   previewImportSchema,
   promoteImportSchema,
   startImportSchema,
+  startRainfallImportSchema,
 } from "./import.validation";
 import { MAX_IMPORT_FILE_BYTES } from "./readers/reader-limits";
 
@@ -47,6 +48,7 @@ importsRouter.get("/templates/admin-units", validate(adminUnitTemplateSchema), I
 importsRouter.post("/preview", uploadFile, validate(previewImportSchema), ImportController.preview);
 importsRouter.get("/", validate(listImportsSchema), ImportController.list);
 importsRouter.post("/", uploadFile, validate(startImportSchema), ImportController.start);
+importsRouter.post("/rainfall", uploadFile, validate(startRainfallImportSchema), ImportController.startRainfall);
 importsRouter.get("/:id", validate(getImportSchema), ImportController.get);
 importsRouter.get("/:id/geojson", validate(importGeoJsonSchema), ImportController.geoJson);
 importsRouter.post("/:id/promote", validate(promoteImportSchema), ImportController.promote);

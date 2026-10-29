@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
 import { SourceBadge } from "../../components/map/SourceBadge";
+import { RainfallCard } from "../../components/rainfall/RainfallCard";
 import { Breadcrumbs } from "../../components/shared/Breadcrumbs/Breadcrumbs";
 import { buttonClassName } from "../../components/shared/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
@@ -14,8 +15,8 @@ import { useTheme } from "../../hooks/useTheme";
 import { formatCoordinates } from "../../utils/formatCoordinates";
 
 /**
- * One LGA: outlined on a small map with its wards, its code, parent and source, and its wards as
- * a clickable list. Later phases add rainfall and flood history here.
+ * One LGA: outlined on a small map with its wards, its code, parent and source, its monthly
+ * rainfall, and its wards as a clickable list. A later phase adds flood history here.
  */
 export function LgaProfilePage() {
   const { id } = useParams();
@@ -84,8 +85,8 @@ export function LgaProfilePage() {
           <section className="card card__body">
             <EmptyState
               icon="layers"
-              title="Rainfall and flood history"
-              message="These appear here once the rainfall and disaster-event datasets are connected. Nothing is shown until real data exists."
+              title="Flood history"
+              message="This appears here once the disaster-event dataset is connected. Nothing is shown until real data exists."
             />
           </section>
         </div>
@@ -98,6 +99,10 @@ export function LgaProfilePage() {
           innerAreas={wardShapes.data}
           dataCy="lga-map"
         />
+      </div>
+
+      <div className="section-gap">
+        <RainfallCard adminUnitId={unit.id} areaName={unit.unitName} />
       </div>
 
       <section className="card section-gap" aria-labelledby="wards-title">

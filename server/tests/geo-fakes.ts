@@ -11,12 +11,15 @@ import type { CountryPatch, ICountryRepository, LevelCount, NewCountry } from ".
 import { DataSourceRecord } from "../src/modules/data-sources/data-source.entity";
 import type { IDataSourceRepository, NewDataSource } from "../src/modules/data-sources/data-source.types";
 import type {
+  AdminUnitStagedFields,
   GeometryCheckContext,
   IImportRepository,
   ImportRunDto,
   NewImportRun,
+  RainfallStagedFields,
   StagedRowInput,
 } from "../src/modules/data-sources/imports/import.types";
+import type { IRainfallRepository, LiveRainfallValue, RainfallMonthRow } from "../src/modules/rainfall/rainfall.types";
 
 // In-memory stand-ins for the Phase 2 repositories, so services run with no database. Shapes
 // are never computed here; spatial behaviour is verified against PostGIS, not faked.
@@ -213,14 +216,29 @@ export class InMemoryDataSourceRepository implements IDataSourceRepository {
 
 /** Records what the service asked it to store; runs are reported as all rows passed unless they had JS-side errors. */
 export class RecordingImportRepository implements IImportRepository {
-  created?: { run: NewImportRun; rows: StagedRowInput[]; checks: GeometryCheckContext };
+  /** Rows of an admin-units run; a rainfall run's rows are in `createdRainfall` instead. */
+  created?: { run: NewImportRun; rows: StagedRowInput[]; checks: GeometryCheckContext | null };
+  createdRainfall?: { run: NewImportRun; rows: StagedRowInput<RainfallStagedFields>[] };
   runs = new Map<string, ImportRunDto>();
   promoteCalls = 0;
 
-  async createCheckedRun(run: NewImportRun, rows: StagedRowInput[], checks: GeometryCheckContext) {
-    this.created = { run, rows, checks };
+  async createCheckedRun(
+    run: NewImportRun,
+    rows: StagedRowInput<AdminUnitStagedFields>[] | StagedRowInput<RainfallStagedFields>[],
+    checks: GeometryCheckContext | null,
+  ) {
+    if (run.target === "rainfall_observations") this.createdRainfall = { run, rows: rows as StagedRowInput<RainfallStagedFields>[] };
+    else this.created = { run, rows: rows as StagedRowInput[], checks };
     const failed = rows.filter((r) => r.errors.length > 0).length;
-    const dto = makeRunDto({ rowCount: rows.length, passedCount: rows.length - failed, errorCount: failed });
+    const passed = rows.length - failed;
+    const unchanged = rows.filter((r) => r.errors.length === 0 && "change" in r.fields && r.fields.change === "unchanged").length;
+    const dto = makeRunDto({
+      target: run.target,
+      rowCount: rows.length,
+      passedCount: passed,
+      errorCount: failed,
+      promotableCount: passed - unchanged,
+    });
     this.runs.set(dto.id, dto);
     return dto;
   }
@@ -241,11 +259,30 @@ export class RecordingImportRepository implements IImportRepository {
     return { type: "FeatureCollection" as const, features: [] };
   }
 
-  async promoteAdminUnits(runId: string) {
+  async promote(runId: string) {
     this.promoteCalls += 1;
     const run = this.runs.get(runId)!;
-    Object.assign(run, { status: "promoted", promotedCount: run.passedCount });
-    return run.passedCount;
+    const written = run.promotableCount ?? run.passedCount;
+    Object.assign(run, { status: "promoted", promotedCount: written });
+    return written;
+  }
+}
+
+/** Live rainfall months, set per test; `series` holds each area's months for the read endpoint. */
+export class InMemoryRainfallRepository implements IRainfallRepository {
+  constructor(
+    readonly values: LiveRainfallValue[] = [],
+    readonly series: Map<string, RainfallMonthRow[]> = new Map(),
+  ) {}
+
+  async findLiveValues() {
+    return this.values;
+  }
+
+  async findSeries(adminUnitId: string, range: { from?: string; to?: string }) {
+    return (this.series.get(adminUnitId) ?? []).filter(
+      (row) => (!range.from || row.yearMonth >= range.from) && (!range.to || row.yearMonth <= range.to),
+    );
   }
 }
 
@@ -263,6 +300,7 @@ export function makeRunDto(overrides: Partial<ImportRunDto> = {}): ImportRunDto 
     rowCount: 0,
     passedCount: 0,
     errorCount: 0,
+    promotableCount: null,
     promotedCount: null,
     warnings: [],
     extent: null,

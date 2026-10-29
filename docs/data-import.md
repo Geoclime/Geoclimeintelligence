@@ -100,6 +100,22 @@ The example is only on the Instructions sheet, so uploading an untouched templat
 
 `rivers_state_lgas.geojson` is not imported: it's the cross-check. Never import `climate_platform_sample_data_DEMO.xlsx`; it's demo data.
 
+### 8. Rainfall (Phase 5)
+
+The same pipeline loads monthly rainfall per area into **`rainfall_observations`** (the ERD's `RAINFALL_OBSERVATIONS`; migration [`1791600000000-CreateRainfallObservations.ts`](../server/src/migrations/1791600000000-CreateRainfallObservations.ts)). A run's `target` is `rainfall_observations`. Its rows have no shapes: each one attaches to a live area, so the LGAs must be promoted first.
+
+- **The table:** one row per area per month: `admin_unit_id`, `year_month` (`YYYY-MM`), `mean_rainfall_mm` (3 decimals, or null for an incomplete month), `data_type` (`OBSERVED`, per the ERD), `source_id` and the `import_run_id` that last wrote it. It is unique on (area, month). Deleting an area deletes its rainfall (`ON DELETE CASCADE`), so clearing a level to re-import its boundaries also clears that level's rainfall; upload the file again afterwards.
+- **The file:** the CHIRPS export from Google Earth Engine as delivered (`CHIRPS_rain_csv_Rivers_2016_2026_combined.xlsx`, or the same as `.csv`), or the cleaned `rainfall` sheet of `rivers_state_rainfall_and_boundaries.xlsx`. Reading for rainfall opens a sheet named like `rain`, `precip` or `chirps`. The Excel reader now turns date cells into ISO dates (`2016-01-01`): before, it gave the server's local-time text (`Fri Jan 01 2016 01:00:00 GMT+0100 ...`), and CHIRPS's `year_month` is a date cell.
+- **The columns** ([`column-mapping.ts`](../server/src/modules/data-sources/imports/column-mapping.ts)): `area_code`, `area_name` (at least one), `year_month` and `rainfall_mm`. For CHIRPS these are `ADM2_PCODE`, `ADM2_EN`, `year_month` and `mean`; the guess picks `ADM2_PCODE` over `ADM0_PCODE`/`ADM1_PCODE` by the level. `date` and `validOn` in the CHIRPS export are not the month (Emohua's January 2016 row says 2016-11-29 and 2019-04-17), so leave them unmatched.
+- **The checks** ([`rainfall-rows.ts`](../server/src/modules/data-sources/imports/rainfall-rows.ts), all in code): the area is live, found by code, then by name (so `Obia/Akpor`, `Omumma` and `Port-Harcourt` match); the month is a real month and not in the future; the value is a plain number from 0 to 10,000 mm (above 1,500 mm is a warning); one row per area and month. The `.geo` column (each area's outline, about 7 KB a row) is not stored in `raw`.
+- **Compared with what is live:** each passed row is **new**, **fills** a month stored as incomplete, **revises** a different live value (a warning on the row), or is **already live** with the same value. Promote writes only the first three, so the whole combined file can be uploaded again every month. A row with no value never blanks a live one. Promote first checks that nothing it compared against has changed since; if anything has, it refuses with a `409` and copies nothing.
+- **Endpoints:** `POST /api/v1/imports/preview` with `target=rainfall_observations` (and `level`) guesses the rainfall columns. `POST /api/v1/imports/rainfall` (multipart: `file`, `countryCode`, `level`, `sourceId`, `columnMapping`, optional `sheetName`, `headerRow`) creates and checks a run. History, review and promote are the same routes as for areas. A run's `promotableCount` says how many rows Promote would write.
+- **On screen:** Imports → New import → Level **Rainfall: monthly per LGA** (picked automatically for a file with "chirps" in its name). The review table shows each row's month, value and what Promote does with it.
+
+- **Reading it back:** `GET /api/v1/rainfall?adminUnitId=<uuid>` (optional `from`, `to` as `YYYY-MM`), open to any signed-in user like the areas themselves, returns the area's months oldest first with their data types and sources ([`rainfall.service.ts`](../server/src/modules/rainfall/rainfall.service.ts)). An area with no rainfall gets an empty series, not a 404. The LGA profile page's **Rainfall** card ([`RainfallCard.tsx`](../client/src/components/rainfall/RainfallCard.tsx)) shows the latest month and the last 12 months against their averages (the same month in the other years; an average year from the complete calendar years; at least two years behind each), the 12 months as a chart with a table view, the incomplete months, and the source. The figures are worked out in [`rainfall-summary.ts`](../client/src/utils/rainfall-summary.ts).
+
+The real CHIRPS export and the cleaned sheet each read as 2,967 rows (23 LGAs × 129 months, 2016-01 to 2026-09), all 23 LGAs matched, none failed; the 23 empty September 2026 rows are stored as incomplete.
+
 When this was run end to end on a scratch database with the real files:
 - the downloaded template, filled in and re-uploaded, passed 23/23;
 - a second Promote returned `409`;
@@ -112,7 +128,9 @@ When this was run end to end on a scratch database with the real files:
 - [`tests/integration/geography.test.ts`](../server/tests/integration/geography.test.ts): uploads over HTTP, including bad files and non-admins.
 
 **Flagged for the team (NEEDS VERIFICATION):**
-- Shapefile and CSV readers now exist ([shapefile-and-csv-imports.md](shapefile-and-csv-imports.md)); the Phase 5 rainfall feed can reuse the CSV reader.
+- Shapefile and CSV readers now exist ([shapefile-and-csv-imports.md](shapefile-and-csv-imports.md)); the rainfall feed (section 8) reads Excel and CSV.
+- Rainfall is stored as `data_type = OBSERVED`, as the ERD says. CHIRPS blends satellite estimates with station gauges, so the team may prefer `ESTIMATED`; it's one value in `ImportService.startRainfall`.
+- The rainfall promotion SQL (the changed-since check and the upsert) is covered by unit tests on the service side only; run it once against PostGIS with the real CHIRPS file.
 - Staged rows are kept after promotion, as an audit trail. Decide on a clean-up period before files get large.
 - The "import completed / failed" emails (backend standard section 15) aren't sent yet.
 

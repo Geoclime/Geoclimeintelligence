@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   detectLayerChoiceFromFileName,
+  EMPTY_MAPPING,
   importFormSchema,
   parseLayerChoice,
+  parseRainfallChoice,
   toMapLayerUpload,
   toStartImport,
+  toStartRainfallImport,
   type ImportFormValues,
 } from "./import-form.schema";
 
@@ -67,6 +70,51 @@ describe("OpenStreetMap layers", () => {
     expect(toMapLayerUpload(ticked, zip, "infrastructure").acceptPartial).toBe(true);
     expect(toMapLayerUpload(ticked, zip, "roads").acceptPartial).toBeUndefined();
     expect(toMapLayerUpload(base, zip, "buildings").acceptPartial).toBeUndefined();
+  });
+});
+
+describe("rainfall", () => {
+  const chirpsMapping = { area_code: "ADM2_PCODE", area_name: "ADM2_EN", year_month: "year_month", rainfall_mm: "mean" };
+  const rainfall: ImportFormValues = {
+    ...base,
+    level: "rainfall:2",
+    sheetName: "CHIRPS_rain_csv_Rivers_2016_202",
+    headerRow: "1",
+    columnMapping: { ...EMPTY_MAPPING, unit_name: "ADM2_EN", ...chirpsMapping },
+  };
+
+  it("picks rainfall per LGA for a CHIRPS export, but not for the LGA boundaries workbook", () => {
+    expect(detectLayerChoiceFromFileName("CHIRPS_rain_csv_Rivers_2016_2026_combined.xlsx")).toBe("rainfall:2");
+    expect(detectLayerChoiceFromFileName("chirps_rivers.csv")).toBe("rainfall:2");
+    expect(detectLayerChoiceFromFileName("rivers_state_rainfall_and_boundaries.xlsx")).toBeNull();
+    expect(parseRainfallChoice("rainfall:2")).toBe(2);
+    expect(parseRainfallChoice("2")).toBeNull();
+    expect(parseLayerChoice("rainfall:2")).toBeNull();
+  });
+
+  it("needs a month, a value and the area's code or name, but no shape or parent", () => {
+    expect(importFormSchema.safeParse(rainfall).success).toBe(true);
+    const result = importFormSchema.safeParse({ ...rainfall, columnMapping: { ...EMPTY_MAPPING } });
+    expect(result.error!.issues.map((issue) => issue.path.join("."))).toEqual([
+      "columnMapping.area_code",
+      "columnMapping.year_month",
+      "columnMapping.rainfall_mm",
+    ]);
+    const nameOnly = { ...rainfall, columnMapping: { ...rainfall.columnMapping, area_code: "" } };
+    expect(importFormSchema.safeParse(nameOnly).success).toBe(true);
+  });
+
+  it("refuses one file column matched twice", () => {
+    const twice = { ...rainfall, columnMapping: { ...rainfall.columnMapping, rainfall_mm: "year_month" } };
+    expect(importFormSchema.safeParse(twice).success).toBe(false);
+  });
+
+  it("sends only the rainfall columns, with the level the rainfall is for", () => {
+    const input = toStartRainfallImport(rainfall, new File(["x"], "chirps.xlsx"), "xlsx", 2);
+    expect(input).toMatchObject({ countryCode: "NGA", level: 2, sheetName: "CHIRPS_rain_csv_Rivers_2016_202", headerRow: 1 });
+    expect(input.columnMapping).toEqual(chirpsMapping);
+    // and an areas upload never sends the rainfall columns
+    expect(toStartImport({ ...base, columnMapping: { ...base.columnMapping, ...chirpsMapping } }, file, "xlsx").columnMapping).toEqual(base.columnMapping);
   });
 });
 

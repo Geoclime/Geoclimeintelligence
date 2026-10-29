@@ -13,7 +13,7 @@ export const ImportRunsTable = memo(function ImportRunsTable({ runs }: { runs: I
         <thead>
           <tr>
             <th scope="col">File</th>
-            <th scope="col">Areas</th>
+            <th scope="col">Data</th>
             <th scope="col" className="data-table__numeric">
               Rows
             </th>
@@ -30,8 +30,9 @@ export const ImportRunsTable = memo(function ImportRunsTable({ runs }: { runs: I
                 </span>
                 <span className="data-table__secondary">{run.source.provider}</span>
               </td>
-              <td data-label="Areas">
-                {run.options.levelName} · {run.options.countryCode}
+              <td data-label="Data">
+                {run.target === "rainfall_observations" ? `Rainfall per ${run.options.levelName}` : run.options.levelName} ·{" "}
+                {run.options.countryCode}
               </td>
               <td data-label="Rows" className="data-table__numeric">
                 {run.passedCount}/{run.rowCount} passed

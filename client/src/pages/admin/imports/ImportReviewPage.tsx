@@ -62,14 +62,20 @@ export function ImportReviewPage() {
   const current = run.run;
 
   const promoted = current.status === "promoted";
-  const levelBelow = countries.find((c) => c.countryCode === current.options.countryCode)?.levels[current.options.level] ?? null;
-  const parentLevelName = current.options.level > 1 ? "Parent" : null;
+  const rainfall = current.target === "rainfall_observations";
+  // Rainfall months already live with the same value pass, but Promote has nothing to write for them.
+  const toPromote = current.promotableCount ?? current.passedCount;
+  const what = rainfall ? "rainfall months" : `${current.options.levelName} areas`;
+  const levelBelow = rainfall
+    ? null
+    : (countries.find((c) => c.countryCode === current.options.countryCode)?.levels[current.options.level] ?? null);
+  const parentLevelName = !rainfall && current.options.level > 1 ? "Parent" : null;
   const setFilter = (value?: string) => setSearchParams(value ? { status: value } : {});
 
   const handlePromote = async () => {
     try {
       const result = await run.promote();
-      showToast({ type: "success", message: `${result.promotedCount ?? 0} ${current.options.levelName} areas are now live.` });
+      showToast({ type: "success", message: `${result.promotedCount ?? 0} ${what} are now live.` });
       setLayerVersion((v) => v + 1);
     } catch (error) {
       showToast({ type: "error", message: errorMessage(error) });
@@ -85,7 +91,7 @@ export function ImportReviewPage() {
       <header className="page__header">
         <div>
           <p className="page__eyebrow">
-            Import · {current.options.countryCode} · {current.options.levelName}
+            Import · {current.options.countryCode} · {rainfall ? `Rainfall per ${current.options.levelName}` : current.options.levelName}
           </p>
           <h1 className="page__title">{current.fileName}</h1>
           <p className="page__lead">
@@ -95,7 +101,7 @@ export function ImportReviewPage() {
         <div className="page__actions">
           {!promoted && (
             <Link
-              to={`/admin/imports/new?country=${current.options.countryCode}&level=${current.options.level}`}
+              to={`/admin/imports/new?country=${current.options.countryCode}&level=${rainfall ? "rainfall:" : ""}${current.options.level}`}
               className={buttonClassName({ variant: "secondary" })}
             >
               Upload a corrected file
@@ -103,11 +109,11 @@ export function ImportReviewPage() {
           )}
           <Button
             icon={<Icon name="check" size={16} />}
-            disabled={promoted || current.passedCount === 0}
+            disabled={promoted || toPromote === 0}
             onClick={() => setConfirming(true)}
             data-cy="promote"
           >
-            {promoted ? "Promoted" : `Promote ${current.passedCount} areas`}
+            {promoted ? "Promoted" : `Promote ${toPromote} ${rainfall ? "months" : "areas"}`}
           </Button>
         </div>
       </header>
@@ -137,11 +143,12 @@ export function ImportReviewPage() {
             {warning}
           </Callout>
         ))}
-        {!promoted && current.errorCount > 0 && current.passedCount > 0 && (
+        {!promoted && current.errorCount > 0 && toPromote > 0 && (
           <Callout tone="info" dataCy="partial-promote">
-            Promote copies only the {current.passedCount} rows that passed; the {current.errorCount} failed rows are left out.
-            You can promote now and add the failed ones later: fix them and upload a file containing just those rows. Rows
-            that are already live fail as duplicates if you upload them again.
+            Promote copies only the {toPromote} rows that passed; the {current.errorCount} failed rows are left out.
+            {rainfall
+              ? " You can promote now and add the failed ones later: fix them and upload the file again. Months that are already live with the same value are left alone."
+              : " You can promote now and add the failed ones later: fix them and upload a file containing just those rows. Rows that are already live fail as duplicates if you upload them again."}
           </Callout>
         )}
         {!promoted && current.passedCount === 0 && (
@@ -150,7 +157,17 @@ export function ImportReviewPage() {
             it again.
           </Callout>
         )}
-        {promoted && (
+        {!promoted && current.passedCount > 0 && toPromote === 0 && (
+          <Callout tone="info" dataCy="nothing-to-promote">
+            Every row that passed is already live with the same value, so there is nothing to promote.
+          </Callout>
+        )}
+        {promoted && rainfall && (
+          <Callout tone="success" dataCy="promoted-next">
+            {current.promotedCount} rainfall months were added or updated for the {current.options.levelName} areas.
+          </Callout>
+        )}
+        {promoted && !rainfall && (
           <Callout
             tone="success"
             dataCy="promoted-next"
@@ -172,7 +189,15 @@ export function ImportReviewPage() {
       </div>
 
       <div className="split split--wide-left">
-        {current.extent ? (
+        {rainfall ? (
+          <div className="card">
+            <EmptyState
+              icon="map"
+              title="Rainfall has no shapes of its own"
+              message={`Each row is matched to a live ${current.options.levelName} and shown on its boundary. The rows below give each month, its value and what promoting does with it.`}
+            />
+          </div>
+        ) : current.extent ? (
           <ImportPreviewMap theme={theme} extent={current.extent} data={layer.data} onViewChange={setView} />
         ) : (
           <div className="card">
@@ -241,7 +266,7 @@ export function ImportReviewPage() {
           <EmptyState icon="check" message={status === "failed" ? "No rows failed their checks." : "No rows to show."} />
         ) : (
           <>
-            <StagingRowsTable rows={run.rows} parentLevelName={parentLevelName} />
+            <StagingRowsTable rows={run.rows} parentLevelName={parentLevelName} rainfall={rainfall} />
             <div className="card__footer">
               <Pagination
                 page={page}
@@ -260,8 +285,12 @@ export function ImportReviewPage() {
 
       <Modal
         open={confirming}
-        title={`Promote ${current.passedCount} ${current.options.levelName} areas?`}
-        description="They become live: on the map, in the directory, and available to every later feature."
+        title={`Promote ${toPromote} ${what}?`}
+        description={
+          rainfall
+            ? "They become live for their areas and available to every later feature. Months already live with the same value are left as they are."
+            : "They become live: on the map, in the directory, and available to every later feature."
+        }
         onClose={() => setConfirming(false)}
         dismissible={!run.promoting}
         dataCy="promote-dialog"

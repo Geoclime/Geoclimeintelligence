@@ -2,12 +2,14 @@ import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 import { ConflictError, NotFoundError, UnprovenDataError, ValidationError } from "../../src/common/errors/app-error";
 import { ImportService } from "../../src/modules/data-sources/imports/import.service";
+import type { LiveRainfallValue } from "../../src/modules/rainfall/rainfall.types";
 import { asAuthUser, makeUser } from "../fakes";
 import { buildDbf, buildShp, buildZip, outerRing, partsRecord, square, WGS84_PRJ } from "../shapefile-fixtures";
 import {
   InMemoryAdminUnitRepository,
   InMemoryCountryRepository,
   InMemoryDataSourceRepository,
+  InMemoryRainfallRepository,
   makeCountry,
   makeRunDto,
   makeSource,
@@ -39,6 +41,7 @@ function setup({ units = [rivers], country = makeCountry() } = {}) {
     new InMemoryCountryRepository([country]),
     new InMemoryAdminUnitRepository(units),
     new InMemoryDataSourceRepository([source]),
+    new InMemoryRainfallRepository(),
   );
   return { imports, service };
 }
@@ -71,7 +74,7 @@ describe("ImportService.start", () => {
   it("warns on the run when the country has no rough bounding box", async () => {
     const { imports, service } = setup({ country: makeCountry({ bbox: null }) });
     await service.start(await lgaWorkbook([["Okrika", null, "NG-RI", WKT]]), startInput, admin);
-    expect(imports.created!.checks.bbox).toBeNull();
+    expect(imports.created!.checks).toEqual({ countryCode: "NGA", bbox: null });
     expect(imports.created!.run.warnings[0]).toMatch(/no rough bounding box/);
   });
 
@@ -102,7 +105,7 @@ describe("ImportService.start", () => {
       admin,
     );
     expect(imports.created!.rows[0]!.fields.parentId).toBe(rivers.id);
-    expect(imports.created!.run.options.parentId).toBe(rivers.id);
+    expect(imports.created!.run.options).toMatchObject({ parentId: rivers.id });
   });
 
   it("refuses an empty file", async () => {
@@ -180,6 +183,111 @@ describe("ImportService.promote", () => {
     await expect(service.promote("done", admin)).rejects.toBeInstanceOf(ConflictError);
     await expect(service.promote("empty", admin)).rejects.toBeInstanceOf(ConflictError);
     await expect(service.promote("nope", admin)).rejects.toBeInstanceOf(NotFoundError);
+    expect(imports.promoteCalls).toBe(0);
+  });
+});
+
+describe("ImportService.startRainfall", () => {
+  const emohua = makeUnit({ unitName: "Emohua", unitCode: "NG033010", parentId: rivers.id });
+  const etche = makeUnit({ unitName: "Etche", unitCode: "NG033011", parentId: rivers.id });
+  const rainfallInput = {
+    countryCode: "NGA",
+    level: 2,
+    sourceId: source.id,
+    columnMapping: { area_code: "ADM2_PCODE", area_name: "ADM2_EN", year_month: "year_month", rainfall_mm: "mean" },
+  };
+
+  function rainfallSetup(live: LiveRainfallValue[] = [], units = [rivers, emohua, etche]) {
+    const imports = new RecordingImportRepository();
+    const service = new ImportService(
+      imports,
+      new InMemoryCountryRepository([makeCountry()]),
+      new InMemoryAdminUnitRepository(units),
+      new InMemoryDataSourceRepository([source]),
+      new InMemoryRainfallRepository(live),
+      () => new Date("2026-10-29T12:00:00Z"),
+    );
+    return { imports, service };
+  }
+
+  /** Laid out like the CHIRPS export from Earth Engine: a date cell for the month, a GeoJSON outline per row. */
+  async function chirpsFile(rows: [string, string, number | null, Date][]) {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("CHIRPS_rain_csv_Rivers_2016_202");
+    sheet.addRow(["system:index", "ADM1_PCODE", "ADM2_EN", "ADM2_PCODE", "date", "mean", "year_month", ".geo"]);
+    for (const [name, code, mean, month] of rows) {
+      sheet.addRow(["0_0000000000000000000a", "NG033", name, code, 1480406400000, mean, month, '{"type":"Polygon","coordinates":[]}']);
+    }
+    sheet.getColumn(7).numFmt = "yyyy-mm";
+    return { originalName: "CHIRPS_rain_csv_Rivers_2016_2026_combined.xlsx", buffer: Buffer.from(await workbook.xlsx.writeBuffer()) };
+  }
+  const month = (y: number, m: number) => new Date(Date.UTC(y, m - 1, 1));
+
+  it("previews a CHIRPS file with the rainfall columns guessed", async () => {
+    const { service } = rainfallSetup();
+    const preview = await service.preview(await chirpsFile([["Emohua", "NG033010", 15.7, month(2016, 1)]]), {
+      level: 2,
+      target: "rainfall_observations",
+    });
+    expect(preview).toMatchObject({ sheetName: "CHIRPS_rain_csv_Rivers_2016_202", suggestedMapping: rainfallInput.columnMapping });
+    expect(preview.templateColumns).toEqual(["area_code", "area_name", "year_month", "rainfall_mm"]);
+  });
+
+  it("stages every row against the live LGAs and rainfall, with no shape checks", async () => {
+    const { imports, service } = rainfallSetup([{ adminUnitId: emohua.id, yearMonth: "2016-01", rainfallMm: 15.719 }]);
+    const run = await service.startRainfall(
+      await chirpsFile([
+        ["Emohua", "NG033010", 15.719154818319, month(2016, 1)],
+        ["Etche", "NG033011", 16.04, month(2016, 1)],
+        ["Etche", "NG033011", null, month(2026, 9)],
+      ]),
+      rainfallInput,
+      admin,
+    );
+    expect(run).toMatchObject({ target: "rainfall_observations", rowCount: 3, passedCount: 3, promotableCount: 2 });
+    expect(imports.created).toBeUndefined();
+    const { run: staged, rows } = imports.createdRainfall!;
+    expect(staged).toMatchObject({
+      target: "rainfall_observations",
+      sheetName: "CHIRPS_rain_csv_Rivers_2016_202",
+      options: { countryCode: "NGA", level: 2, levelName: "LGA", dataType: "OBSERVED" },
+      sourceId: source.id,
+    });
+    expect(rows.map((r) => [r.fields.unitName, r.fields.yearMonth, r.fields.rainfallMm, r.fields.change])).toEqual([
+      ["Emohua", "2016-01", 15.719, "unchanged"],
+      ["Etche", "2016-01", 16.04, "new"],
+      ["Etche", "2026-09", null, "new"],
+    ]);
+    expect(rows[0]!.raw).not.toHaveProperty(".geo");
+    expect(staged.warnings).toEqual([
+      expect.stringMatching(/^"\.geo" holds each area's outline/),
+      expect.stringMatching(/^1 months are already live with the same value/),
+      expect.stringMatching(/^1 rows have no rainfall value/),
+    ]);
+  });
+
+  it("refuses rainfall before the LGAs it belongs to are live", async () => {
+    const { service } = rainfallSetup([], [rivers]);
+    await expect(service.startRainfall(await chirpsFile([["Emohua", "NG033010", 15.7, month(2016, 1)]]), rainfallInput, admin)).rejects.toMatchObject({
+      errors: [{ field: "level", message: expect.stringContaining("No LGA areas are live yet") }],
+    });
+  });
+
+  it("refuses an unknown source, and a mapping without a month or a value", async () => {
+    const { service } = rainfallSetup();
+    const file = await chirpsFile([["Emohua", "NG033010", 15.7, month(2016, 1)]]);
+    await expect(service.startRainfall(file, { ...rainfallInput, sourceId: "99999999-9999-4999-8999-999999999999" }, admin)).rejects.toBeInstanceOf(
+      UnprovenDataError,
+    );
+    await expect(
+      service.startRainfall(file, { ...rainfallInput, columnMapping: { area_code: "ADM2_PCODE", rainfall_mm: "mean" } }, admin),
+    ).rejects.toMatchObject({ errors: [{ field: "columnMapping.year_month" }] });
+  });
+
+  it("won't promote a run whose every passed row is already live with the same value", async () => {
+    const { imports, service } = rainfallSetup();
+    imports.runs.set("same", makeRunDto({ id: "same", target: "rainfall_observations", rowCount: 23, passedCount: 23, promotableCount: 0 }));
+    await expect(service.promote("same", admin)).rejects.toThrow(/already live with the same value/);
     expect(imports.promoteCalls).toBe(0);
   });
 });

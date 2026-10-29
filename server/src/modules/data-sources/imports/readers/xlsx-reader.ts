@@ -6,10 +6,15 @@ import { MAX_IMPORT_ROWS, uniqueHeadings } from "./reader-limits";
 /** How far down a sheet to look for the heading row (title banners and notes sit above it). */
 const HEADER_SCAN_ROWS = 20;
 
+/** Sheet names that hold rainfall: "rainfall", "CHIRPS_rain_csv_Rivers_2016_202"... */
+const RAINFALL_SHEET = /rain|precip|chirps/i;
+
 export interface XlsxReadOptions {
   sheetName?: string;
   /** 1-based Excel row number holding the headings; detected when omitted. */
   headerRow?: number;
+  /** What the import is for, so the right sheet opens when none is chosen. Areas by default. */
+  prefer?: "areas" | "rainfall";
 }
 
 /**
@@ -29,7 +34,9 @@ export async function readXlsx(buffer: Buffer, options: XlsxReadOptions = {}): P
   const sheets = workbook.worksheets.map((sheet) => sheet.name);
   const sheet = options.sheetName
     ? workbook.getWorksheet(options.sheetName)
-    : (workbook.getWorksheet("Areas") ?? workbook.worksheets.find(hasShapeColumn) ?? workbook.worksheets[0]);
+    : options.prefer === "rainfall"
+      ? (workbook.worksheets.find((s) => RAINFALL_SHEET.test(s.name)) ?? workbook.worksheets[0])
+      : (workbook.getWorksheet("Areas") ?? workbook.worksheets.find(hasShapeColumn) ?? workbook.worksheets[0]);
   if (!sheet) {
     throw new ValidationError([
       {
@@ -63,7 +70,7 @@ export async function readXlsx(buffer: Buffer, options: XlsxReadOptions = {}): P
     const values: Record<string, string | null> = {};
     let empty = true;
     columns.forEach(({ col }, index) => {
-      const text = row.getCell(col).text.trim();
+      const text = cellText(row.getCell(col));
       values[headings[index]!] = text || null;
       if (text) empty = false;
     });
@@ -73,6 +80,21 @@ export async function readXlsx(buffer: Buffer, options: XlsxReadOptions = {}): P
   }
 
   return { fileType: "xlsx", sheets, sheetName: sheet.name, headerRow, headings, rows, warnings: [] };
+}
+
+/**
+ * A cell as text. Dates become ISO dates ("2016-01-01"), not exceljs's `text`, which is the
+ * server's local-time rendering ("Fri Jan 01 2016 01:00:00 GMT+0100 ..."). exceljs reads Excel
+ * dates as UTC, so the UTC date is the one the sheet shows.
+ */
+function cellText(cell: ExcelJS.Cell): string {
+  const value = cell.type === ExcelJS.ValueType.Formula ? cell.result : cell.value;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return "";
+    const iso = value.toISOString();
+    return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : iso;
+  }
+  return cell.text.trim();
 }
 
 /**

@@ -7,11 +7,13 @@ import { CountryService } from "../../src/modules/admin-units/country.service";
 import { AuthService } from "../../src/modules/auth/auth.service";
 import { DataSourceService } from "../../src/modules/data-sources/data-source.service";
 import { ImportService } from "../../src/modules/data-sources/imports/import.service";
+import { RainfallService } from "../../src/modules/rainfall/rainfall.service";
 import { FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
 import {
   InMemoryAdminUnitRepository,
   InMemoryCountryRepository,
   InMemoryDataSourceRepository,
+  InMemoryRainfallRepository,
   makeCountry,
   makeSource,
   makeUnit,
@@ -43,7 +45,7 @@ beforeEach(() => {
   vi.spyOn(CountryService, "Instance", "get").mockReturnValue(new CountryService(countries));
   vi.spyOn(AdminUnitService, "Instance", "get").mockReturnValue(new AdminUnitService(units, sources));
   vi.spyOn(DataSourceService, "Instance", "get").mockReturnValue(new DataSourceService(sources));
-  vi.spyOn(ImportService, "Instance", "get").mockReturnValue(new ImportService(imports, countries, units, sources));
+  vi.spyOn(ImportService, "Instance", "get").mockReturnValue(new ImportService(imports, countries, units, sources, new InMemoryRainfallRepository()));
 });
 
 afterEach(() => {
@@ -270,6 +272,83 @@ describe("imports", () => {
   it("404s an unknown run", async () => {
     const res = await request(app).get("/api/v1/imports/99999999-9999-4999-8999-999999999999").set(asAdmin);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("rainfall imports", () => {
+  const emohua = makeUnit({ unitName: "Emohua", unitCode: "NG033010", parentId: rivers.id });
+  const mapping = { area_code: "ADM2_PCODE", area_name: "ADM2_EN", year_month: "year_month", rainfall_mm: "mean" };
+
+  beforeEach(() => {
+    const units = new InMemoryAdminUnitRepository([rivers, emohua]);
+    vi.spyOn(ImportService, "Instance", "get").mockReturnValue(
+      new ImportService(imports, countries, units, sources, new InMemoryRainfallRepository()),
+    );
+  });
+
+  function chirpsCsv(): Buffer {
+    return Buffer.from("ADM2_EN,ADM2_PCODE,year_month,mean\nEmohua,NG033010,2016-01,15.719154818319\nEmohua,NG033010,2026-09,\n");
+  }
+
+  const upload = (headers: Record<string, string>, columnMapping: object = mapping) =>
+    request(app)
+      .post("/api/v1/imports/rainfall")
+      .set(headers)
+      .field({ countryCode: "NGA", level: "2", sourceId: source.id, columnMapping: JSON.stringify(columnMapping) })
+      .attach("file", chirpsCsv(), "CHIRPS_rain_csv_Rivers_2016_2026_combined.csv");
+
+  it("are Administrator-only", async () => {
+    expect((await upload(asMember)).status).toBe(403);
+  });
+
+  it("preview guesses the rainfall columns when asked for rainfall", async () => {
+    const res = await request(app)
+      .post("/api/v1/imports/preview")
+      .set(asAdmin)
+      .field({ level: "2", target: "rainfall_observations" })
+      .attach("file", chirpsCsv(), "chirps.csv");
+    expect(res.status).toBe(200);
+    expect(res.body.data.suggestedMapping).toEqual(mapping);
+  });
+
+  it("starts a rainfall run from a CSV upload", async () => {
+    const res = await upload(asAdmin);
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ target: "rainfall_observations", rowCount: 2, passedCount: 2 });
+    expect(imports.createdRainfall!.rows.map((r) => [r.fields.yearMonth, r.fields.rainfallMm])).toEqual([
+      ["2016-01", 15.719],
+      ["2026-09", null],
+    ]);
+  });
+
+  it("refuses an areas-only mapping key with a 400", async () => {
+    const res = await upload(asAdmin, { ...mapping, unit_name: "ADM2_EN" });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("rainfall reads", () => {
+  const emohua = makeUnit({ unitName: "Emohua", unitCode: "NG033010", parentId: rivers.id });
+
+  beforeEach(() => {
+    const series = new Map([[emohua.id, [{ yearMonth: "2026-08", rainfallMm: 304.5, dataType: "OBSERVED" as const, sourceId: source.id }]]]);
+    vi.spyOn(RainfallService, "Instance", "get").mockReturnValue(
+      new RainfallService(new InMemoryRainfallRepository([], series), new InMemoryAdminUnitRepository([rivers, emohua]), sources),
+    );
+  });
+
+  it("serves an area's monthly series to any signed-in user", async () => {
+    const res = await request(app).get("/api/v1/rainfall").query({ adminUnitId: emohua.id }).set(asMember);
+    expect(res.status).toBe(200);
+    expect(res.body.data.months).toEqual([{ yearMonth: "2026-08", rainfallMm: 304.5 }]);
+    expect(res.body.data.sources[0].id).toBe(source.id);
+  });
+
+  it("validates the area id and the month range, and needs a signed-in user", async () => {
+    expect((await request(app).get("/api/v1/rainfall").query({ adminUnitId: "nope" }).set(asMember)).status).toBe(400);
+    const backwards = await request(app).get("/api/v1/rainfall").query({ adminUnitId: emohua.id, from: "2026-09", to: "2026-01" }).set(asMember);
+    expect(backwards.status).toBe(400);
+    expect((await request(app).get("/api/v1/rainfall").query({ adminUnitId: emohua.id })).status).toBe(401);
   });
 });
 

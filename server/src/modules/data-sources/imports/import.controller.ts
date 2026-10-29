@@ -10,6 +10,7 @@ import type {
   ListImportsQuery,
   PreviewImportBody,
   StartImportBody,
+  StartRainfallImportBody,
 } from "./import.validation";
 
 // Casts of req.query / req.body are safe: validate() already replaced them with parsed values.
@@ -33,6 +34,15 @@ export class ImportController {
   static async start(req: Request, res: Response, next: NextFunction) {
     try {
       const run = await ImportService.Instance.start(uploadedFile(req), req.body as StartImportBody, req.user!);
+      return res.status(201).json(ok(run, `Checked ${run.rowCount} rows: ${run.passedCount} passed, ${run.errorCount} failed`));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async startRainfall(req: Request, res: Response, next: NextFunction) {
+    try {
+      const run = await ImportService.Instance.startRainfall(uploadedFile(req), req.body as StartRainfallImportBody, req.user!);
       return res.status(201).json(ok(run, `Checked ${run.rowCount} rows: ${run.passedCount} passed, ${run.errorCount} failed`));
     } catch (err) {
       next(err);
@@ -69,7 +79,8 @@ export class ImportController {
   static async promote(req: Request<{ id: string }>, res: Response, next: NextFunction) {
     try {
       const run = await ImportService.Instance.promote(req.params.id, req.user!);
-      return res.json(ok(run, `${run.promotedCount ?? 0} areas are now live`));
+      const what = run.target === "rainfall_observations" ? "rainfall months" : "areas";
+      return res.json(ok(run, `${run.promotedCount ?? 0} ${what} are now live`));
     } catch (err) {
       next(err);
     }

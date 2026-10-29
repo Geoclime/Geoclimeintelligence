@@ -2,6 +2,7 @@ import { z } from "zod";
 import { bboxQuerySchema } from "../../../common/geo/geo";
 import { offsetPageQuerySchema } from "../../../common/pagination/pagination";
 import { countryCodeSchema } from "../../admin-units/country.validation";
+import { IMPORT_TARGETS } from "./import.types";
 
 // Upload routes arrive as multipart/form-data, so every field is a string and an untouched
 // optional input arrives as "". These helpers turn "" into "not sent".
@@ -20,18 +21,28 @@ const columnMappingSchema = z
   })
   .strict();
 
-/** columnMapping travels as a JSON string inside the multipart form. */
-const columnMappingField = z
-  .string({ error: "columnMapping is required" })
-  .transform((value, ctx) => {
-    try {
-      return JSON.parse(value) as unknown;
-    } catch {
-      ctx.addIssue({ code: "custom", message: "columnMapping must be a JSON object" });
-      return z.NEVER;
-    }
+const rainfallMappingSchema = z
+  .object({
+    area_code: headingSchema.optional(),
+    area_name: headingSchema.optional(),
+    year_month: headingSchema.optional(),
+    rainfall_mm: headingSchema.optional(),
   })
-  .pipe(columnMappingSchema);
+  .strict();
+
+/** columnMapping travels as a JSON string inside the multipart form. */
+const jsonMappingField = <T extends z.ZodType>(schema: T) =>
+  z
+    .string({ error: "columnMapping is required" })
+    .transform((value, ctx) => {
+      try {
+        return JSON.parse(value) as unknown;
+      } catch {
+        ctx.addIssue({ code: "custom", message: "columnMapping must be a JSON object" });
+        return z.NEVER;
+      }
+    })
+    .pipe(schema);
 
 const sheetOptions = {
   sheetName: optional(z.string().trim().min(1).max(100)),
@@ -45,6 +56,8 @@ export const previewImportSchema = z.object({
       countryCode: optional(countryCodeSchema),
       level: optional(levelSchema),
       parentId: optional(z.uuid()),
+      /** Which kind of import the file is for, so the right sheet opens and the right columns are guessed. */
+      target: optional(z.enum(IMPORT_TARGETS)),
     })
     .strict(),
 });
@@ -58,11 +71,25 @@ export const startImportSchema = z.object({
       level: levelSchema,
       sourceId: z.uuid("Choose the data source these areas come from"),
       parentId: optional(z.uuid()),
-      columnMapping: columnMappingField,
+      columnMapping: jsonMappingField(columnMappingSchema),
     })
     .strict(),
 });
 export type StartImportBody = z.infer<typeof startImportSchema>["body"];
+
+/** POST /imports/rainfall: monthly rainfall per area, for areas at `level` (2 = LGA in Nigeria). */
+export const startRainfallImportSchema = z.object({
+  body: z
+    .object({
+      ...sheetOptions,
+      countryCode: countryCodeSchema,
+      level: levelSchema,
+      sourceId: z.uuid("Choose the data source this rainfall comes from"),
+      columnMapping: jsonMappingField(rainfallMappingSchema),
+    })
+    .strict(),
+});
+export type StartRainfallImportBody = z.infer<typeof startRainfallImportSchema>["body"];
 
 const runParams = z.object({ id: z.uuid("Not a valid import id") });
 

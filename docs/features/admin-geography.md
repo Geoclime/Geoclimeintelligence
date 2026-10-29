@@ -46,7 +46,7 @@ Stable reference data (countries, area lists, area details) goes through `cache/
 
 **5. Places.** `pages/places/`:
 - `PlacesPage.tsx`: the searchable directory. The search runs on the server, debounced 300 ms.
-- `LgaProfilePage.tsx`: the LGA on a small map with its wards, plus its code, centre, parent and source, and its wards as links. It also has an empty card that says rainfall and flood history arrive later, rather than placeholder figures.
+- `LgaProfilePage.tsx`: the LGA on a small map with its wards, plus its code, centre, parent and source, and its wards as links. Its Rainfall card shows the LGA's monthly rainfall once a rainfall import is promoted ([data-import.md](../data-import.md), section 8); an empty card says flood history arrives later, rather than placeholder figures.
 - `WardPage.tsx`: the ward inside its LGA's outline. A ward reached through the wrong LGA's address shows "not found" rather than the ward.
 
 **6. Admin countries.** `pages/admin/countries/`, with `components/countries/CountryForm.tsx` (react-hook-form + Zod; schema in `country-form.schema.ts`):

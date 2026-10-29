@@ -2,6 +2,7 @@ import type { FeatureCollection, Geometry } from "geojson";
 import type { BBox } from "../../../common/geo/geo";
 import type { OffsetPageQuery } from "../../../common/pagination/pagination";
 import type { PageMeta } from "../../../common/response/api-response";
+import type { RainfallDataType } from "../../rainfall/rainfall.types";
 
 export const IMPORT_FILE_TYPES = ["xlsx", "geojson", "shapefile", "csv"] as const;
 export type ImportFileType = (typeof IMPORT_FILE_TYPES)[number];
@@ -14,8 +15,9 @@ export function carriesRowShapes(fileType: ImportFileType): boolean {
   return fileType === "geojson" || fileType === "shapefile";
 }
 
-/** Which live table a run feeds. Phase 5 adds the rainfall feed here. */
-export type ImportTarget = "admin_units";
+/** Which live table a run feeds: areas (Phase 2) or monthly rainfall per area (Phase 5). */
+export const IMPORT_TARGETS = ["admin_units", "rainfall_observations"] as const;
+export type ImportTarget = (typeof IMPORT_TARGETS)[number];
 export type ImportRunStatus = "checked" | "promoted";
 export type StagingRowStatus = "pending" | "passed" | "failed";
 
@@ -25,6 +27,21 @@ export type TemplateColumn = (typeof ADMIN_UNIT_TEMPLATE_COLUMNS)[number];
 
 /** Template column -> the heading in the uploaded file that holds it. Unmapped = not in the file. */
 export type ColumnMapping = Partial<Record<TemplateColumn, string>>;
+
+/**
+ * What a rainfall file must say for each row: which area (its code, its name, or both), which
+ * month, and how much rain. CHIRPS from Earth Engine writes these as ADM2_PCODE, ADM2_EN,
+ * year_month and mean.
+ */
+export const RAINFALL_COLUMNS = ["area_code", "area_name", "year_month", "rainfall_mm"] as const;
+export type RainfallColumn = (typeof RAINFALL_COLUMNS)[number];
+export type RainfallColumnMapping = Partial<Record<RainfallColumn, string>>;
+
+/**
+ * What promoting a rainfall row would do to the live table: add a month, fill in one stored as
+ * incomplete, replace a different value, or nothing (already live with the same value).
+ */
+export type RainfallChange = "new" | "filled" | "revised" | "unchanged";
 
 /** One data row as read from the file, before any checks. */
 export interface ParsedRow {
@@ -71,13 +88,32 @@ export interface AdminUnitStagedFields {
   levelName: string;
 }
 
-export interface StagedRowInput {
+/** The cleaned values for one rainfall row, stored in import_staging_rows.fields. */
+export interface RainfallStagedFields {
+  /** The live area the row matched; null when it matched none (the row fails). */
+  adminUnitId: string | null;
+  /** The matched area's name and code, or what the file said when nothing matched. */
+  unitName: string | null;
+  unitCode: string | null;
+  /** "YYYY-MM". */
+  yearMonth: string | null;
+  /** Rounded to 3 decimals, as stored; null for an incomplete month. */
+  rainfallMm: number | null;
+  change: RainfallChange | null;
+  /** What was live for this area and month when the file was checked. Promote refuses if it has changed since. */
+  liveExists: boolean;
+  liveRainfallMm: number | null;
+}
+
+export type StagedFields = AdminUnitStagedFields | RainfallStagedFields;
+
+export interface StagedRowInput<F extends StagedFields = AdminUnitStagedFields> {
   rowNumber: number;
   /** The row's values exactly as read (minus the shape, kept in geomSource). Never edited. */
   raw: Record<string, string | null>;
   geomSource: string | null;
   geomFormat: "wkt" | "geojson" | null;
-  fields: AdminUnitStagedFields;
+  fields: F;
   errors: string[];
   warnings: string[];
 }
@@ -91,13 +127,24 @@ export interface AdminUnitImportOptions {
   parentId: string | null;
 }
 
+/** Settings for a rainfall run, stored in import_runs.options. */
+export interface RainfallImportOptions {
+  countryCode: string;
+  /** The level of the areas the rainfall is for (2 = LGA in Nigeria). */
+  level: number;
+  levelName: string;
+  dataType: RainfallDataType;
+}
+
+export type ImportOptions = AdminUnitImportOptions | RainfallImportOptions;
+
 export interface NewImportRun {
   target: ImportTarget;
   fileName: string;
   fileType: ImportFileType;
   sheetName: string | null;
-  options: AdminUnitImportOptions;
-  columnMapping: ColumnMapping;
+  options: ImportOptions;
+  columnMapping: ColumnMapping | RainfallColumnMapping;
   sourceId: string;
   createdBy: string;
   warnings: string[];
@@ -122,13 +169,18 @@ export interface ImportRunDto {
   fileName: string;
   fileType: ImportFileType;
   sheetName: string | null;
-  options: AdminUnitImportOptions;
-  columnMapping: ColumnMapping;
+  options: ImportOptions;
+  columnMapping: ColumnMapping | RainfallColumnMapping;
   source: { id: string; provider: string; datasetName: string };
   status: ImportRunStatus;
   rowCount: number;
   passedCount: number;
   errorCount: number;
+  /**
+   * How many rows Promote would write: the passed rows, less rainfall months already live with
+   * the same value. Single-run reads only; null in lists.
+   */
+  promotableCount: number | null;
   promotedCount: number | null;
   warnings: string[];
   /** Extent of every readable staged shape, for the preview map; null if none could be read. */
@@ -148,6 +200,10 @@ export interface StagingRowDto {
   parentRef: string | null;
   parentName: string | null;
   hasShape: boolean;
+  /** Rainfall rows only; null for areas. */
+  yearMonth: string | null;
+  rainfallMm: number | null;
+  change: RainfallChange | null;
   errors: string[];
   warnings: string[];
 }
@@ -167,12 +223,19 @@ export type StagingFeatureCollection = FeatureCollection<Geometry, StagingFeatur
 
 /** What services depend on, so they can be unit-tested with an in-memory fake (section 2). */
 export interface IImportRepository {
-  /** Creates the run, fills staging and runs the shape checks, all in one transaction. */
-  createCheckedRun(run: NewImportRun, rows: StagedRowInput[], checks: GeometryCheckContext): Promise<ImportRunDto>;
+  /**
+   * Creates the run, fills staging and runs the checks, all in one transaction. `checks` is
+   * null for rows without shapes (rainfall): only the verdict is worked out then.
+   */
+  createCheckedRun(
+    run: NewImportRun,
+    rows: StagedRowInput<AdminUnitStagedFields>[] | StagedRowInput<RainfallStagedFields>[],
+    checks: GeometryCheckContext | null,
+  ): Promise<ImportRunDto>;
   findRunById(id: string): Promise<ImportRunDto | null>;
   findRunPage(query: OffsetPageQuery): Promise<{ items: ImportRunDto[]; meta: PageMeta }>;
   findRowPage(runId: string, query: StagingRowQuery): Promise<{ items: StagingRowDto[]; meta: PageMeta }>;
   findRunGeoJson(runId: string, bbox: BBox): Promise<StagingFeatureCollection>;
-  /** Copies passed rows into admin_units and marks the run promoted, in one transaction. */
-  promoteAdminUnits(runId: string, userId: string): Promise<number>;
+  /** Copies passed rows into the run's live table and marks the run promoted, in one transaction. */
+  promote(runId: string, userId: string): Promise<number>;
 }

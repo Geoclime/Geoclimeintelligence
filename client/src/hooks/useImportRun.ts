@@ -34,9 +34,10 @@ export function useImportRun(id: string | undefined, { page = 1, pageSize = 50, 
       const response = await promoteImportRun(id);
       if (!response.data) throw new Error(response.message || "The server returned no import run.");
       const run = response.data;
-      // New areas are live: every cached area list and map count is now out of date.
+      // New areas or rainfall are live: every cached area list, map count and rainfall series is now out of date.
       invalidateCached(CACHE_KEYS.adminUnits);
       invalidateCached(CACHE_KEYS.countries);
+      invalidateCached(CACHE_KEYS.rainfall);
       setData((current) => current && { ...current, detail: { ...current.detail, run } });
       return run;
     } finally {

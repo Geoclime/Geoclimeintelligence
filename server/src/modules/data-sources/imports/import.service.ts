@@ -7,25 +7,39 @@ import type { AdminUnitLookupRow, IAdminUnitRepository } from "../../admin-units
 import type { Country } from "../../admin-units/country.entity";
 import { CountryRepository } from "../../admin-units/country.repository";
 import type { ICountryRepository } from "../../admin-units/country.types";
+import { RainfallRepository } from "../../rainfall/rainfall.repository";
+import type { IRainfallRepository } from "../../rainfall/rainfall.types";
 import { DataSourceRepository } from "../data-source.repository";
 import type { IDataSourceRepository } from "../data-source.types";
 import { isLiveDuplicateError, prepareAdminUnitRows } from "./admin-unit-rows";
 import { buildAdminUnitTemplateGeoJson, buildAdminUnitTemplateXlsx, type TemplateFile } from "./admin-unit-template";
-import { assertMappingFits, suggestMapping } from "./column-mapping";
+import { assertMappingFits, assertRainfallMappingFits, suggestMapping, suggestRainfallMapping } from "./column-mapping";
 import { ImportRepository } from "./import.repository";
 import {
   ADMIN_UNIT_TEMPLATE_COLUMNS,
+  RAINFALL_COLUMNS,
   type ColumnMapping,
   type IImportRepository,
   type ImportFileType,
   type ImportRunDto,
+  type ParsedFile,
+  type RainfallColumn,
+  type RainfallColumnMapping,
   type StagingFeatureCollection,
   type StagingRowDto,
   type TemplateColumn,
   type UploadedFile,
 } from "./import.types";
+import { monthOf, prepareRainfallRows, shapeColumns, summariseRainfallRows } from "./rainfall-rows";
 import { readImportFile } from "./readers/read-import-file";
-import type { AdminUnitTemplateQuery, GetImportQuery, ListImportsQuery, PreviewImportBody, StartImportBody } from "./import.validation";
+import type {
+  AdminUnitTemplateQuery,
+  GetImportQuery,
+  ListImportsQuery,
+  PreviewImportBody,
+  StartImportBody,
+  StartRainfallImportBody,
+} from "./import.validation";
 
 export interface ImportPreviewDto {
   fileName: string;
@@ -37,8 +51,9 @@ export interface ImportPreviewDto {
   rowCount: number;
   /** The first few rows, long values shortened, so the admin can recognise the columns. */
   sampleRows: Record<string, string | null>[];
-  templateColumns: readonly TemplateColumn[];
-  suggestedMapping: ColumnMapping;
+  /** The columns to match: the areas template's, or the rainfall ones when previewing for rainfall. */
+  templateColumns: readonly TemplateColumn[] | readonly RainfallColumn[];
+  suggestedMapping: ColumnMapping | RainfallColumnMapping;
   /** What the reader assumed or noticed (a shapefile with no .prj, say), shown before checking. */
   warnings: string[];
 }
@@ -69,6 +84,7 @@ export class ImportService {
       CountryRepository.Instance,
       AdminUnitRepository.Instance,
       DataSourceRepository.Instance,
+      RainfallRepository.Instance,
     ));
   }
 
@@ -78,11 +94,14 @@ export class ImportService {
     private readonly countries: Pick<ICountryRepository, "findByCode">,
     private readonly units: Pick<IAdminUnitRepository, "findLookupRows">,
     private readonly sources: Pick<IDataSourceRepository, "findById">,
+    private readonly rainfall: Pick<IRainfallRepository, "findLiveValues">,
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
   /** Reads the file's headings and a few rows, and guesses the column mapping. Stores nothing. */
   async preview(file: UploadedFile, input: PreviewImportBody): Promise<ImportPreviewDto> {
-    const parsed = await readImportFile(file, input);
+    const rainfall = input.target === "rainfall_observations";
+    const parsed = await readImportFile(file, { ...input, prefer: rainfall ? "rainfall" : "areas" });
     const needsParentColumn = (input.level ?? 2) > 1 && !input.parentId;
     return {
       fileName: file.originalName,
@@ -93,8 +112,10 @@ export class ImportService {
       headings: parsed.headings,
       rowCount: parsed.rows.length,
       sampleRows: parsed.rows.slice(0, SAMPLE_ROWS).map((row) => shorten(row.values)),
-      templateColumns: ADMIN_UNIT_TEMPLATE_COLUMNS,
-      suggestedMapping: suggestMapping(parsed.headings, { fileType: parsed.fileType, needsParentColumn }),
+      templateColumns: rainfall ? RAINFALL_COLUMNS : ADMIN_UNIT_TEMPLATE_COLUMNS,
+      suggestedMapping: rainfall
+        ? suggestRainfallMapping(parsed.headings, input.level ?? 2)
+        : suggestMapping(parsed.headings, { fileType: parsed.fileType, needsParentColumn }),
       warnings: parsed.warnings,
     };
   }
@@ -112,9 +133,7 @@ export class ImportService {
     }
 
     const parsed = await readImportFile(file, input);
-    if (parsed.rows.length === 0) {
-      throw new ValidationError([{ field: "file", message: "The file has no data rows below its headings" }]);
-    }
+    assertHasRows(parsed);
     if (parsed.headings.length === 0) {
       throw new ValidationError([
         {
@@ -174,6 +193,52 @@ export class ImportService {
     );
   }
 
+  /**
+   * Creates a rainfall run: one row per area per month (CHIRPS from Earth Engine, say), matched
+   * to the live areas at `level` and compared with the rainfall already live. Like start(), it
+   * only fills staging; promote() writes the rows that change something.
+   */
+  async startRainfall(file: UploadedFile, input: StartRainfallImportBody, actor: AuthUser): Promise<ImportRunDto> {
+    if (!(await this.sources.findById(input.sourceId))) throw new UnprovenDataError();
+
+    const { country, levelName } = await this.resolveLevel(input.countryCode, input.level);
+    const areas = await this.units.findLookupRows(country.countryCode, input.level);
+    if (areas.length === 0) {
+      throw new ValidationError([
+        { field: "level", message: `No ${levelName} areas are live yet. Rainfall is recorded per ${levelName}: import and promote them first.` },
+      ]);
+    }
+
+    const parsed = await readImportFile(file, { ...input, prefer: "rainfall" });
+    assertHasRows(parsed);
+    assertRainfallMappingFits(input.columnMapping, parsed.headings);
+
+    const rows = prepareRainfallRows(parsed, input.columnMapping, {
+      countryCode: country.countryCode,
+      levelName,
+      areas,
+      live: await this.rainfall.findLiveValues(country.countryCode, input.level),
+      currentMonth: monthOf(this.now()),
+    });
+
+    return this.imports.createCheckedRun(
+      {
+        target: "rainfall_observations",
+        fileName: file.originalName.slice(0, 255),
+        fileType: parsed.fileType,
+        sheetName: parsed.sheetName,
+        // The ERD records rainfall as OBSERVED; CHIRPS blends satellite estimates with station gauges.
+        options: { countryCode: country.countryCode, level: input.level, levelName, dataType: "OBSERVED" },
+        columnMapping: input.columnMapping,
+        sourceId: input.sourceId,
+        createdBy: actor.id,
+        warnings: [...parsed.warnings, ...summariseRainfallRows(rows, shapeColumns(parsed.headings), levelName)],
+      },
+      rows,
+      null,
+    );
+  }
+
   async get(id: string, query: GetImportQuery): Promise<{ run: ImportRunDto; rows: StagingRowDto[]; meta: PageMeta }> {
     const run = await this.imports.findRunById(id);
     if (!run) throw new NotFoundError("Import run");
@@ -198,8 +263,11 @@ export class ImportService {
     if (run.passedCount === 0) {
       throw new ConflictError("No rows passed the checks, so there is nothing to promote. Fix the file and upload it again.");
     }
+    if (run.promotableCount === 0) {
+      throw new ConflictError("Every row that passed is already live with the same value, so there is nothing to promote.");
+    }
 
-    await this.imports.promoteAdminUnits(id, actor.id);
+    await this.imports.promote(id, actor.id);
     const promoted = await this.imports.findRunById(id);
     if (!promoted) throw new NotFoundError("Import run");
     return promoted;
@@ -218,7 +286,8 @@ export class ImportService {
     return query.format === "geojson" ? buildAdminUnitTemplateGeoJson(context) : buildAdminUnitTemplateXlsx(context);
   }
 
-  private async resolveTarget(countryCode: string, level: number, parentId?: string): Promise<ResolvedTarget> {
+  /** The country and the name of one of its levels, or a field-level 400. */
+  private async resolveLevel(countryCode: string, level: number): Promise<{ country: Country; levelName: string }> {
     const country = await this.countries.findByCode(countryCode);
     if (!country) {
       throw new ValidationError([{ field: "countryCode", message: `No country with code ${countryCode}. Create it on the Countries page first.` }]);
@@ -229,6 +298,11 @@ export class ImportService {
         { field: "level", message: `${country.countryName} has ${country.levelNames.length} levels (${country.levelNames.join(", ")})` },
       ]);
     }
+    return { country, levelName };
+  }
+
+  private async resolveTarget(countryCode: string, level: number, parentId?: string): Promise<ResolvedTarget> {
+    const { country, levelName } = await this.resolveLevel(countryCode, level);
     if (level === 1 && parentId) {
       throw new ValidationError([{ field: "parentId", message: `${levelName} areas belong directly to ${country.countryName}` }]);
     }
@@ -241,6 +315,12 @@ export class ImportService {
       ]);
     }
     return { country, levelName, parentLevelName: level > 1 ? country.levelNames[level - 2]! : null, parents, fixedParent };
+  }
+}
+
+function assertHasRows(parsed: ParsedFile): void {
+  if (parsed.rows.length === 0) {
+    throw new ValidationError([{ field: "file", message: "The file has no data rows below its headings" }]);
   }
 }
 

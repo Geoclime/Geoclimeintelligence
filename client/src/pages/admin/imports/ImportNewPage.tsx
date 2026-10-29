@@ -13,11 +13,14 @@ import {
   importFormSchema,
   mappingToForm,
   parseLayerChoice,
+  parseRainfallChoice,
   toMapLayerUpload,
   toStartImport,
+  toStartRainfallImport,
   type ImportFormValues,
 } from "../../../components/imports/import-form.schema";
 import "../../../components/imports/imports.css";
+import { RainfallMappingFields } from "../../../components/imports/RainfallMappingFields";
 import { Breadcrumbs } from "../../../components/shared/Breadcrumbs/Breadcrumbs";
 import { Button } from "../../../components/shared/Button";
 import { Callout } from "../../../components/shared/Callout";
@@ -48,7 +51,11 @@ const FILE_TYPE_LABELS: Record<ImportFileType, string> = {
 const SERVER_FIELDS = [
   "countryCode", "level", "sourceId", "sheetName", "headerRow", "parentId",
   "columnMapping.unit_name", "columnMapping.unit_code", "columnMapping.parent_code", "columnMapping.geometry_wkt",
+  "columnMapping.area_code", "columnMapping.area_name", "columnMapping.year_month", "columnMapping.rainfall_mm",
 ] as const;
+
+/** CHIRPS from Earth Engine is averaged over ADM2 areas: LGAs in Nigeria. */
+const RAINFALL_LEVEL = 2;
 
 const LAYER_LABELS: Record<string, string> = {
   roads: "Roads",
@@ -62,8 +69,10 @@ const LAYER_LABELS: Record<string, string> = {
 /**
  * "Import data": choose the country, level (or map layer) and data source, download the matching
  * template if needed, upload the filled file (or a real file such as the lga_boundaries sheet or
- * rivers_roads.geojson), match its columns for boundaries, and check or load it.
- * ?country=NGA&level=2 presets the choice (the country page's "Import areas" button).
+ * rivers_roads.geojson), match its columns for boundaries, and check or load it. "Rainfall: monthly
+ * per LGA" takes a CHIRPS export (or the cleaned rainfall sheet) through the same check-then-promote steps.
+ * ?country=NGA&level=2 presets the choice (the country page's "Import areas" button); level=rainfall:2
+ * presets rainfall.
  */
 export function ImportNewPage() {
   useDocumentTitle("New import");
@@ -91,16 +100,21 @@ export function ImportNewPage() {
     name: ["countryCode", "level", "headerRow"],
   });
   const layerKind = parseLayerChoice(levelText);
-  const level = layerKind ? 0 : Number(levelText) || 0;
+  const rainfallLevel = parseRainfallChoice(levelText);
+  // 0 for map layers and rainfall: none of the boundary-level steps apply to them.
+  const level = layerKind || rainfallLevel !== null ? 0 : Number(levelText) || 0;
 
   const { countries } = useCountries();
   const { sources, addSource } = useDataSources();
-  const { preview, start, uploadLayer, clearLayer } = useImportUpload();
+  const { preview, start, startRainfall, uploadLayer, clearLayer } = useImportUpload();
   const { catalog: layerCatalog, refetch: refetchLayerCatalog } = useMapLayerCatalog();
   const template = useTemplateDownload();
   const country = countries.find((c) => c.countryCode === countryCode) ?? null;
   const levelName = level > 0 ? (country?.levels[level - 1]?.name ?? null) : null;
   const parentLevelName = level > 1 ? (country?.levels[level - 2]?.name ?? null) : null;
+  const rainfallLevelName = rainfallLevel !== null ? (country?.levels[rainfallLevel - 1]?.name ?? "area") : null;
+  /** The one level rainfall can be imported for: level 2, which the CHIRPS export (ADM2) covers. */
+  const rainfallChoice = country?.levels.find((l) => l.level === RAINFALL_LEVEL) ?? null;
   const parents = useAdminUnits({ countryCode, level: level - 1, pageSize: 100, enabled: Boolean(country) && level > 1 });
 
   const [file, setFile] = useState<File | null>(null);
@@ -111,9 +125,11 @@ export function ImportNewPage() {
   const [clearingLayers, setClearingLayers] = useState(false);
   const [sourceDialog, setSourceDialog] = useState(0);
 
-  const readFile = async (next: File, options: { sheetName?: string; headerRow?: number } = {}) => {
+  /** `choice` is the Level value the file is read for; it differs from the form's while a change is applied. */
+  const readFile = async (next: File, options: { sheetName?: string; headerRow?: number } = {}, choice = levelText) => {
     setPreviewing(true);
     setPreviewError(null);
+    const rainfallFor = parseRainfallChoice(choice);
     try {
       const result = await preview({
         file: next,
@@ -121,7 +137,8 @@ export function ImportNewPage() {
         countryCode: countryCode || undefined,
         // No parentId, even in "one parent" mode: the guess should still look for a parent column,
         // or a sheet without one would stop every later sheet from finding theirs.
-        level: level || undefined,
+        level: (rainfallFor ?? (parseLayerChoice(choice) ? 0 : Number(choice))) || undefined,
+        target: rainfallFor !== null ? "rainfall_observations" : undefined,
       });
       // The form values are applied in the effect below, once the new sheet's headings exist as
       // <option>s. Setting them here selected options that weren't rendered yet, so a guess that
@@ -174,7 +191,8 @@ export function ImportNewPage() {
     if (!next) return;
 
     const detectedLayer = detectLayerChoiceFromFileName(next.name);
-    if (detectedLayer && !layerKind) {
+    const applied = detectedLayer && !layerKind;
+    if (applied) {
       setValue("level", detectedLayer, { shouldValidate: true });
       clearErrors("columnMapping");
     }
@@ -184,7 +202,7 @@ export function ImportNewPage() {
       setPreviewError(null);
       return;
     }
-    void readFile(next);
+    void readFile(next, {}, applied ? detectedLayer : levelText);
   };
 
   const downloadTemplate = async (format: TemplateFormat) => {
@@ -195,11 +213,18 @@ export function ImportNewPage() {
 
   const onSubmit = handleSubmit(async (values) => {
     const chosenLayer = parseLayerChoice(values.level);
+    const rainfallFor = parseRainfallChoice(values.level);
     if (!file || (!chosenLayer && !filePreview)) {
       setError("root.server", { message: "Choose a file to upload first." });
       return;
     }
     try {
+      if (rainfallFor !== null) {
+        const run = await startRainfall(toStartRainfallImport(values, file, filePreview!.fileType, rainfallFor));
+        showToast({ type: "success", message: `Checked ${run.rowCount} rows: ${run.passedCount} passed, ${run.errorCount} failed.` });
+        navigate(`/admin/imports/${run.id}`);
+        return;
+      }
       if (chosenLayer) {
         const report = await uploadLayer(toMapLayerUpload(values, file, chosenLayer));
         setLayerReport(report);
@@ -254,10 +279,12 @@ export function ImportNewPage() {
       <header className="page__header">
         <div>
           <p className="page__eyebrow">Administration</p>
-          <h1 className="page__title">Import areas</h1>
+          <h1 className="page__title">{rainfallLevel !== null ? "Import rainfall" : "Import areas"}</h1>
           <p className="page__lead">
-            Every row is checked before anything goes live: the shape, where it sits, its name and its parent. You review
-            the results and promote them on the next screen.
+            {rainfallLevel !== null
+              ? "Every row is checked before anything goes live: the area it's for, the month and the value, and how it compares with the rainfall already live."
+              : "Every row is checked before anything goes live: the shape, where it sits, its name and its parent."}{" "}
+            You review the results and promote them on the next screen.
           </p>
         </div>
       </header>
@@ -293,14 +320,23 @@ export function ImportNewPage() {
               </SelectField>
               <SelectField
                 label="Level"
-                hint={country ? "Choose an administrative boundary level, or a map feature layer (Roads, Waterways, Settlements, Infrastructure, Buildings)." : undefined}
+                hint={
+                  country
+                    ? "Choose an administrative boundary level, a map feature layer (Roads, Waterways, Settlements, Infrastructure, Buildings), or monthly rainfall."
+                    : undefined
+                }
                 error={formState.errors.level?.message}
                 disabled={!country}
                 data-cy="import-level"
                 {...register("level", {
-                  onChange: () => {
+                  onChange: (event: ChangeEvent<HTMLSelectElement>) => {
                     clearErrors("columnMapping");
                     setLayerReport(null);
+                    // Areas and rainfall guess different columns (and may read different sheets): read again.
+                    const next = event.target.value;
+                    if (file && filePreview && !parseLayerChoice(next) && (parseRainfallChoice(next) !== null) !== (rainfallLevel !== null)) {
+                      void readFile(file, {}, next);
+                    }
                   },
                 })}
               >
@@ -321,6 +357,16 @@ export function ImportNewPage() {
                     <option value="layer:infrastructure">Map layer: Infrastructure (OpenStreetMap extract, .zip or .gpkg)</option>
                     <option value="layer:buildings">Map layer: Buildings (OpenStreetMap extract, .zip or .gpkg)</option>
                     <option value="layer:zip">Map layer: Delivery zip (provenance.json + layers)</option>
+                  </optgroup>
+                )}
+                {/* Rainfall per level 2 only (LGA in Nigeria): the CHIRPS export is one row per ADM2 area per
+                    month. Another level gets its own option once a rainfall file exists for it. */}
+                {rainfallChoice && (
+                  <optgroup label="Climate data">
+                    <option value={`rainfall:${rainfallChoice.level}`} disabled={rainfallChoice.unitCount === 0}>
+                      Rainfall: monthly per {rainfallChoice.name}{" "}
+                      {rainfallChoice.unitCount > 0 ? "(CHIRPS export, .xlsx or .csv)" : `(import ${rainfallChoice.name} areas first)`}
+                    </option>
                   </optgroup>
                 )}
               </SelectField>
@@ -397,6 +443,15 @@ export function ImportNewPage() {
                     ? "Who published this data? There are no sources yet: press Add a source and enter the publisher, dataset, licence and download date from the file's README."
                     : "Who published this data? It's recorded with every feature, for credit and licensing. Not listed? Add a source here, or remove old ones under Configuration."}
                 </p>
+                {rainfallLevel !== null && (
+                  <Callout tone="info" dataCy="rainfall-note">
+                    Monthly rainfall per {rainfallLevelName}, one row per {rainfallLevelName} per month: the CHIRPS export from Google
+                    Earth Engine as delivered, or the cleaned <code>rainfall</code> sheet. Each row is matched to a live {rainfallLevelName}{" "}
+                    by its code, or its name, and compared with the rainfall already live. Months already live with the same value are left
+                    alone, so you can upload the whole combined file again each month. The source is usually &quot;Climate Hazards Center,
+                    UC Santa Barbara: CHIRPS v2.0&quot;.
+                  </Callout>
+                )}
                 {layerKind === "infrastructure" && (
                   <Callout tone="info" dataCy="layer-infrastructure-note">
                     Upload Geofabrik&apos;s OpenStreetMap extract as delivered (the zip of GeoPackages, named <code>gis_osm_pois_free_1.gpkg</code> or <code>rivers_pois.gpkg</code>), or one of its
@@ -426,7 +481,7 @@ export function ImportNewPage() {
                 )}
               </>
             )}
-            {!layerKind && (
+            {!layerKind && rainfallLevel === null && (
               <div className="template-actions section-gap">
                 <span className="muted">Building a file by hand? Start from a blank one. Already have a file? Skip this and upload it below.</span>
                 <Button variant="ghost" size="sm" icon={<Icon name="download" size={16} />} disabled={!ready} loading={template.downloading} onClick={() => void downloadTemplate("xlsx")} data-cy="download-xlsx">
@@ -475,7 +530,9 @@ export function ImportNewPage() {
                       label="Sheet"
                       hint={
                         filePreview.sheets.length > 1
-                          ? `This workbook has ${filePreview.sheets.length} sheets. Use the one that holds the areas and their shapes.`
+                          ? `This workbook has ${filePreview.sheets.length} sheets. Use the one that holds ${
+                              rainfallLevel !== null ? "the rainfall" : "the areas and their shapes"
+                            }.`
                           : undefined
                       }
                       data-cy="import-sheet"
@@ -551,15 +608,19 @@ export function ImportNewPage() {
                 <span className="import-step__number">3</span>Match the columns
               </h2>
               <p className="form-section__lead">Tell us which of the file's columns holds each piece. We've guessed from the headings.</p>
-              <ColumnMappingFields
-                headings={filePreview.headings}
-                fileType={filePreview.fileType}
-                level={level}
-                levelName={levelName ?? "area"}
-                parentLevelName={parentLevelName}
-                parents={parents.units}
-                sampleRow={filePreview.sampleRows[0]}
-              />
+              {rainfallLevel !== null ? (
+                <RainfallMappingFields headings={filePreview.headings} levelName={rainfallLevelName ?? "area"} sampleRow={filePreview.sampleRows[0]} />
+              ) : (
+                <ColumnMappingFields
+                  headings={filePreview.headings}
+                  fileType={filePreview.fileType}
+                  level={level}
+                  levelName={levelName ?? "area"}
+                  parentLevelName={parentLevelName}
+                  parents={parents.units}
+                  sampleRow={filePreview.sampleRows[0]}
+                />
+              )}
               <div className="form-actions">
                 <Button variant="secondary" onClick={() => navigate("/admin/imports")}>
                   Cancel
