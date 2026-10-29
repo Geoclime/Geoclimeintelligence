@@ -22,11 +22,13 @@ export const uploadMapLayerSchema = z.object({
     .object({
       countryCode: countryCodeSchema,
       layer: z.enum(
-        ["roads", "waterways", "settlements", "infrastructure", "zip"],
-        "Choose roads, waterways, settlements, infrastructure or the delivery zip",
+        ["roads", "waterways", "settlements", "infrastructure", "buildings", "zip"],
+        "Choose roads, waterways, settlements, infrastructure, buildings or the delivery zip",
       ),
       sourceId: optional(z.uuid("Choose the data source these features come from")),
       wardLevel: optional(z.coerce.number().int().min(1).max(6)),
+      // A form field, so it arrives as text. Only GeoPackages read it (a cut-short file with rows missing).
+      acceptPartial: optional(z.enum(["true", "false"]).transform((value) => value === "true")),
     })
     .superRefine((body, ctx) => {
       if (body.layer !== "zip" && !body.sourceId) {
@@ -44,7 +46,7 @@ export const clearMapLayerSchema = z.object({
   body: z.object({
     countryCode: countryCodeSchema,
     layers: z
-      .array(z.enum(["roads", "waterways", "settlements", "infrastructure"]))
+      .array(z.enum(["roads", "waterways", "settlements", "infrastructure", "buildings"]))
       .min(1, "Choose at least one layer to clear"),
   }),
 });

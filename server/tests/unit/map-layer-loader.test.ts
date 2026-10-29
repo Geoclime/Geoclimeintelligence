@@ -203,7 +203,7 @@ describe("MapLayerLoaderService: bad requests", () => {
 describe("MapLayerLoaderService: clearing a country's layers", () => {
   function withStored() {
     const built = build();
-    built.store.tx.stored = { roads: { NGA: 47507 }, waterways: { NGA: 4033 }, settlements: {}, infrastructure: { NGA: 829 } };
+    built.store.tx.stored = { roads: { NGA: 47507 }, waterways: { NGA: 4033 }, settlements: {}, infrastructure: { NGA: 829 }, buildings: { NGA: 414556 } };
     return built;
   }
 

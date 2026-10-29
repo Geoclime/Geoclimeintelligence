@@ -24,6 +24,7 @@ export class MapLayerController {
       const loadReq: LoadRequest = {
         countryCode: body.countryCode,
         wardLevel: body.wardLevel ?? 3,
+        acceptPartial: body.acceptPartial ?? false,
         dryRun: false,
         ...(body.layer === "zip" ? { zip: req.file.buffer } : { [body.layer]: fileItem }),
       };
@@ -70,6 +71,14 @@ export class MapLayerController {
   static async settlements(req: Request, res: Response, next: NextFunction) {
     try {
       return res.json(ok(await MapLayerService.Instance.settlementsGeoJson(req.query as unknown as LayerGeoJsonQueryInput)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async buildings(req: Request, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await MapLayerService.Instance.buildingsGeoJson(req.query as unknown as LayerGeoJsonQueryInput)));
     } catch (err) {
       next(err);
     }

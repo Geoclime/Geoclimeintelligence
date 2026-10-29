@@ -111,6 +111,16 @@ describe("Home map", { defaultCommandTimeout: 10000 }, () => {
     cy.dataCy("map-source-infrastructure").should("contain", "OpenStreetMap contributors via Geofabrik").and("contain", "ODbL 1.0");
   });
 
+  it("fetches buildings only at street level", () => {
+    cy.visit("/?lng=7.0&lat=4.85&z=12");
+    cy.wait("@getMapLayers");
+    cy.dataCy("layer-buildings").should("contain", "Zoom in to street level to see them");
+    cy.visit("/?lng=7.0&lat=4.85&z=15.5");
+    cy.wait("@buildingsLayer").then(({ request }) => expect(request.query).to.include({ zoom: "16" }));
+    cy.dataCy("layer-buildings").should("not.contain", "Zoom in to street level");
+    cy.dataCy("map-legend").should("contain", "Buildings");
+  });
+
   it("fetches each feature layer only for the visible area, with the zoom", () => {
     cy.visit("/?lng=7.0&lat=4.85&z=9.6");
     for (const alias of ["@roadsLayer", "@waterwaysLayer", "@settlementsLayer", "@infrastructureLayer"] as const) {

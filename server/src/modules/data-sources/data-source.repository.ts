@@ -28,7 +28,7 @@ export class DataSourceRepository extends BaseRepository<DataSourceRecord> imple
   }
 
   async deleteIfUnused(id: string): Promise<boolean> {
-    // admin_units, roads, waterways, settlement_points, infrastructure, import_runs and countries all reference
+    // admin_units, roads, waterways, settlement_points, infrastructure, buildings, import_runs and countries all reference
     // data_sources with ON DELETE RESTRICT, so the database refuses a source that is still in use.
     // That is reported as false rather than surfacing as a raw foreign-key error.
     try {

@@ -7,7 +7,7 @@ The map can now show the **facilities people depend on in an emergency**: hospit
 The backend part is:
 
 - **One table, `infrastructure`**, the Backlog2 ERD's INFRASTRUCTURE. Every row has a data source, a country, a facility type and a point, and is linked to the ward it sits in.
-- **A GeoPackage reader** (`.gpkg` files are SQLite databases). It runs on [sql.js](https://sql.js.org/), which is WebAssembly, so nothing native has to build on Render. It also spots a file that was cut short and says so plainly.
+- **A GeoPackage reader** (`.gpkg` files are SQLite databases). It runs on [sql.js](https://sql.js.org/), which is WebAssembly, so nothing native has to build on Render. It also reads files that were cut short in transit ([buildings-layer.md](buildings-layer.md) section 2).
 - **Loading through the existing loader:** `npm run layers:load -- --infrastructure <zip or .gpkg> --infrastructure-source <id>`, or **Imports → New import → Map layer: Infrastructure** in the web app.
 - **A read endpoint, `GET /api/v1/infrastructure/geojson?bbox=&zoom=`**, plus an `infrastructure` entry in `GET /api/v1/map-layers`.
 - **Clearing:** `npm run layers:clear -- --layers infrastructure`, or the Clear button on the Imports screen. A country that still has facilities can't be deleted (`409`), the same as for roads and waterways.
@@ -37,7 +37,7 @@ The rest of the extract isn't loaded by this layer:
 
 - **Roads and waterways** duplicate what is already loaded from HDX ([map-layers.md](map-layers.md)).
 - **Places and admin areas** are skipped: GRID3 settlements and the official boundaries are better sources.
-- **Buildings** are the next candidate (about 156,000 footprints in the readable file). **`gis_osm_buildings_a_free_1_rivers.gpkg` is cut short:** it should be 64.4 MB but is 59.9 MB, so it can't be read. Ask the data team for a fresh copy before buildings are built.
+- **Buildings** (414,556 outlines) are their own layer: see [buildings-layer.md](buildings-layer.md).
 
 ## How it works
 
@@ -64,7 +64,7 @@ It has the same validity `CHECK` and GiST index as the other layer tables, plus 
 
 - [`osm-extract.ts`](../server/src/modules/map-layers/osm-extract.ts) takes the upload. For a zip, it unpacks only the six facility files, so a 60 MB delivery unpacks to about a megabyte, and the zip-bomb limit still applies. A single `.gpkg` is passed through as it is.
 - [`gpkg-reader.ts`](../server/src/modules/map-layers/gpkg-reader.ts) opens each file with sql.js, finds its one feature table, and refuses a CRS other than EPSG:4326 (rule 7). Each row becomes a feature: the columns are its properties, and the geometry is decoded to GeoJSON.
-  - Before opening a file, it compares the database size in the SQLite header with the file's real length. A truncated file fails with "*name* is cut short: it should be X MB but is Y MB", not SQLite's vague "malformed".
+  - Before opening a file, it compares the database size in the SQLite header with the file's real length. A file that was cut short is read page by page instead, and loaded only if all its rows arrived ([buildings-layer.md](buildings-layer.md) section 2).
 - [`gpkg-geometry.ts`](../server/src/modules/map-layers/gpkg-geometry.ts) decodes a GeoPackage geometry blob: the "GP" header, then standard WKB. It handles both byte orders, ISO and EWKB Z/M flags (the extra values are dropped), and empty shapes. A blob it can't read becomes "no shape", and that row alone is left out.
 
 ### 3. Rows, checks and inserts
@@ -117,7 +117,7 @@ To remove the layer: `npm run layers:clear -- --country NGA --layers infrastruct
 
 | File | Covers |
 |---|---|
-| [`tests/unit/map-layer-infrastructure.test.ts`](../server/tests/unit/map-layer-infrastructure.test.ts) | Decoding blobs (byte order, Z values, empty and broken blobs), reading GeoPackages (CRS, not a GeoPackage, cut short), picking the facility files from a zip, the type mapping and zoom steps, row building and reject reasons, the loader end to end against fakes |
+| [`tests/unit/map-layer-infrastructure.test.ts`](../server/tests/unit/map-layer-infrastructure.test.ts) | Decoding blobs (byte order, Z values, empty and broken blobs), reading GeoPackages (CRS, not a GeoPackage), picking the facility files from a zip, the type mapping and zoom steps, row building and reject reasons, the loader end to end against fakes |
 | [`tests/gpkg-fixtures.ts`](../server/tests/gpkg-fixtures.ts) | Builds real GeoPackages in memory for those tests |
 | [`tests/integration/map-layers.test.ts`](../server/tests/integration/map-layers.test.ts) | `GET /infrastructure/geojson`: bbox and zoom validation, sign-in required. The catalogue lists four layers |
 | [`tests/unit/map-layer-loader.test.ts`](../server/tests/unit/map-layer-loader.test.ts), [`map-layer.service.test.ts`](../server/tests/unit/map-layer.service.test.ts) | Clearing infrastructure; the catalogue entry and its source |
@@ -141,4 +141,4 @@ The OpenStreetMap extract is like a phone directory for the whole state. It list
 
 Some entries in the directory are a single address (a point). Others are a whole compound drawn as an outline, like a hospital's grounds. We store the outline as one pin dropped inside it, so every facility is one dot on the map.
 
-The directory arrives as GeoPackage files, which are small databases. If a file was cut off while being copied, like one of the buildings files, the loader checks the size written on its first page against what actually arrived, and tells you the file is incomplete instead of loading half of it.
+The directory arrives as GeoPackage files, which are small databases. The loader opens each one and reads only the pages it needs.

@@ -7,7 +7,7 @@ import { MAX_IMPORT_FILE_BYTES } from "../data-sources/imports/readers/reader-li
 import { MapLayerController } from "./map-layer.controller";
 import { clearMapLayerSchema, layerGeoJsonSchema, uploadMapLayerSchema } from "./map-layer.validation";
 
-// Mounted at /api/v1/map-layers, /api/v1/roads, /api/v1/waterways, /api/v1/settlements and /api/v1/infrastructure. Read
+// Mounted at /api/v1/map-layers, /api/v1/roads, /api/v1/waterways, /api/v1/settlements, /api/v1/infrastructure and /api/v1/buildings. Read
 // routes are open to any signed-in user; POST /api/v1/map-layers/upload is Administrator-only.
 
 const singleFile = multer({
@@ -49,3 +49,7 @@ settlementsRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerControll
 /** GET /api/v1/infrastructure/geojson?bbox=...&zoom=... */
 export const infrastructureRouter = Router();
 infrastructureRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController.infrastructure);
+
+/** GET /api/v1/buildings/geojson?bbox=...&zoom=... (empty below zoom 15) */
+export const buildingsRouter = Router();
+buildingsRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController.buildings);

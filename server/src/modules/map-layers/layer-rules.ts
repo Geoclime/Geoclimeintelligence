@@ -8,7 +8,7 @@
  * the loader uses roadClassRank to fill roads.class_rank when it stores a road.
  */
 
-export const MAP_LAYER_IDS = ["roads", "waterways", "settlements", "infrastructure"] as const;
+export const MAP_LAYER_IDS = ["roads", "waterways", "settlements", "infrastructure", "buildings"] as const;
 export type MapLayerId = (typeof MAP_LAYER_IDS)[number];
 
 /** Lower = more important. Anything not listed (track, path, footway, construction...) is minor. */
@@ -136,12 +136,20 @@ export function facilityTypesAtZoom(zoom?: number): FacilityType[] {
   return zoom >= 10 ? [...nearby, "education", "government", "market", "transport"] : nearby;
 }
 
+/**
+ * Buildings are only drawn from this zoom. Rivers State has about 414,000 outlines; below street
+ * level they would be a solid smear, and a reply would be tens of megabytes. Below it the server
+ * sends an empty layer without touching the database.
+ */
+export const BUILDING_MIN_ZOOM = 15;
+
 /** The most features one map-layer response may hold. Past it, `truncated` is true. */
 export const LAYER_FEATURE_LIMIT: Readonly<Record<MapLayerId, number>> = {
   roads: 12_000,
   waterways: 6_000,
   settlements: 5_000,
   infrastructure: 5_000,
+  buildings: 10_000,
 };
 
 /**

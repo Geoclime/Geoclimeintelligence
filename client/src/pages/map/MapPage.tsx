@@ -8,7 +8,14 @@ import { MapLayerSources } from "../../components/map/MapLayerSources";
 import { MapLegend } from "../../components/map/MapLegend";
 import { MapOverlayLayers } from "../../components/map/MapOverlayLayers";
 import { MapOverviewPanel } from "../../components/map/MapOverviewPanel";
-import { INTERACTIVE_LAYERS, mapPalette, OVERLAY_LAYER_IDS, WARD_MIN_ZOOM, type MapLayerId } from "../../components/map/map-style";
+import {
+  BUILDING_MIN_ZOOM,
+  INTERACTIVE_LAYERS,
+  mapPalette,
+  OVERLAY_LAYER_IDS,
+  WARD_MIN_ZOOM,
+  type MapLayerId,
+} from "../../components/map/map-style";
 import { Button, buttonClassName } from "../../components/shared/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { Icon } from "../../components/shared/Icon";
@@ -41,6 +48,7 @@ const OVERLAY_LEGEND = [
   { key: "waterways", label: "Rivers and creeks", swatch: "waterways", layer: "waterways" },
   { key: "waterbodies", label: "Wide rivers and water bodies", swatch: "waterbodies", layer: "waterways" },
   { key: "settlements", label: "Settlements", swatch: "settlements", layer: "settlements" },
+  { key: "buildings", label: "Buildings", swatch: "buildings", layer: "buildings" },
   { key: "facility-health", label: "Hospitals, clinics, pharmacies", swatch: "facility-health", layer: "infrastructure" },
   { key: "facility-education", label: "Schools and colleges", swatch: "facility-education", layer: "infrastructure" },
   { key: "facility-civic", label: "Police and government", swatch: "facility-civic", layer: "infrastructure" },
@@ -50,7 +58,7 @@ const OVERLAY_LEGEND = [
 
 /**
  * The home screen: a full-screen map of Rivers State with its LGAs (named on the map) and, zoomed
- * in, its wards, with roads, waterways, settlements and facilities over them. Each layer is fetched only for
+ * in, its wards, with roads, waterways, settlements, facilities and (at street level) buildings over them. Each layer is fetched only for
  * the visible area. The view, the selected LGA and
  * the visible layers live in the URL, so a link opens the same view (utils/map-url.ts).
  */
@@ -80,6 +88,7 @@ export function MapPage() {
   const waterwayLayer = useMapLayer("waterways", view?.bbox ?? null, { enabled: layers.waterways, zoom });
   const settlementLayer = useMapLayer("settlements", view?.bbox ?? null, { enabled: layers.settlements, zoom });
   const infrastructureLayer = useMapLayer("infrastructure", view?.bbox ?? null, { enabled: layers.infrastructure, zoom });
+  const buildingLayer = useMapLayer("buildings", view?.bbox ?? null, { enabled: layers.buildings && zoom >= BUILDING_MIN_ZOOM, zoom });
   const { catalog } = useMapLayerCatalog();
   const located = useLocatePoint();
   const geolocation = useGeolocation();
@@ -187,6 +196,13 @@ export function MapPage() {
       loading: infrastructureLayer.loading,
       hint: hintFor("infrastructure", infrastructureLayer.data?.truncated),
     },
+    {
+      id: "buildings",
+      label: "Buildings",
+      checked: layers.buildings,
+      loading: buildingLayer.loading,
+      hint: hintFor("buildings", buildingLayer.data?.truncated),
+    },
   ];
   const legendItems = [...LEGEND, ...OVERLAY_LEGEND.filter((item) => layers[item.layer])];
   const visibleOverlays = OVERLAY_LAYER_IDS.filter((id) => layers[id]);
@@ -199,7 +215,8 @@ export function MapPage() {
     roadLayer.error ??
     waterwayLayer.error ??
     settlementLayer.error ??
-    infrastructureLayer.error;
+    infrastructureLayer.error ??
+    buildingLayer.error;
 
   return (
     <div className="map-page" data-cy="map-page">
@@ -220,6 +237,7 @@ export function MapPage() {
           waterways={waterwayLayer.data}
           settlements={settlementLayer.data}
           infrastructure={infrastructureLayer.data}
+          buildings={buildingLayer.data}
         />
         <AdminBoundaryLayers
           palette={palette}

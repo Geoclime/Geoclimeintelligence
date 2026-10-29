@@ -1,6 +1,6 @@
 /**
- * ADMINISTRATOR-ONLY script: loads the data team's roads, waterways, settlement and infrastructure
- * files into the database so they show on the map. It exists because the Imports screen takes
+ * ADMINISTRATOR-ONLY script: loads the data team's roads, waterways, settlement, infrastructure and
+ * building files into the database so they show on the map. It exists because the Imports screen takes
  * boundary polygons under 20,000 rows, and these files are lines and points (47,507 road segments).
  *
  * Needs direct database credentials (DATABASE_URL), which is what restricts it to administrators.
@@ -12,12 +12,16 @@
  *   npm run layers:load -- --zip ../rivers_map_layers_2026-10-27.zip
  *   npm run layers:load -- --settlements ../rivers_state_settlement_names.geojson --settlements-source <data-source-uuid>
  *   npm run layers:load -- --infrastructure ../osm-20261027T194914Z-1-001.zip --infrastructure-source <data-source-uuid>
+ *   npm run layers:load -- --buildings ../osm-20261027T194914Z-1-001.zip --buildings-source <data-source-uuid>
  *
  * --zip                     the delivery zip (provenance.json + roads, waterways, waterway areas)
  * --settlements             the GRID3 settlement-names GeoJSON
  * --settlements-source      id of that file's data source (add it on Imports > Add a source first)
  * --infrastructure          Geofabrik's OpenStreetMap extract: the zip of .gpkg files, or one facility .gpkg
  * --infrastructure-source   id of that extract's data source (add it on Imports > Add a source first)
+ * --buildings               the same extract (or one gis_osm_buildings_a_free_<n>.gpkg): its building outlines
+ * --buildings-source        id of that extract's data source
+ * --accept-partial          load a cut-short GeoPackage even when some of its rows are missing (they are reported)
  * --country              country code, default NGA
  * --ward-level           the admin level that holds wards, default 3
  * --dry-run              do everything, then roll back: shows the counts and keeps nothing
@@ -38,18 +42,24 @@ const argsSchema = z
     "settlements-source": z.uuid("--settlements-source must be a data source id (uuid)").optional(),
     infrastructure: z.string().min(1).optional(),
     "infrastructure-source": z.uuid("--infrastructure-source must be a data source id (uuid)").optional(),
+    buildings: z.string().min(1).optional(),
+    "buildings-source": z.uuid("--buildings-source must be a data source id (uuid)").optional(),
+    "accept-partial": z.boolean().default(false),
     country: z.string().length(3).default("NGA"),
     "ward-level": z.coerce.number().int().min(1).max(6).default(3),
     "dry-run": z.boolean().default(false),
   })
-  .refine((args) => args.zip || args.settlements || args.infrastructure, {
-    message: "Give --zip, --settlements, --infrastructure, or a combination",
+  .refine((args) => args.zip || args.settlements || args.infrastructure || args.buildings, {
+    message: "Give --zip, --settlements, --infrastructure, --buildings, or a combination",
   })
   .refine((args) => !args.settlements || args["settlements-source"], {
     message: "--settlements needs --settlements-source <data-source-uuid>: record the file's source first, so no point is unsourced",
   })
   .refine((args) => !args.infrastructure || args["infrastructure-source"], {
     message: "--infrastructure needs --infrastructure-source <data-source-uuid>: record the extract's source first, so no facility is unsourced",
+  })
+  .refine((args) => !args.buildings || args["buildings-source"], {
+    message: "--buildings needs --buildings-source <data-source-uuid>: record the extract's source first, so no building is unsourced",
   });
 
 function describe(layer: LayerReport): string {
@@ -59,7 +69,8 @@ function describe(layer: LayerReport): string {
     `  added:         ${layer.inserted.toLocaleString("en")}`,
     `  already there: ${layer.alreadyPresent.toLocaleString("en")}`,
   ];
-  if (layer.layer === "settlements" || layer.layer === "infrastructure") {
+  for (const note of layer.notes) lines.splice(1, 0, `  note:          ${note}`);
+  if (layer.layer === "settlements" || layer.layer === "infrastructure" || layer.layer === "buildings") {
     lines.push(`  linked later:  ${layer.relinked.toLocaleString("en")}`);
     lines.push(`  no ward found: ${layer.unlinked.toLocaleString("en")}`);
   }
@@ -81,6 +92,9 @@ async function main() {
       "settlements-source": { type: "string" },
       infrastructure: { type: "string" },
       "infrastructure-source": { type: "string" },
+      buildings: { type: "string" },
+      "buildings-source": { type: "string" },
+      "accept-partial": { type: "boolean" },
       country: { type: "string" },
       "ward-level": { type: "string" },
       "dry-run": { type: "boolean" },
@@ -107,6 +121,10 @@ async function main() {
           sourceId: args["infrastructure-source"]!,
         }
       : undefined,
+    buildings: args.buildings
+      ? { fileName: path.basename(args.buildings), buffer: readFileSync(args.buildings), sourceId: args["buildings-source"]! }
+      : undefined,
+    acceptPartial: args["accept-partial"],
   };
 
   await AppDataSource.initialize();

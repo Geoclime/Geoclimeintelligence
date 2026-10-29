@@ -21,7 +21,10 @@ export type BoundaryLayerId = "state" | "lga" | "ward";
 /** Every switchable layer: the boundaries, then the roads, waterways and settlements drawn over them. */
 export type MapLayerId = BoundaryLayerId | OverlayLayerId;
 export const BOUNDARY_LAYER_IDS: BoundaryLayerId[] = ["state", "lga", "ward"];
-export const OVERLAY_LAYER_IDS: OverlayLayerId[] = ["roads", "waterways", "settlements", "infrastructure"];
+export const OVERLAY_LAYER_IDS: OverlayLayerId[] = ["roads", "waterways", "settlements", "infrastructure", "buildings"];
+
+/** Buildings are only fetched and drawn from street level. Mirrors BUILDING_MIN_ZOOM in server/src/modules/map-layers/layer-rules.ts. */
+export const BUILDING_MIN_ZOOM = 15;
 
 /**
  * The ten facility types are drawn in five colour groups, so the legend stays short: health,
@@ -62,6 +65,8 @@ export interface MapPalette {
   settlement: string;
   settlementStroke: string;
   facility: Record<FacilityGroup, string>;
+  building: string;
+  buildingLine: string;
 }
 
 export function mapPalette(theme: ResolvedTheme): MapPalette {
@@ -85,6 +90,8 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         settlement: "#b692f6",
         settlementStroke: "#101828",
         facility: { health: "#f97066", education: "#fac515", civic: "#f670c7", community: "#32d583", other: "#98a2b3" },
+        building: "#7a5c45",
+        buildingLine: "#c4a484",
       }
     : {
         state: brand.tealDeep,
@@ -105,6 +112,8 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         settlement: "#6941c6",
         settlementStroke: "#ffffff",
         facility: { health: "#d92d20", education: "#ca8504", civic: "#c11574", community: "#039855", other: "#667085" },
+        building: "#d6bfa9",
+        buildingLine: "#9c7356",
       };
 }
 
@@ -299,8 +308,23 @@ export function overlayLayers(palette: MapPalette) {
     paint: { "text-color": palette.label, "text-halo-color": palette.labelHalo, "text-halo-width": 1.5 },
   };
 
+  const buildingFill: LayerProps = {
+    id: "buildings-fill",
+    type: "fill",
+    minzoom: BUILDING_MIN_ZOOM,
+    paint: { "fill-color": palette.building, "fill-opacity": 0.75 },
+  };
+  const buildingLine: LayerProps = {
+    id: "buildings-line",
+    type: "line",
+    minzoom: BUILDING_MIN_ZOOM,
+    paint: { "line-color": palette.buildingLine, "line-width": 0.6 },
+  };
+
   return {
     waterFill,
+    buildingFill,
+    buildingLine,
     waterLine,
     roadLocal,
     roadSecondary,

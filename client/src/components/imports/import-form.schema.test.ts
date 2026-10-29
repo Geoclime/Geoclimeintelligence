@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { importFormSchema, toStartImport, type ImportFormValues } from "./import-form.schema";
+import {
+  detectLayerChoiceFromFileName,
+  importFormSchema,
+  parseLayerChoice,
+  toMapLayerUpload,
+  toStartImport,
+  type ImportFormValues,
+} from "./import-form.schema";
 
 const base: ImportFormValues = {
   countryCode: "NGA",
@@ -10,6 +17,7 @@ const base: ImportFormValues = {
   parentMode: "column",
   parentId: "",
   fileType: "xlsx",
+  acceptPartial: false,
   columnMapping: { unit_name: "lga_name_standard", unit_code: "adm2_pcode", parent_code: "state", geometry_wkt: "geometry_wkt (EPSG:4326)" },
 };
 const file = new File(["x"], "rivers_state_rainfall_and_boundaries.xlsx");
@@ -36,6 +44,25 @@ describe("importFormSchema", () => {
   it("refuses one file column matched twice", () => {
     const result = importFormSchema.safeParse({ ...base, columnMapping: { ...base.columnMapping, unit_code: "lga_name_standard" } });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("OpenStreetMap layers", () => {
+  it("picks the layer from Geofabrik's file names", () => {
+    expect(detectLayerChoiceFromFileName("gis_osm_buildings_a_free_1_rivers.gpkg")).toBe("layer:buildings");
+    expect(detectLayerChoiceFromFileName("gis_osm_pois_free_1_rivers.gpkg")).toBe("layer:infrastructure");
+    // The whole extract defaults to facilities; Buildings is chosen by hand for the same zip.
+    expect(detectLayerChoiceFromFileName("osm-20261027T194914Z-1-001.zip")).toBe("layer:infrastructure");
+    expect(parseLayerChoice("layer:buildings")).toBe("buildings");
+  });
+
+  it("sends 'load even if rows are missing' only for those layers", () => {
+    const zip = new File(["x"], "osm.zip");
+    const ticked = { ...base, acceptPartial: true };
+    expect(toMapLayerUpload(ticked, zip, "buildings")).toMatchObject({ layer: "buildings", acceptPartial: true });
+    expect(toMapLayerUpload(ticked, zip, "infrastructure").acceptPartial).toBe(true);
+    expect(toMapLayerUpload(ticked, zip, "roads").acceptPartial).toBeUndefined();
+    expect(toMapLayerUpload(base, zip, "buildings").acceptPartial).toBeUndefined();
   });
 });
 

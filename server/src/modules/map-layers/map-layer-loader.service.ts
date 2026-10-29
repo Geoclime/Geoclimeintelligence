@@ -2,18 +2,28 @@ import { ValidationError } from "../../common/errors/app-error";
 import type { BBox } from "../../common/geo/geo";
 import { CountryRepository } from "../admin-units/country.repository";
 import type { ICountryRepository } from "../admin-units/country.types";
-import { readGeoPackage } from "./gpkg-reader";
-import { parseLayerGeoJson, prepareInfrastructure, prepareRoads, prepareSettlements, prepareWaterways, type LayerFeature } from "./map-layer-rows";
+import { openGeoPackage, readGeoPackage, type ReadOptions } from "./gpkg-reader";
+import {
+  buildingPreparer,
+  parseLayerGeoJson,
+  prepareInfrastructure,
+  prepareRoads,
+  prepareSettlements,
+  prepareWaterways,
+  type LayerFeature,
+} from "./map-layer-rows";
 import { findEntry, openLayerZip, sourceFromEntry } from "./map-layer-provenance";
 import { MapLayerLoadRepository } from "./map-layer-load.repository";
-import { facilityFiles } from "./osm-extract";
+import { osmFiles, type OsmFile, type OsmLayer } from "./osm-extract";
 import type {
   BatchResult,
+  BuildingRow,
   ILayerLoadStore,
   LayerLoadTx,
   NewLayerSource,
   PreparedRows,
   RejectCounts,
+  WardBatchContext,
 } from "./map-layer-loader.types";
 
 /** Rows per database statement: about half a megabyte of GeoJSON, well inside any limit. */
@@ -36,12 +46,25 @@ export interface LoadRequest {
    * with the id of the data source already recorded for it. Only the facility files are read.
    */
   infrastructure?: { fileName: string; buffer: Buffer; sourceId: string };
+  /**
+   * The same extract (or one buildings .gpkg), with its data source. Only the building files are
+   * read, and they are streamed (about 414,000 outlines for Rivers State), so the upload route
+   * can take them as well as the script.
+   */
+  buildings?: { fileName: string; buffer: Buffer; sourceId: string };
+  /**
+   * Load a GeoPackage that was cut short in transit even when some of its rows are missing. A
+   * cut-short file whose rows all arrived loads without it; the report says so either way.
+   */
+  acceptPartial?: boolean;
   /** Run every step, then roll the transaction back, so nothing is kept. */
   dryRun: boolean;
 }
 
 export interface LayerReport {
-  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure";
+  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure" | "buildings";
+  /** What the person loading should know about the file, e.g. that it was recovered from a cut-short copy. */
+  notes: string[];
   file: string;
   /** The data source the rows point at, and whether this run had to record it. */
   sourceId: string | null;
@@ -61,7 +84,7 @@ export interface LoadReport {
 }
 
 /** The layers layers:clear can remove. */
-export const CLEARABLE_LAYERS = ["roads", "waterways", "settlements", "infrastructure"] as const;
+export const CLEARABLE_LAYERS = ["roads", "waterways", "settlements", "infrastructure", "buildings"] as const;
 export type ClearableLayer = (typeof CLEARABLE_LAYERS)[number];
 
 export interface ClearRequest {
@@ -84,17 +107,19 @@ interface LayerPlan {
   layer: LayerReport["layer"];
   file: string;
   featuresInFile: number;
-  prepared: PreparedRows<unknown>;
+  /** What was left out before the database saw it. Small layers keep their rows here too; buildings don't. */
+  prepared: Pick<PreparedRows<unknown>, "rejected">;
   /** The source to record, or the id of one that already exists. */
   source: { record: NewLayerSource } | { existingId: string };
   /** The request field (and script flag) naming an existing source, for the error when it doesn't exist. */
   sourceField: string;
+  notes?: string[];
   insert(tx: LayerLoadTx, sourceId: string): Promise<BatchResult>;
 }
 
 /**
- * Loads the data team's roads, waterways and settlement files into PostGIS (npm run
- * layers:load). Everything is read and checked before the database is touched; every write then
+ * Loads the data team's roads, waterways, settlement, infrastructure and building files into
+ * PostGIS (npm run layers:load). Everything is read and checked before the database is touched; every write then
  * happens in one transaction, so a failure leaves the database exactly as it was. Loading a file
  * twice is harmless: rows already stored are counted and left alone, never overwritten.
  */
@@ -111,9 +136,12 @@ export class MapLayerLoaderService {
   ) {}
 
   async load(request: LoadRequest): Promise<LoadReport> {
-    if (!request.zip && !request.roads && !request.waterways && !request.settlements && !request.infrastructure) {
+    if (!request.zip && !request.roads && !request.waterways && !request.settlements && !request.infrastructure && !request.buildings) {
       throw new ValidationError([
-        { message: "Nothing to load: give a delivery zip, a roads file, a waterways file, a settlements file, an OpenStreetMap extract for infrastructure, or a combination." },
+        {
+          message:
+            "Nothing to load: give a delivery zip, a roads file, a waterways file, a settlements file, an OpenStreetMap extract for infrastructure or buildings, or a combination.",
+        },
       ]);
     }
     const country = await this.countries.findByCode(request.countryCode);
@@ -130,7 +158,8 @@ export class MapLayerLoaderService {
       ...this.roadPlans(request, country.countryCode, bbox),
       ...this.waterwayPlans(request, country.countryCode, bbox),
       ...this.settlementPlans(request, country.countryCode, bbox),
-      ...(await this.infrastructurePlans(request, country.countryCode, bbox)),
+      ...(await this.geoPackagePlans("infrastructure", request, country.countryCode, bbox)),
+      ...(await this.geoPackagePlans("buildings", request, country.countryCode, bbox)),
     ];
     const report: LoadReport = { dryRun: request.dryRun, layers: [] };
 
@@ -146,7 +175,7 @@ export class MapLayerLoaderService {
   }
 
   /**
-   * Removes a country's roads, waterways or infrastructure (npm run layers:clear), so a layer can be loaded
+   * Removes a country's roads, waterways, infrastructure or buildings (npm run layers:clear), so a layer can be loaded
    * again from scratch, or the country deleted (its foreign keys refuse while they exist). One
    * transaction. Data source records are kept: other rows, or the history, may still cite them.
    * Settlements are not touched: they belong to wards, not to the country.
@@ -198,6 +227,7 @@ export class MapLayerLoaderService {
     return {
       layer: plan.layer,
       file: plan.file,
+      notes: plan.notes ?? [],
       sourceId,
       sourceCreated,
       featuresInFile: plan.featuresInFile,
@@ -299,29 +329,83 @@ export class MapLayerLoaderService {
     ];
   }
 
-  /** One plan per facility GeoPackage (points of interest, places of worship, transport; points and areas). */
-  private async infrastructurePlans(request: LoadRequest, countryCode: string, bbox: BBox | null): Promise<LayerPlan[]> {
-    const upload = request.infrastructure;
+  /**
+   * One plan per GeoPackage of an OpenStreetMap layer: the facility files for infrastructure, the
+   * numbered building files for buildings. Each file is read and checked here, before the
+   * database is opened; only its prepared rows are kept, so the decoded shapes can be freed.
+   */
+  private async geoPackagePlans(layer: OsmLayer, request: LoadRequest, countryCode: string, bbox: BBox | null): Promise<LayerPlan[]> {
+    const upload = request[layer];
     if (!upload) return [];
     const plans: LayerPlan[] = [];
-    for (const file of facilityFiles(upload.buffer, upload.fileName)) {
-      const features = await readGeoPackage(file.buffer, file.fileName);
-      const prepared = prepareInfrastructure(features);
-      plans.push({
-        layer: "infrastructure",
-        file: file.fileName,
-        featuresInFile: features.length,
-        prepared,
-        source: { existingId: upload.sourceId },
-        sourceField: "infrastructure-source",
-        insert: (tx, sourceId) =>
-          inBatches(prepared.rows, (batch) =>
-            tx.insertInfrastructure(batch, { countryCode, bbox, sourceId, wardLevel: request.wardLevel }),
-          ),
-      });
+    const options = { acceptPartial: request.acceptPartial };
+    const context = (sourceId: string): WardBatchContext => ({ countryCode, bbox, sourceId, wardLevel: request.wardLevel });
+    for (const file of osmFiles(layer, upload.buffer, upload.fileName)) {
+      const common = { layer, file: file.fileName, source: { existingId: upload.sourceId }, sourceField: `${layer}-source` };
+      if (layer === "infrastructure") {
+        const { features, notes } = await readGeoPackage(file.read(), file.fileName, options);
+        const prepared = prepareInfrastructure(features);
+        plans.push({
+          ...common,
+          featuresInFile: features.length,
+          notes,
+          prepared,
+          insert: (tx, sourceId) => inBatches(prepared.rows, (batch) => tx.insertInfrastructure(batch, context(sourceId))),
+        });
+      } else {
+        // Buildings are streamed: checked now (only the counts are kept), then read again and
+        // inserted batch by batch inside the transaction. About 414,000 shapes never sit in memory.
+        const checked = await streamBuildings(file, options);
+        plans.push({
+          ...common,
+          featuresInFile: checked.featureCount,
+          notes: checked.notes,
+          prepared: { rejected: checked.rejected },
+          insert: async (tx, sourceId) => (await streamBuildings(file, options, (batch) => tx.insertBuildings(batch, context(sourceId)))).total,
+        });
+      }
     }
     return plans;
   }
+}
+
+interface StreamedFile {
+  featureCount: number;
+  notes: string[];
+  rejected: RejectCounts;
+  /** What the batches did (all zero when no `insert` was given). */
+  total: BatchResult;
+}
+
+/**
+ * Reads one buildings GeoPackage feature by feature. Without `insert` it only checks and
+ * counts; with it, each batch of LOAD_BATCH_SIZE rows is inserted as it fills. Only one unpacked
+ * file and one batch are in memory at a time.
+ */
+async function streamBuildings(
+  file: OsmFile,
+  options: ReadOptions,
+  insert?: (batch: BuildingRow[]) => Promise<BatchResult>,
+): Promise<StreamedFile> {
+  const geoPackage = await openGeoPackage(file.read(), file.fileName, options);
+  const preparer = buildingPreparer();
+  let total = emptyResult();
+  let batch: BuildingRow[] = [];
+  const flush = async () => {
+    if (insert && batch.length > 0) total = addResults(total, await insert(batch));
+    batch = [];
+  };
+  try {
+    for (const feature of geoPackage.features()) {
+      const row = preparer.add(feature);
+      if (row && insert) batch.push(row);
+      if (batch.length >= LOAD_BATCH_SIZE) await flush();
+    }
+    await flush();
+  } finally {
+    geoPackage.close();
+  }
+  return { featureCount: geoPackage.featureCount, notes: geoPackage.notes, rejected: preparer.rejected, total };
 }
 
 function deleteLayer(tx: LayerLoadTx, layer: ClearableLayer, countryCode: string): Promise<number> {
@@ -334,22 +418,33 @@ function deleteLayer(tx: LayerLoadTx, layer: ClearableLayer, countryCode: string
       return tx.deleteSettlements();
     case "infrastructure":
       return tx.deleteInfrastructure(countryCode);
+    case "buildings":
+      return tx.deleteBuildings(countryCode);
   }
 }
 
 /** Sends rows in batches and adds the batches' results together. */
 async function inBatches<T>(rows: T[], insert: (batch: T[]) => Promise<BatchResult>): Promise<BatchResult> {
-  const total: BatchResult = { received: 0, inserted: 0, alreadyPresent: 0, relinked: 0, unlinked: 0, rejected: {} };
+  let total = emptyResult();
   for (let start = 0; start < rows.length; start += LOAD_BATCH_SIZE) {
-    const result = await insert(rows.slice(start, start + LOAD_BATCH_SIZE));
-    total.received += result.received;
-    total.inserted += result.inserted;
-    total.alreadyPresent += result.alreadyPresent;
-    total.relinked += result.relinked;
-    total.unlinked += result.unlinked;
-    total.rejected = mergeCounts(total.rejected, result.rejected);
+    total = addResults(total, await insert(rows.slice(start, start + LOAD_BATCH_SIZE)));
   }
   return total;
+}
+
+function emptyResult(): BatchResult {
+  return { received: 0, inserted: 0, alreadyPresent: 0, relinked: 0, unlinked: 0, rejected: {} };
+}
+
+function addResults(a: BatchResult, b: BatchResult): BatchResult {
+  return {
+    received: a.received + b.received,
+    inserted: a.inserted + b.inserted,
+    alreadyPresent: a.alreadyPresent + b.alreadyPresent,
+    relinked: a.relinked + b.relinked,
+    unlinked: a.unlinked + b.unlinked,
+    rejected: mergeCounts(a.rejected, b.rejected),
+  };
 }
 
 function mergeCounts(a: RejectCounts, b: RejectCounts): RejectCounts {

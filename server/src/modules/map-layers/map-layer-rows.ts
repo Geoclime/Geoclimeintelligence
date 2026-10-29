@@ -2,7 +2,7 @@ import type { Geometry } from "geojson";
 import { ValidationError } from "../../common/errors/app-error";
 import { assertWgs84Crs } from "../data-sources/imports/readers/geojson-reader";
 import { facilityTypeOf, isWaterClass, roadClassRank } from "./layer-rules";
-import type { InfrastructureRow, PreparedRows, RejectCounts, RoadRow, SettlementRow, WaterwayRow } from "./map-layer-loader.types";
+import type { BuildingRow, InfrastructureRow, PreparedRows, RejectCounts, RoadRow, SettlementRow, WaterwayRow } from "./map-layer-loader.types";
 
 /** One GeoJSON feature, reduced to what the loader needs. */
 export interface LayerFeature {
@@ -69,27 +69,45 @@ function fitsColumns(...fields: [value: string | null, max: number][]): boolean 
 
 type Built<T> = { row: T; key: string } | { reject: string };
 
-function prepare<T>(features: LayerFeature[], build: (feature: LayerFeature) => Built<T>): PreparedRows<T> {
-  const rows: T[] = [];
-  const rejected: RejectCounts = {};
-  const seen = new Set<string>();
-  const reject = (reason: string) => {
-    rejected[reason] = (rejected[reason] ?? 0) + 1;
-  };
+/**
+ * Turns features into rows one at a time, counting what it leaves out. Used whole (prepare) for
+ * small files, and feature by feature for buildings, which are streamed rather than held in memory.
+ */
+export class RowPreparer<T> {
+  readonly rejected: RejectCounts = {};
+  private readonly seen = new Set<string>();
 
-  for (const feature of features) {
-    const built = build(feature);
+  constructor(private readonly build: (feature: LayerFeature) => Built<T>) {}
+
+  /** The feature's row, or null when it is left out (and counted). */
+  add(feature: LayerFeature): T | null {
+    const built = this.build(feature);
     if ("reject" in built) {
-      reject(built.reject);
-    } else if (seen.has(built.key)) {
-      // The database would keep the first and skip the rest; saying so here keeps the counts honest.
-      reject("the same id appears more than once in the file");
-    } else {
-      seen.add(built.key);
-      rows.push(built.row);
+      this.reject(built.reject);
+      return null;
     }
+    if (this.seen.has(built.key)) {
+      // The database would keep the first and skip the rest; saying so here keeps the counts honest.
+      this.reject("the same id appears more than once in the file");
+      return null;
+    }
+    this.seen.add(built.key);
+    return built.row;
   }
-  return { rows, rejected };
+
+  private reject(reason: string): void {
+    this.rejected[reason] = (this.rejected[reason] ?? 0) + 1;
+  }
+}
+
+function prepare<T>(features: LayerFeature[], build: (feature: LayerFeature) => Built<T>): PreparedRows<T> {
+  const preparer = new RowPreparer(build);
+  const rows: T[] = [];
+  for (const feature of features) {
+    const row = preparer.add(feature);
+    if (row !== null) rows.push(row);
+  }
+  return { rows, rejected: preparer.rejected };
 }
 
 export function prepareRoads(features: LayerFeature[]): PreparedRows<RoadRow> {
@@ -172,6 +190,30 @@ export function prepareSettlements(features: LayerFeature[]): PreparedRows<Settl
     const fits = fitsColumns([row.setId, 50], [row.name, 200], [row.wardCode, 100], [row.dataOrigin, 100]);
     return fits ? { row, key: setId } : { reject: TOO_LONG };
   });
+}
+
+/**
+ * Building outlines from Geofabrik's buildings GeoPackages. Every row is a building (`fclass` is
+ * always "building"), so only the id and the shape are required; the shape's type is checked in
+ * PostGIS like any other layer's.
+ */
+export function prepareBuildings(features: LayerFeature[]): PreparedRows<BuildingRow> {
+  return prepare<BuildingRow>(features, buildBuilding);
+}
+
+/** A fresh preparer for streaming a buildings file one feature at a time. */
+export function buildingPreparer(): RowPreparer<BuildingRow> {
+  return new RowPreparer(buildBuilding);
+}
+
+function buildBuilding({ properties: p, geometry }: LayerFeature): Built<BuildingRow> {
+  const osmId = text(p.osm_id);
+  if (!osmId) return { reject: "no osm_id" };
+  if (!geometry) return { reject: "no shape" };
+
+  const row: BuildingRow = { osmId, name: text(p.name), buildingType: text(p.type), shape: JSON.stringify(geometry) };
+  const fits = fitsColumns([row.osmId, 40], [row.name, 200], [row.buildingType, 40]);
+  return fits ? { row, key: osmId } : { reject: TOO_LONG };
 }
 
 export const NOT_A_FACILITY = "not a facility type the layer keeps (shops, kiosks, sports pitches, hotels...)";

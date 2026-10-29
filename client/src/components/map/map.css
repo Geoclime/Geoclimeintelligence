@@ -191,6 +191,18 @@
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
 }
 
+.layer-toggle__swatch--buildings,
+.map-legend__swatch--buildings {
+  border: 1px solid #9c7356;
+  background: #d6bfa9;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--buildings,
+:root[data-theme="dark"] .map-legend__swatch--buildings {
+  border-color: #c4a484;
+  background: #7a5c45;
+}
+
 /* Facilities: one dot per colour group (FACILITY_GROUP_OF in map-style.ts). The toggle shows the health colour. */
 .layer-toggle__swatch--infrastructure,
 .map-legend__swatch--facility-health,

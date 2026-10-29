@@ -8,6 +8,7 @@ import { FilePreviewTable } from "../../../components/imports/FilePreviewTable";
 import { ImportGuide, levelAvailable, nextLevel } from "../../../components/imports/ImportGuide";
 import {
   detectLayerChoiceFromFileName,
+  isOsmLayer,
   EMPTY_MAPPING,
   importFormSchema,
   mappingToForm,
@@ -54,6 +55,7 @@ const LAYER_LABELS: Record<string, string> = {
   waterways: "Waterways",
   settlements: "Settlements",
   infrastructure: "Infrastructure",
+  buildings: "Buildings",
   zip: "Map layers delivery zip",
 };
 
@@ -79,6 +81,7 @@ export function ImportNewPage() {
       parentMode: "column",
       parentId: "",
       fileType: "",
+      acceptPartial: false,
       columnMapping: EMPTY_MAPPING,
     },
   });
@@ -177,7 +180,7 @@ export function ImportNewPage() {
     }
     const effectiveLayer = parseLayerChoice(detectedLayer ?? levelText);
     // The delivery zip and the OpenStreetMap extract have no columns to match, so nothing to preview.
-    if (effectiveLayer === "zip" || effectiveLayer === "infrastructure") {
+    if (effectiveLayer === "zip" || isOsmLayer(effectiveLayer)) {
       setPreviewError(null);
       return;
     }
@@ -290,7 +293,7 @@ export function ImportNewPage() {
               </SelectField>
               <SelectField
                 label="Level"
-                hint={country ? "Choose an administrative boundary level, or a map feature layer (Roads, Waterways, Settlements, Infrastructure)." : undefined}
+                hint={country ? "Choose an administrative boundary level, or a map feature layer (Roads, Waterways, Settlements, Infrastructure, Buildings)." : undefined}
                 error={formState.errors.level?.message}
                 disabled={!country}
                 data-cy="import-level"
@@ -316,6 +319,7 @@ export function ImportNewPage() {
                     <option value="layer:waterways">Map layer: Waterways (GeoJSON)</option>
                     <option value="layer:settlements">Map layer: Settlements (GeoJSON)</option>
                     <option value="layer:infrastructure">Map layer: Infrastructure (OpenStreetMap extract, .zip or .gpkg)</option>
+                    <option value="layer:buildings">Map layer: Buildings (OpenStreetMap extract, .zip or .gpkg)</option>
                     <option value="layer:zip">Map layer: Delivery zip (provenance.json + layers)</option>
                   </optgroup>
                 )}
@@ -400,6 +404,25 @@ export function ImportNewPage() {
                     ferry terminals, water points and the like. Shops, kiosks and sports pitches are left out. The source is usually
                     &quot;OpenStreetMap contributors via Geofabrik&quot;, licence ODbL 1.0.
                   </Callout>
+                )}
+                {layerKind === "buildings" && (
+                  <Callout tone="info" dataCy="layer-buildings-note">
+                    Upload the same OpenStreetMap extract (the zip), or one <code>gis_osm_buildings_a_free_*.gpkg</code> file. Only the building
+                    files are read. Rivers State has about 414,000 buildings, so loading takes a few minutes: keep this page open until the
+                    report appears. Use the same source as Infrastructure if it&apos;s the same extract.
+                  </Callout>
+                )}
+                {isOsmLayer(layerKind) && (
+                  <label className="check-field" data-cy="accept-partial">
+                    <input type="checkbox" {...register("acceptPartial")} />
+                    <span>
+                      Load even if rows are missing
+                      <span className="field__help">
+                        Only matters for a file that was cut short in transit. If every row still arrived it loads anyway, with a note in
+                        the report. Tick this to load what is there when some rows are gone.
+                      </span>
+                    </span>
+                  </label>
                 )}
               </>
             )}
@@ -495,6 +518,7 @@ export function ImportNewPage() {
                       <div key={`${item.layer}-${item.file}`}>
                         <strong>{item.layer.toUpperCase()}</strong> ({item.file}): {item.inserted.toLocaleString("en")} added,{" "}
                         {item.alreadyPresent.toLocaleString("en")} already present
+                        {item.notes && item.notes.length > 0 && `. ${item.notes.join(" ")}`}
                         {Object.keys(item.rejected).length > 0 &&
                           `, left out: ${Object.entries(item.rejected)
                             .map(([reason, count]) => `${count} × ${reason}`)

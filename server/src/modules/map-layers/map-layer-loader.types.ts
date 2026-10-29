@@ -62,6 +62,15 @@ export interface InfrastructureRow {
   shape: string;
 }
 
+/** One building outline from Geofabrik's OpenStreetMap extract. */
+export interface BuildingRow {
+  osmId: string;
+  name: string | null;
+  /** Geofabrik's `type`: the OSM building tag when it says more than "yes" (house, school, church...). */
+  buildingType: string | null;
+  shape: string;
+}
+
 /** Why a row was left out, with how many rows: shown to the person running the loader. */
 export type RejectCounts = Record<string, number>;
 
@@ -89,9 +98,9 @@ export interface BatchResult {
   inserted: number;
   /** Already stored from an earlier run, so left alone (never overwritten). */
   alreadyPresent: number;
-  /** Settlements and infrastructure: stored earlier without a ward, and linked to one this time. */
+  /** Settlements, infrastructure and buildings: stored earlier without a ward, and linked to one this time. */
   relinked: number;
-  /** Settlements and infrastructure: stored now, but no live ward matched (by code, or by position). */
+  /** Settlements, infrastructure and buildings: stored now, but no live ward matched (by code, or by position). */
   unlinked: number;
   /** Rows the PostGIS checks refused: unreadable, wrong type, empty, outside the country's box... */
   rejected: RejectCounts;
@@ -111,6 +120,7 @@ export interface LayerLoadTx {
   insertWaterways(rows: WaterwayRow[], context: BatchContext): Promise<BatchResult>;
   insertSettlements(rows: SettlementRow[], context: WardBatchContext): Promise<BatchResult>;
   insertInfrastructure(rows: InfrastructureRow[], context: WardBatchContext): Promise<BatchResult>;
+  insertBuildings(rows: BuildingRow[], context: WardBatchContext): Promise<BatchResult>;
   /** Deletes every road of the country; returns how many went. */
   deleteRoads(countryCode: string): Promise<number>;
   /** Deletes every waterway (lines and areas) of the country; returns how many went. */
@@ -119,6 +129,8 @@ export interface LayerLoadTx {
   deleteSettlements(): Promise<number>;
   /** Deletes every facility of the country; returns how many went. */
   deleteInfrastructure(countryCode: string): Promise<number>;
+  /** Deletes every building of the country; returns how many went. */
+  deleteBuildings(countryCode: string): Promise<number>;
 }
 
 /** What the loader service depends on, so it can be unit-tested with an in-memory fake (section 2). */

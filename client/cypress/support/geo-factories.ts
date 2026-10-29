@@ -92,10 +92,10 @@ export const GEOFABRIK_SOURCE = {
   license: "ODbL 1.0",
 };
 
-/** GET /map-layers: what is loaded for roads, waterways, settlements and infrastructure, and from where. */
-export function buildMapLayers(counts: [number, number, number, number?] = [47507, 4033, 1149, 826]) {
-  const sources = [[OSM_SOURCE], [OSM_SOURCE], [GRID3_SETTLEMENT_SOURCE], [GEOFABRIK_SOURCE]];
-  return (["roads", "waterways", "settlements", "infrastructure"] as const).map((id, i) => {
+/** GET /map-layers: what is loaded for each feature layer, and from where. */
+export function buildMapLayers(counts: [number, number, number, number?, number?] = [47507, 4033, 1149, 826, 414556]) {
+  const sources = [[OSM_SOURCE], [OSM_SOURCE], [GRID3_SETTLEMENT_SOURCE], [GEOFABRIK_SOURCE], [GEOFABRIK_SOURCE]];
+  return (["roads", "waterways", "settlements", "infrastructure", "buildings"] as const).map((id, i) => {
     const featureCount = counts[i] ?? 0;
     return {
       id,
@@ -204,4 +204,5 @@ export function stubGeography() {
   cy.interceptApi("GET", "/waterways/geojson?*", { data: emptyLayer() }).as("waterwaysLayer");
   cy.interceptApi("GET", "/settlements/geojson?*", { data: emptyLayer() }).as("settlementsLayer");
   cy.interceptApi("GET", "/infrastructure/geojson?*", { data: emptyLayer() }).as("infrastructureLayer");
+  cy.interceptApi("GET", "/buildings/geojson?*", { data: emptyLayer() }).as("buildingsLayer");
 }

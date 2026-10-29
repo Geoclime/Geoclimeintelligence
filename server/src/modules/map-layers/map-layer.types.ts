@@ -47,6 +47,15 @@ export interface InfrastructureFeatureProperties {
 
 export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
 
+export interface BuildingFeatureProperties {
+  id: string;
+  name: string | null;
+  /** The OSM building tag when it says more than "yes" (house, school, church...). */
+  buildingType: string | null;
+}
+
+export type BuildingFeatureCollection = LayerFeatureCollection<MultiPolygon, BuildingFeatureProperties>;
+
 /** The visible area, and optionally the zoom, which thins the layer and simplifies its shapes. */
 export interface LayerGeoJsonQuery {
   bbox: BBox;
@@ -85,5 +94,10 @@ export interface ISettlementRepository {
 
 export interface IInfrastructureRepository {
   findGeoJson(query: LayerGeoJsonQuery): Promise<InfrastructureFeatureCollection>;
+  summarise(): Promise<LayerSummary>;
+}
+
+export interface IBuildingRepository {
+  findGeoJson(query: LayerGeoJsonQuery): Promise<BuildingFeatureCollection>;
   summarise(): Promise<LayerSummary>;
 }

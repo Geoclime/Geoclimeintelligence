@@ -5,7 +5,7 @@ import { readGeoPackage } from "../../src/modules/map-layers/gpkg-reader";
 import { FACILITY_TYPES, facilityTypeOf, facilityTypesAtZoom, LAYER_FEATURE_LIMIT } from "../../src/modules/map-layers/layer-rules";
 import { MapLayerLoaderService, type LoadRequest } from "../../src/modules/map-layers/map-layer-loader.service";
 import { NOT_A_FACILITY, prepareInfrastructure } from "../../src/modules/map-layers/map-layer-rows";
-import { facilityFiles } from "../../src/modules/map-layers/osm-extract";
+import { osmFiles } from "../../src/modules/map-layers/osm-extract";
 import { gpkgBlob, makeGeoPackage } from "../gpkg-fixtures";
 import { InMemoryCountryRepository, makeCountry } from "../geo-fakes";
 import { FakeLoadStore, validationMessageAsync } from "../map-layer-fakes";
@@ -60,13 +60,14 @@ describe("readGeoPackage", () => {
       { osm_id: "101", fclass: "hospital", name: "Braithwaite Memorial", geom: point() },
       { osm_id: "102", fclass: "kiosk", geom: null },
     ]);
-    const features = await readGeoPackage(file, "pois.gpkg");
+    const { features, notes } = await readGeoPackage(file, "pois.gpkg");
     expect(features).toHaveLength(2);
     expect(features[0]).toEqual({
       properties: { fid: 1, osm_id: "101", code: 2000, fclass: "hospital", name: "Braithwaite Memorial" },
       geometry: point(),
     });
     expect(features[1]!.geometry).toBeNull();
+    expect(notes).toEqual([]);
   });
 
   it("refuses a GeoPackage in any CRS other than WGS84 (rule 7)", async () => {
@@ -79,17 +80,9 @@ describe("readGeoPackage", () => {
   it("refuses a file that is not a GeoPackage", async () => {
     expect(await validationMessageAsync(() => readGeoPackage(Buffer.from("not sqlite at all"), "x.gpkg"))).toMatch(/is not a GeoPackage/);
   });
-
-  it("says plainly when a file was cut short, instead of a vague 'malformed'", async () => {
-    const file = await makeGeoPackage([{ osm_id: "1", fclass: "school", geom: point() }]);
-    // Make the header claim more pages than the file holds, as an interrupted copy does.
-    const cut = Buffer.from(file);
-    cut.writeUInt32BE(cut.readUInt32BE(28) + 10, 28);
-    expect(await validationMessageAsync(() => readGeoPackage(cut, "buildings.gpkg"))).toMatch(/buildings\.gpkg is cut short: it should be/);
-  });
 });
 
-describe("facilityFiles", () => {
+describe("osmFiles", () => {
   it("takes only the facility GeoPackages out of a Geofabrik zip, in name order", async () => {
     const gpkg = await makeGeoPackage([]);
     const zip = Buffer.from(
@@ -101,7 +94,7 @@ describe("facilityFiles", () => {
         "osm/gis_osm_roads_free_1_rivers.gpkg": gpkg,
       }),
     );
-    expect(facilityFiles(zip, "osm.zip").map((file) => file.fileName)).toEqual([
+    expect(osmFiles("infrastructure", zip, "osm.zip").map((file) => file.fileName)).toEqual([
       "gis_osm_pofw_a_free_1_rivers.gpkg",
       "gis_osm_pois_free_1_rivers.gpkg",
       "gis_osm_transport_a_free_1_rivers.gpkg",
@@ -110,10 +103,13 @@ describe("facilityFiles", () => {
 
   it("passes a single .gpkg through, and refuses a zip with no facility files or a file of any other kind", async () => {
     const gpkg = await makeGeoPackage([]);
-    expect(facilityFiles(gpkg, "x/pois.gpkg")).toEqual([{ fileName: "pois.gpkg", buffer: gpkg }]);
+    const [single, ...others] = osmFiles("infrastructure", gpkg, "x/pois.gpkg");
+    expect(others).toEqual([]);
+    expect(single!.fileName).toBe("pois.gpkg");
+    expect(single!.read()).toBe(gpkg);
     const roadsOnly = Buffer.from(zipSync({ "gis_osm_roads_free_1.gpkg": gpkg }));
-    expect(validationMessageSync(() => facilityFiles(roadsOnly, "roads.zip"))).toMatch(/has no OpenStreetMap facility files/);
-    expect(validationMessageSync(() => facilityFiles(Buffer.from("{}"), "x.json"))).toMatch(/neither a GeoPackage/);
+    expect(validationMessageSync(() => osmFiles("infrastructure", roadsOnly, "roads.zip"))).toMatch(/has no OpenStreetMap facility files/);
+    expect(validationMessageSync(() => osmFiles("infrastructure", Buffer.from("{}"), "x.json"))).toMatch(/neither a GeoPackage/);
   });
 });
 

@@ -38,6 +38,13 @@ describe("overlayHint", () => {
     expect(overlayHint("infrastructure", { zoom: 12, ...shown })).toBeUndefined();
   });
 
+  it("says buildings only show at street level", () => {
+    expect(overlayHint("buildings", { zoom: 12, ...shown })).toBe("Zoom in to street level to see them");
+    expect(overlayHint("buildings", { zoom: 14.6, ...shown })).toBe("Zoom in to street level to see them");
+    expect(overlayHint("buildings", { zoom: 15, ...shown })).toBeUndefined();
+    expect(overlayHint("buildings", { zoom: 12, truncated: false, featureCount: 0 })).toBe("No data loaded yet");
+  });
+
   it("has nothing to add for settlements, which are always shown in full", () => {
     expect(overlayHint("settlements", { zoom: 8, ...shown })).toBeUndefined();
   });

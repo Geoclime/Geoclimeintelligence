@@ -3,6 +3,7 @@ import { AppDataSource } from "../../config/data-source";
 import type {
   BatchContext,
   BatchResult,
+  BuildingRow,
   EnsuredSource,
   ILayerLoadStore,
   InfrastructureRow,
@@ -19,8 +20,8 @@ import type {
  * Every write the layers:load and layers:clear scripts make. Spatial checks run here in PostGIS (section 8), the
  * same rules as the import pipeline's: readable shape, the right type, EPSG:4326, real
  * coordinates, repaired if invalid, inside the country's rough box. Rows are never updated once
- * stored, except that a settlement or facility saved without a ward is linked when its ward later exists.
- * layers:clear deletes a country's roads, waterways or infrastructure, so they can be reloaded or the country deleted.
+ * stored, except that a settlement, facility or building saved without a ward is linked when its ward later exists.
+ * layers:clear deletes a country's roads, waterways, infrastructure or buildings, so they can be reloaded or the country deleted.
  */
 
 /** Why PostGIS refuses a shape, as the keys of the check query and the words shown to the user. */
@@ -260,6 +261,42 @@ class PostgresLayerLoadTx implements LayerLoadTx {
     return toResult(result[0], rows.length);
   }
 
+  async insertBuildings(rows: BuildingRow[], context: WardBatchContext): Promise<BatchResult> {
+    const payload = rows.map((row) => ({ osm_id: row.osmId, name: row.name, building_type: row.buildingType, shape: row.shape }));
+    // The outline is kept whole. Its ward is the one covering a point inside it (ST_PointOnSurface),
+    // so a building straddling a ward line counts once, in one ward. Unlinked rows are relinked on
+    // the next run, as for settlements and facilities.
+    const result: CountRow[] = await this.manager.query(
+      `${checkedRowsSql(`osm_id text, name text, building_type text, shape text`, ["POLYGON", "MULTIPOLYGON"])},
+       located AS (
+         SELECT c.*, ST_Multi(ST_Force2D(c.g)) AS shape_2d, ST_PointOnSurface(c.g) AS pt
+           FROM checked c WHERE c.reject IS NULL
+       ),
+       ins AS (
+         INSERT INTO buildings (country_code, admin_unit_id, osm_id, name, building_type, geom, source_id)
+         SELECT $3::char(3), w.id, l.osm_id, l.name, l.building_type, l.shape_2d, $4::uuid
+           FROM located l
+           LEFT JOIN LATERAL (
+             SELECT a.id FROM admin_units a
+              WHERE a.country_code = $3::char(3) AND a.level = $5::smallint
+                AND a.geom && l.pt AND ST_Covers(a.geom, l.pt)
+              ORDER BY a.id LIMIT 1) w ON true
+         ON CONFLICT (osm_id) DO UPDATE
+            SET admin_unit_id = EXCLUDED.admin_unit_id, updated_at = now()
+          WHERE buildings.admin_unit_id IS NULL AND EXCLUDED.admin_unit_id IS NOT NULL
+         RETURNING (xmax = 0) AS was_inserted, (admin_unit_id IS NULL) AS no_ward
+       )
+       SELECT count(*)::int AS received,
+              (SELECT count(*) FILTER (WHERE was_inserted) FROM ins)::int AS inserted,
+              (SELECT count(*) FILTER (WHERE NOT was_inserted) FROM ins)::int AS relinked,
+              (SELECT count(*) FILTER (WHERE no_ward) FROM ins)::int AS unlinked,
+              ${REJECT_COLUMNS}
+         FROM checked`,
+      [JSON.stringify(payload), box(context), context.countryCode, context.sourceId, context.wardLevel],
+    );
+    return toResult(result[0], rows.length);
+  }
+
   async deleteRoads(countryCode: string): Promise<number> {
     const rows: unknown[] = await this.manager.query(`DELETE FROM roads WHERE country_code = $1 RETURNING 1`, [countryCode]);
     return rows.length;
@@ -279,11 +316,20 @@ class PostgresLayerLoadTx implements LayerLoadTx {
     const rows: unknown[] = await this.manager.query(`DELETE FROM infrastructure WHERE country_code = $1 RETURNING 1`, [countryCode]);
     return rows.length;
   }
+
+  async deleteBuildings(countryCode: string): Promise<number> {
+    // A count rather than RETURNING: 400,000 returned rows would all come back to Node.
+    const [row]: { deleted: number }[] = await this.manager.query(
+      `WITH gone AS (DELETE FROM buildings WHERE country_code = $1 RETURNING 1) SELECT count(*)::int AS deleted FROM gone`,
+      [countryCode],
+    );
+    return row?.deleted ?? 0;
+  }
 }
 
 /**
  * Runs the loader's writes in one transaction. Not a BaseRepository: it owns no single table
- * (it writes five), so it opens the transaction itself, like the other repositories that need one.
+ * (it writes six), so it opens the transaction itself, like the other repositories that need one.
  */
 export class MapLayerLoadRepository implements ILayerLoadStore {
   private static _instance?: MapLayerLoadRepository;

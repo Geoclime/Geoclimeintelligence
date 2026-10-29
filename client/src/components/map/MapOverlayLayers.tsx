@@ -2,6 +2,7 @@ import type { FeatureCollection } from "geojson";
 import { memo, useMemo } from "react";
 import { Layer, Source } from "react-map-gl/mapbox";
 import type {
+  BuildingFeatureCollection,
   InfrastructureFeatureCollection,
   RoadFeatureCollection,
   SettlementFeatureCollection,
@@ -15,14 +16,15 @@ interface MapOverlayLayersProps {
   waterways: WaterwayFeatureCollection | null;
   settlements: SettlementFeatureCollection | null;
   infrastructure: InfrastructureFeatureCollection | null;
+  buildings: BuildingFeatureCollection | null;
 }
 
 const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 /**
- * Waterways, roads, settlements and infrastructure as native Mapbox sources and layers (standard
- * section 10: never React markers for a whole layer), drawn bottom to top in that order and under
- * the boundary lines.
+ * Waterways, buildings, roads, settlements and infrastructure as native Mapbox sources and layers
+ * (standard section 10: never React markers for a whole layer), drawn bottom to top in that order
+ * and under the boundary lines.
  *
  * Unlike the boundary layers, every source is always mounted, empty until its data arrives or
  * while its layer is switched off. That keeps the draw order fixed: Mapbox stacks layers in the
@@ -30,7 +32,7 @@ const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
  * ones that landed earlier. An empty source draws nothing, so nothing is drawn from placeholder
  * data.
  */
-export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads, waterways, settlements, infrastructure }: MapOverlayLayersProps) {
+export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads, waterways, settlements, infrastructure, buildings }: MapOverlayLayersProps) {
   const layers = useMemo(() => overlayLayers(palette), [palette]);
 
   return (
@@ -38,6 +40,10 @@ export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads,
       <Source id="waterways" type="geojson" data={waterways ?? EMPTY}>
         <Layer {...layers.waterFill} />
         <Layer {...layers.waterLine} />
+      </Source>
+      <Source id="buildings" type="geojson" data={buildings ?? EMPTY}>
+        <Layer {...layers.buildingFill} />
+        <Layer {...layers.buildingLine} />
       </Source>
       <Source id="roads" type="geojson" data={roads ?? EMPTY}>
         <Layer {...layers.roadLocal} />

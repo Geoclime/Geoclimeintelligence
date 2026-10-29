@@ -8,6 +8,8 @@ export interface FixtureRow {
   osm_id: string | null;
   fclass: string | null;
   name?: string | null;
+  /** Only stored when the table has a `type` column (buildings files do). */
+  type?: string | null;
   geom: Geometry | null;
 }
 
@@ -15,33 +17,62 @@ export interface FixtureOptions {
   table?: string;
   /** The SRS the geometry column is declared in. */
   srs?: { id: number; organization: string; code: number };
+  /** Add Geofabrik's buildings `type` column. */
+  withType?: boolean;
+  /** Record a feature count in gpkg_ogr_contents, as GDAL does. */
+  featureCount?: number;
+  /**
+   * Pages of filler written after the features, standing in for the spatial index GDAL writes
+   * last. Cutting them off makes a file that is cut short while every row is intact.
+   */
+  trailingPages?: number;
 }
+
+export const FIXTURE_PAGE_SIZE = 4096;
 
 export async function makeGeoPackage(rows: FixtureRow[], options: FixtureOptions = {}): Promise<Buffer> {
   const SQL = await initSqlJs();
   const db = new SQL.Database();
   const table = options.table ?? "gis_osm_pois_free_1_rivers";
   const srs = options.srs ?? { id: 4326, organization: "EPSG", code: 4326 };
+  // The GeoPackage tables as the spec defines them, so recovery meets the same layouts as in real files.
   db.run(`
-    CREATE TABLE gpkg_spatial_ref_sys (srs_name TEXT, srs_id INTEGER PRIMARY KEY, organization TEXT, organization_coordsys_id INTEGER, definition TEXT);
-    CREATE TABLE gpkg_contents (table_name TEXT PRIMARY KEY, data_type TEXT, identifier TEXT);
-    CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT, geometry_type_name TEXT, srs_id INTEGER, z INTEGER, m INTEGER);
-    CREATE TABLE "${table}" (fid INTEGER PRIMARY KEY, geom BLOB, osm_id TEXT, code INTEGER, fclass TEXT, name TEXT);
+    CREATE TABLE gpkg_spatial_ref_sys (srs_name TEXT NOT NULL, srs_id INTEGER NOT NULL PRIMARY KEY, organization TEXT NOT NULL,
+      organization_coordsys_id INTEGER NOT NULL, definition TEXT NOT NULL, description TEXT);
+    CREATE TABLE gpkg_contents (table_name TEXT NOT NULL PRIMARY KEY, data_type TEXT NOT NULL, identifier TEXT UNIQUE,
+      description TEXT DEFAULT '', last_change DATETIME, min_x DOUBLE, min_y DOUBLE, max_x DOUBLE, max_y DOUBLE, srs_id INTEGER);
+    CREATE TABLE gpkg_geometry_columns (table_name TEXT NOT NULL, column_name TEXT NOT NULL, geometry_type_name TEXT NOT NULL,
+      srs_id INTEGER NOT NULL, z TINYINT NOT NULL, m TINYINT NOT NULL);
+    CREATE TABLE gpkg_ogr_contents (table_name TEXT NOT NULL PRIMARY KEY, feature_count INTEGER DEFAULT NULL);
+    CREATE TABLE "${table}" (fid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, geom BLOB, osm_id TEXT, code INTEGER, fclass TEXT, name TEXT
+      ${options.withType ? ", type TEXT" : ""});
   `);
-  db.run(`INSERT INTO gpkg_spatial_ref_sys VALUES ('fixture', ?, ?, ?, '')`, [srs.id, srs.organization, srs.code]);
-  db.run(`INSERT INTO gpkg_contents VALUES (?, 'features', ?)`, [table, table]);
+  db.run(`INSERT INTO gpkg_spatial_ref_sys VALUES ('fixture', ?, ?, ?, 'undefined', NULL)`, [srs.id, srs.organization, srs.code]);
+  db.run(`INSERT INTO gpkg_contents VALUES (?, 'features', ?, '', '2026-09-23T15:41:00Z', 6.4, 4.3, 7.6, 5.7, ?)`, [table, table, srs.id]);
   db.run(`INSERT INTO gpkg_geometry_columns VALUES (?, 'geom', 'GEOMETRY', ?, 0, 0)`, [table, srs.id]);
+  if (options.featureCount !== undefined) db.run(`INSERT INTO gpkg_ogr_contents VALUES (?, ?)`, [table, options.featureCount]);
   for (const row of rows) {
-    db.run(`INSERT INTO "${table}" (geom, osm_id, code, fclass, name) VALUES (?, ?, 2000, ?, ?)`, [
-      row.geom ? gpkgBlob(row.geom, srs.id) : null,
-      row.osm_id,
-      row.fclass,
-      row.name ?? null,
-    ]);
+    const values = [row.geom ? gpkgBlob(row.geom, srs.id) : null, row.osm_id, row.fclass, row.name ?? null];
+    if (options.withType) {
+      db.run(`INSERT INTO "${table}" (geom, osm_id, code, fclass, name, type) VALUES (?, ?, 1500, ?, ?, ?)`, [...values, row.type ?? null]);
+    } else {
+      db.run(`INSERT INTO "${table}" (geom, osm_id, code, fclass, name) VALUES (?, ?, 2000, ?, ?)`, values);
+    }
+  }
+  if (options.trailingPages) {
+    db.run(`CREATE TABLE rtree_stand_in (id INTEGER PRIMARY KEY, node BLOB)`);
+    for (let i = 0; i < options.trailingPages; i += 1) {
+      db.run(`INSERT INTO rtree_stand_in (node) VALUES (?)`, [new Uint8Array(FIXTURE_PAGE_SIZE - 200)]);
+    }
   }
   const bytes = db.export();
   db.close();
   return Buffer.from(bytes);
+}
+
+/** The file as an interrupted copy leaves it: the header still claims the full size. */
+export function cutShort(file: Buffer, pages: number): Buffer {
+  return Buffer.from(file.subarray(0, file.length - pages * FIXTURE_PAGE_SIZE));
 }
 
 /** A GeoPackage geometry blob: the "GP" header with an XY envelope, then little-endian WKB. */
