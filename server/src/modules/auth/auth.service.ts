@@ -1,10 +1,10 @@
 import type { AuthUser, VerifiedIdentity } from "../../common/access/auth-user";
 import { DEFAULT_ROLE } from "../../common/access/roles";
-import { NotFoundError, UnauthorizedError } from "../../common/errors/app-error";
+import { ConflictError, NotFoundError, UnauthorizedError } from "../../common/errors/app-error";
 import { env } from "../../config/env";
 import { logger } from "../../config/logger";
 import { UserRepository } from "../users/user.repository";
-import { toAuthUser, toUserDto, type IUserRepository, type UserDto, type UserProfilePatch } from "../users/user.types";
+import { toAuthUser, toUserDto, type IUserRepository, type RoleRequestInput, type UserDto, type UserProfilePatch } from "../users/user.types";
 import { FirebaseTokenVerifier, type TokenVerifier } from "./firebase-token-verifier";
 
 export class AuthService {
@@ -75,6 +75,30 @@ export class AuthService {
    */
   async updateProfile(user: AuthUser, patch: UserProfilePatch): Promise<UserDto> {
     const row = await this.users.updateProfile(user.id, patch);
+    if (!row) throw new NotFoundError("User");
+    return toUserDto(row);
+  }
+
+  /**
+   * Opens (or replaces) the user's request for a staff role. It grants nothing: the role only
+   * changes when an administrator approves it (PATCH /users/:id/access with that role).
+   */
+  async requestRole(user: AuthUser, body: RoleRequestInput): Promise<UserDto> {
+    if (user.role === "administrator") throw new ConflictError("Administrators already have every permission");
+    if (user.role === body.role) throw new ConflictError("You already have this role");
+
+    const { organisation, jobTitle } = body;
+    if (organisation !== undefined || jobTitle !== undefined) {
+      await this.users.updateProfile(user.id, { ...(organisation !== undefined && { organisation }), ...(jobTitle !== undefined && { jobTitle }) });
+    }
+    const row = await this.users.setRoleRequest(user.id, { requestedRole: body.role, roleRequestReason: body.reason, roleRequestedAt: new Date() });
+    if (!row) throw new NotFoundError("User");
+    return toUserDto(row);
+  }
+
+  /** Withdraws the user's open role request. Safe to repeat: with no request it changes nothing. */
+  async withdrawRoleRequest(user: AuthUser): Promise<UserDto> {
+    const row = await this.users.setRoleRequest(user.id, null);
     if (!row) throw new NotFoundError("User");
     return toUserDto(row);
   }

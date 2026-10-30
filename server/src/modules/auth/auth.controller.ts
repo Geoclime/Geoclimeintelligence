@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { ok } from "../../common/response/api-response";
 import { AuthService } from "./auth.service";
-import type { UpdateProfileBody } from "./auth.validation";
+import type { RoleRequestBody, UpdateProfileBody } from "./auth.validation";
 
 export class AuthController {
   /**
@@ -22,6 +22,24 @@ export class AuthController {
     try {
       const profile = await AuthService.Instance.updateProfile(req.user!, req.body as UpdateProfileBody);
       return res.json(ok(profile, "Profile updated"));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async requestRole(req: Request, res: Response, next: NextFunction) {
+    try {
+      const profile = await AuthService.Instance.requestRole(req.user!, req.body as RoleRequestBody);
+      return res.json(ok(profile, "Role request sent to the administrators"));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async withdrawRoleRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const profile = await AuthService.Instance.withdrawRoleRequest(req.user!);
+      return res.json(ok(profile, "Role request withdrawn"));
     } catch (err) {
       next(err);
     }

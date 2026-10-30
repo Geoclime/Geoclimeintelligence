@@ -1,4 +1,5 @@
 import { BaseRepository } from "../../common/repository/base.repository";
+import type { ICommunitySearch, PublicCommunityHit } from "../public/public.types";
 import { LAYER_FEATURE_LIMIT } from "./layer-rules";
 import type { ISettlementRepository, LayerGeoJsonQuery, LayerSummary, SettlementFeatureCollection } from "./map-layer.types";
 import { SettlementPoint } from "./settlement-point.entity";
@@ -6,7 +7,7 @@ import { SettlementPoint } from "./settlement-point.entity";
 // Every spatial operation runs in PostGIS, never in JS (section 8). Shapes leave the database
 // only through findGeoJson, which needs a bbox and never returns more than the layer's cap.
 
-export class SettlementPointRepository extends BaseRepository<SettlementPoint> implements ISettlementRepository {
+export class SettlementPointRepository extends BaseRepository<SettlementPoint> implements ISettlementRepository, ICommunitySearch {
   private static _instance?: SettlementPointRepository;
   static get Instance(): SettlementPointRepository {
     return (this._instance ??= new SettlementPointRepository());
@@ -42,6 +43,22 @@ export class SettlementPointRepository extends BaseRepository<SettlementPoint> i
       [minLon, minLat, maxLon, maxLat, limit],
     );
     return rows[0]?.fc ?? { type: "FeatureCollection", features: [], truncated: false };
+  }
+
+  /** Name contains `q`; a sequential scan is fine at Rivers State's size. */
+  searchByName(q: string, limit: number): Promise<PublicCommunityHit[]> {
+    // LIKE wildcards in the search are escaped, so "50%" means the literal text.
+    const escaped = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+    // Names that start with the search sort before names that only contain it.
+    return this.repo.query(
+      `SELECT s.id, s.settlement_name AS name, s.is_primary AS "isPrimary",
+              ARRAY[round(ST_X(s.geom)::numeric, 6)::float8, round(ST_Y(s.geom)::numeric, 6)::float8] AS point
+         FROM settlement_points s
+        WHERE s.settlement_name ILIKE $1
+        ORDER BY (s.settlement_name ILIKE $2) DESC, s.is_primary DESC, s.settlement_name, s.id
+        LIMIT $3`,
+      [`%${escaped}%`, `${escaped}%`, limit],
+    );
   }
 
   async summarise(): Promise<LayerSummary> {

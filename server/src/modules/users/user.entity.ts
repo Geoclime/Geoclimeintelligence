@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import type { UserRole } from "../../common/access/roles";
+import type { RequestableRole, UserRole } from "../../common/access/roles";
 
 /**
  * A platform account. Firebase owns identity and passwords; this row owns what the account
@@ -39,6 +39,16 @@ export class User {
    */
   @Column({ name: "scope_admin_unit_id", type: "uuid", nullable: true })
   scopeAdminUnitId!: string | null;
+
+  /** An open request for a staff role, set by the user and resolved by an administrator. All three are null together. */
+  @Column({ name: "requested_role", type: "varchar", length: 32, nullable: true })
+  requestedRole!: RequestableRole | null;
+
+  @Column({ name: "role_request_reason", type: "varchar", length: 500, nullable: true })
+  roleRequestReason!: string | null;
+
+  @Column({ name: "role_requested_at", type: "timestamptz", nullable: true })
+  roleRequestedAt!: Date | null;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

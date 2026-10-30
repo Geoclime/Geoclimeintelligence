@@ -12,6 +12,8 @@ interface UseUsersOptions {
   /** Name, email or organisation contains this text. Debounce it first. */
   q?: string;
   role?: UserRole;
+  /** Only accounts with an open role request. */
+  pendingRequest?: boolean;
 }
 
 interface UsersResult {
@@ -31,15 +33,15 @@ interface UsersResult {
  * being set at the start of the effect, so state only ever changes when a response arrives.
  * While the next page loads, the previous rows stay on screen.
  */
-export function useUsers({ page, pageSize = 25, q, role }: UseUsersOptions) {
+export function useUsers({ page, pageSize = 25, q, role, pendingRequest }: UseUsersOptions) {
   const [reloadCount, setReloadCount] = useState(0);
   const [result, setResult] = useState<UsersResult | null>(null);
-  const requestKey = `${page}:${pageSize}:${q ?? ""}:${role ?? ""}:${reloadCount}`;
+  const requestKey = `${page}:${pageSize}:${q ?? ""}:${role ?? ""}:${pendingRequest ? "requests" : ""}:${reloadCount}`;
 
   useEffect(() => {
     // Paging quickly overlaps requests; a response for a superseded request is dropped.
     let superseded = false;
-    fetchUsers({ page, pageSize, q: q || undefined, role }).then(
+    fetchUsers({ page, pageSize, q: q || undefined, role, pendingRequest: pendingRequest || undefined }).then(
       (response) => {
         if (!superseded) {
           setResult({ requestKey, users: response.data ?? [], meta: response.meta ?? {}, error: null });
@@ -59,7 +61,7 @@ export function useUsers({ page, pageSize = 25, q, role }: UseUsersOptions) {
     return () => {
       superseded = true;
     };
-  }, [page, pageSize, q, role, requestKey]);
+  }, [page, pageSize, q, role, pendingRequest, requestKey]);
 
   const refetch = useCallback(() => setReloadCount((count) => count + 1), []);
 

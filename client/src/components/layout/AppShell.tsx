@@ -2,7 +2,9 @@ import { Suspense, useCallback, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useMatches } from "react-router";
 import { useAuth } from "../../hooks/useAuth";
 import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
+import { useSubmitPendingRoleRequest } from "../../hooks/useSubmitPendingRoleRequest";
 import { useToast } from "../../hooks/useToast";
+import { MAP_PATH } from "../../utils/map-url";
 import { BrandMark } from "../shared/BrandMark";
 import { Icon } from "../shared/Icon";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
@@ -25,6 +27,7 @@ export interface RouteHandle {
 export function AppShell() {
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
+  useSubmitPendingRoleRequest();
   const location = useLocation();
   const matches = useMatches();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -81,7 +84,7 @@ export function AppShell() {
           >
             <Icon name="menu" size={20} />
           </button>
-          <Link to="/" className="app-topbar__brand" aria-label="GeoClime Intelligence, map">
+          <Link to={MAP_PATH} className="app-topbar__brand" aria-label="GeoClime Intelligence, map">
             <BrandMark showName={false} />
           </Link>
           <div className="app-topbar__title">

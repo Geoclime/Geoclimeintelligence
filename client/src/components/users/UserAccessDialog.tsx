@@ -1,9 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { USER_ROLES } from "../../types/auth.types";
 import type { ManagedUser, UserAccessPatch } from "../../types/user.types";
 import { applySubmitError } from "../../utils/form-errors";
+import { formatDate } from "../../utils/formatDate";
 import { ROLE_INFO, isRegionScopable } from "../../utils/roles";
 import { Button } from "../shared/Button";
 import { Callout } from "../shared/Callout";
@@ -19,14 +20,21 @@ interface UserAccessDialogProps {
   /** Persists the change and resolves with the saved record; rejects with an ApiError. */
   onSave: (userId: string, patch: UserAccessPatch) => Promise<ManagedUser>;
   onSaved: (updated: ManagedUser) => void;
+  /** Declines the account's open role request; rejects with an ApiError. */
+  onDecline: (userId: string) => Promise<ManagedUser>;
+  onDeclined: (updated: ManagedUser) => void;
 }
 
 /**
- * Change one account's role and region scope. Render it with `key={user?.id}` so each account
- * opens a fresh form.
+ * Change one account's role and region scope, and answer its role request. With an open
+ * request the form starts on the requested role, so saving approves it; "Decline request"
+ * closes it and leaves the role as it is. Render it with `key={user?.id}` so each account opens
+ * a fresh form.
  */
-export function UserAccessDialog({ user, onClose, onSave, onSaved }: UserAccessDialogProps) {
+export function UserAccessDialog({ user, onClose, onSave, onSaved, onDecline, onDeclined }: UserAccessDialogProps) {
   const formId = useId();
+  const request = user?.roleRequest ?? null;
+  const [declining, setDeclining] = useState(false);
   const {
     register,
     handleSubmit,
@@ -35,10 +43,24 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved }: UserAccessD
     formState: { errors, isSubmitting, isDirty },
   } = useForm<UserAccessFormValues>({
     resolver: zodResolver(userAccessSchema),
-    defaultValues: { role: user?.role ?? "general_public", scopeAdminUnitId: user?.scopeAdminUnitId ?? "" },
+    defaultValues: { role: request?.role ?? user?.role ?? "general_public", scopeAdminUnitId: user?.scopeAdminUnitId ?? "" },
   });
   const role = useWatch({ control, name: "role" });
   const scopable = isRegionScopable(role);
+  const approving = request !== null && role === request.role;
+  const busy = isSubmitting || declining;
+
+  const decline = async () => {
+    if (!user) return;
+    setDeclining(true);
+    try {
+      onDeclined(await onDecline(user.id));
+    } catch (error) {
+      applySubmitError(error, setError, []);
+    } finally {
+      setDeclining(false);
+    }
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     if (!user) return;
@@ -61,11 +83,16 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved }: UserAccessD
         </>
       }
       onClose={onClose}
-      dismissible={!isSubmitting}
+      dismissible={!busy}
       dataCy="user-access-dialog"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
+          {request && (
+            <Button variant="danger" onClick={decline} loading={declining} loadingLabel="Declining…" disabled={isSubmitting} data-cy="decline-request">
+              Decline request
+            </Button>
+          )}
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button
@@ -73,10 +100,10 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved }: UserAccessD
             form={formId}
             loading={isSubmitting}
             loadingLabel="Saving…"
-            disabled={!isDirty}
+            disabled={(!isDirty && !approving) || declining}
             data-cy="save-access"
           >
-            Save changes
+            {approving ? `Approve as ${ROLE_INFO[request.role].label}` : "Save changes"}
           </Button>
         </>
       }
@@ -85,6 +112,15 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved }: UserAccessD
         {errors.root?.server && (
           <Callout tone="danger" dataCy="form-error">
             {errors.root.server.message}
+          </Callout>
+        )}
+        {request && (
+          <Callout tone="warning" title={`Asks for ${ROLE_INFO[request.role].label} access`} dataCy="role-request-callout">
+            <p className="role-request-status__reason">{request.reason}</p>
+            <p className="user-table__muted">
+              Requested {formatDate(request.requestedAt)}
+              {user?.organisation ? ` · ${[user.jobTitle, user.organisation].filter(Boolean).join(", ")}` : ""}. Check it before approving.
+            </p>
           </Callout>
         )}
 
@@ -105,7 +141,7 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved }: UserAccessD
         {scopable ? (
           <TextField
             label="Region ID (optional)"
-            placeholder="Leave blank for all of Rivers State"
+            placeholder="Leave blank for all regions"
             spellCheck={false}
             autoComplete="off"
             className="mono-input"
@@ -116,8 +152,8 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved }: UserAccessD
           />
         ) : (
           <p className="access-form__note">
-            Only Emergency Responders and Government Officials can be limited to a region. This role covers all of
-            Rivers State.
+            Only Emergency Responders and Government Officials can be limited to a region. This role covers every
+            region.
           </p>
         )}
       </form>

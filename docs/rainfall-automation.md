@@ -110,7 +110,40 @@ Monthly totals can't show the one-day downpour behind a flood ([rainfall.md](rai
 - [ ] **Hourly near-real-time rainfall** (NASA GPM IMERG in Earth Engine), for "what just happened" and for storm intensity.
 - [ ] **Soil wetness** (ERA5-Land): the same rain floods more when the ground is already full.
 
-## 8. Things that go with it
+## 8. Flood-zone data
+
+Rainfall explains why it floods; flood-zone data says **where**. The ERD already has a `FLOOD_SUSCEPTIBILITY_ZONES` table (polygons with a risk level, a data type of `DERIVED` and a methodology), but **it hasn't been built**: there is no migration, and the import pipeline only loads areas and rainfall today.
+
+**There is no single site with a ready-made flood-zone layer for a Nigerian state.** The data comes in different kinds, and an analyst usually combines them. Looked up 2026-10-30; the first three groups were checked, the last was not.
+
+### Official risk by LGA
+
+- [ ] **NIHSA, the Nigeria Hydrological Services Agency (nihsa.gov.ng).** Its **Annual Flood Outlook** lists the LGAs at high or moderate flood risk, by state, each year. A 2026 outlook has been released. This is the closest thing to an official flood zone and it is at the LGA level the platform already uses. Download the outlook, find Rivers State's LGAs, and record them with the outlook's year as the source. It is mostly tables and PDFs, not map files, so the LGA names are joined to the boundaries. The LGA counts differ between news reports and even between pages of NIHSA's own site, so use the outlook document itself, and keep each year's list (the lists change).
+- [ ] **NIHSA's short-term flood alerts** are published during the season. Not needed for now, but useful context for the alerts work in section 9.
+
+### Mapped flood extents (where the water reached)
+
+- [ ] **HDX, the Humanitarian Data Exchange (data.humdata.org).** Search "Nigeria flood". Examples found: a WFP flood extent for 22 September 2025 and MODIS flood extents for 2012. Each dataset page has a Resources section with the files. Formats and licences vary by dataset and I haven't confirmed them.
+- [ ] **The Global Flood Database in Earth Engine** (`GLOBAL_FLOOD_DB/MODIS_EVENTS/V1`): 913 mapped flood events from 2000 to 2018, built by Cloud to Street and the Dartmouth Flood Observatory. It works with the same Earth Engine account the rainfall job needs. Limits: 250 m resolution and nothing after 2018. Citation: Tellman et al., *Nature* (doi:10.1038/s41586-021-03695-w).
+- [ ] **Not checked, worth a look:** the Copernicus Emergency Management Service rapid mapping (emergency.copernicus.eu), UNOSAT flood maps (unosat.org) and the Dartmouth Flood Observatory archive (floodobservatory.colorado.edu).
+
+### Modelled hazard and permanent water
+
+- [ ] **ThinkHazard (thinkhazard.org)** gives qualitative hazard levels per area. A Lagos page exists; I couldn't confirm a Rivers State page or its river-flood rating, so check it.
+- [ ] **Not checked, worth a look:** JRC Global Surface Water (where water already sits: useful for creeks and the delta), the JRC global flood hazard maps and WRI Aqueduct Floods, and GRID3 Nigeria (data.grid3.org, which the wards already come from).
+
+### What to expect, and what to build
+
+An official, downloadable "Rivers State flood zone" polygon layer probably doesn't exist. The usual approach is to combine the NIHSA high-risk LGA lists, mapped flood extents from past events, permanent water and elevation, and to record exactly how it was combined.
+
+- [ ] **Decide what a "flood zone" means for the platform.** Options: (a) just the NIHSA LGA risk lists, which need little code; (b) polygons derived from past flood extents; (c) both.
+- [ ] **Build the `flood_susceptibility_zones` table,** with the risk level, `data_type` `DERIVED`, the methodology text and the source, as the ERD specifies. Decide whether the NIHSA lists are stored per LGA (a risk level on the LGA for a given year) or as polygons.
+- [ ] **A way to load it:** a new import target (like rainfall) or the map-layer loader. Mapped extents are big polygon files, so the loader route is likelier.
+- [ ] **A map layer and an LGA-page entry,** with the source and year shown. A flood-zone layer must say how it was made: "derived", not "observed".
+- [ ] **Check each dataset's licence before loading it.** The import pipeline requires a data source with a licence for every row, and some flood datasets restrict reuse.
+- [ ] **Keep it separate from observed events.** A past flood extent is evidence that it flooded there; a susceptibility zone is a judgement about where it could. The platform's data types (`OBSERVED`, `DERIVED`) exist to keep those apart.
+
+## 9. Things that go with it
 
 - [ ] **Flood and disaster events with dates (Phase 4).** The reason for all of the above: without them no one can say what rainfall precedes a flood.
 - [ ] **A flood threshold per LGA,** found by comparing daily rain on flood days with other days, once events and daily rain both exist.
@@ -132,7 +165,8 @@ Monthly totals can't show the one-day downpour behind a flood ([rainfall.md](rai
 5. Add the failure alerts and the "last updated" display (section 5).
 6. Backfill 1981 to 2015 (section 7).
 7. Start the gauge-data requests early, since they take the longest and don't depend on code (section 7).
-8. Daily rainfall (section 6), then events and thresholds (section 8).
+8. Download NIHSA's latest Annual Flood Outlook and decide what a "flood zone" means for the platform (section 8). This needs no code and can start any time.
+9. Daily rainfall (section 6), then events and thresholds (section 9).
 
 ## Resources to read
 

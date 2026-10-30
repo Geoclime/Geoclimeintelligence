@@ -1,8 +1,9 @@
 import { BaseRepository } from "../../common/repository/base.repository";
+import type { IRainfallCoverage, RainfallCoverageSummary } from "../public/public.types";
 import { RainfallObservation } from "./rainfall-observation.entity";
 import type { IRainfallRepository, LiveRainfallValue, RainfallMonthRow } from "./rainfall.types";
 
-export class RainfallRepository extends BaseRepository<RainfallObservation> implements IRainfallRepository {
+export class RainfallRepository extends BaseRepository<RainfallObservation> implements IRainfallRepository, IRainfallCoverage {
   private static _instance?: RainfallRepository;
   static get Instance(): RainfallRepository {
     return (this._instance ??= new RainfallRepository());
@@ -30,5 +31,18 @@ export class RainfallRepository extends BaseRepository<RainfallObservation> impl
         ORDER BY year_month`,
       [adminUnitId, range.from ?? null, range.to ?? null],
     );
+  }
+
+  /** The span of months with a value, how many areas have one, and the sources behind them. */
+  async findCoverage(): Promise<RainfallCoverageSummary | null> {
+    const rows: (RainfallCoverageSummary | { firstMonth: null })[] = await this.repo.query(
+      `SELECT min(year_month) AS "firstMonth", max(year_month) AS "lastMonth",
+              count(DISTINCT admin_unit_id)::int AS "areaCount",
+              COALESCE(array_agg(DISTINCT source_id::text), '{}') AS "sourceIds"
+         FROM rainfall_observations
+        WHERE mean_rainfall_mm IS NOT NULL`,
+    );
+    const row = rows[0];
+    return row && row.firstMonth !== null ? (row as RainfallCoverageSummary) : null;
   }
 }

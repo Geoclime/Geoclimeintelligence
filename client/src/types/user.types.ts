@@ -1,4 +1,4 @@
-import type { UserRole } from "./auth.types";
+import type { RoleRequest, UserRole } from "./auth.types";
 
 /**
  * An account as the Administrator user endpoints return it. Mirrors UserDto in
@@ -14,6 +14,8 @@ export interface ManagedUser {
   jobTitle?: string | null;
   role: UserRole;
   scopeAdminUnitId: string | null;
+  /** The account's open request for a staff role, if any. */
+  roleRequest?: RoleRequest | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +27,8 @@ export interface UserListParams {
   /** Name, email or organisation contains this text. */
   q?: string;
   role?: UserRole;
+  /** Only accounts with an open role request, oldest request first. */
+  pendingRequest?: boolean;
 }
 
 /**

@@ -31,6 +31,8 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
     ),
+  // Proxies in front of the API (Render: 1). 0 = none, so req.ip is the connecting address.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   IMPORT_MAX_FILE_MB: z.coerce.number().int().positive().default(60),
   IMPORT_MAX_UNZIPPED_MB: z.coerce.number().int().positive().default(100),
   // One GeoPackage from an OpenStreetMap extract, unpacked on its own and streamed (Rivers State buildings: 104 MB).

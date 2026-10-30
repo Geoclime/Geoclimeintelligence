@@ -5,6 +5,7 @@ import { RoleBadge } from "../../components/users/RoleBadge";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { USER_ROLES } from "../../types/auth.types";
+import { MAP_PATH } from "../../utils/map-url";
 import { ROLE_INFO, hasAnyRole } from "../../utils/roles";
 import "./HelpPage.css";
 
@@ -26,7 +27,7 @@ const TOPICS: Topic[] = [
         q: "What can I do here?",
         a: (
           <>
-            Explore Rivers State on the <Link to="/">map</Link>, look up any LGA or ward in{" "}
+            Explore Nigeria's states, LGAs and wards on the <Link to={MAP_PATH}>map</Link>, look up any LGA or ward in{" "}
             <Link to="/places">Places</Link>, and see what your account is allowed to do on your{" "}
             <Link to="/account">profile</Link>. More data (rainfall, flood risk, alerts) appears as it is published.
           </>

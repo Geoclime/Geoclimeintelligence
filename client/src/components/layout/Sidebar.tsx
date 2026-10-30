@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link, NavLink } from "react-router";
 import type { UserRole } from "../../types/auth.types";
+import { MAP_PATH } from "../../utils/map-url";
 import { hasAnyRole } from "../../utils/roles";
 import { BrandMark } from "../shared/BrandMark";
 import { Icon } from "../shared/Icon";
@@ -51,7 +52,7 @@ export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: S
         data-cy="sidebar"
       >
         <div className="app-sidebar__brand">
-          <Link to="/" className="app-sidebar__home" aria-label="GeoClime Intelligence, map" onClick={onClose}>
+          <Link to={MAP_PATH} className="app-sidebar__home" aria-label="GeoClime Intelligence, map" onClick={onClose}>
             <BrandMark variant="light" />
           </Link>
           <button type="button" className="app-sidebar__close" onClick={onClose} aria-label="Close menu">
@@ -79,7 +80,6 @@ export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: S
                     <NavLink
                       ref={item.to === firstTo ? firstLink : undefined}
                       to={item.to}
-                      end={item.to === "/"}
                       className="app-sidebar__link"
                       onClick={onClose}
                       title={collapsed ? item.label : undefined}
@@ -98,7 +98,7 @@ export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: S
         <div className="app-sidebar__footer">
           <Icon name="pin" size={16} />
           <div className="app-sidebar__footer-text">
-            <p className="app-sidebar__region">Rivers State, Nigeria</p>
+            <p className="app-sidebar__region">Nigeria</p>
             <p className="app-sidebar__credit">Boundaries: geoBoundaries. Wards: GRID3 placeholders. CC BY 4.0</p>
           </div>
         </div>

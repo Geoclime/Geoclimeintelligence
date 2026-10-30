@@ -650,6 +650,11 @@
   display: none;
 }
 
+.auth-brand__home {
+  align-self: flex-start;
+  text-decoration: none;
+}
+
 .auth-brand__headline {
   max-width: 18ch;
   font-size: 1.875rem;
@@ -750,6 +755,12 @@
   justify-content: flex-end;
   margin-top: calc(-1 * var(--space-2));
   font-size: var(--text-sm);
+}
+
+.auth-card__legal {
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  text-align: center;
 }
 
 .auth-card__footer {

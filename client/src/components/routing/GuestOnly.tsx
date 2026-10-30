@@ -1,13 +1,17 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "../../hooks/useAuth";
+import { MAP_PATH } from "../../utils/map-url";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import type { RedirectState } from "./RequireAuth";
 import { SessionErrorState } from "./SessionErrorState";
 
-/** Only accept same-app paths, so a crafted link can't bounce a user to another site. */
+/**
+ * Only accept same-app paths, so a crafted link can't bounce a user to another site. With no
+ * destination, a fresh sign-in goes to the map, not back to the public landing page.
+ */
 function safeRedirect(state: unknown): string {
   const from = (state as RedirectState | null)?.from;
-  return typeof from === "string" && from.startsWith("/") && !from.startsWith("//") ? from : "/";
+  return typeof from === "string" && from.startsWith("/") && !from.startsWith("//") ? from : MAP_PATH;
 }
 
 /**

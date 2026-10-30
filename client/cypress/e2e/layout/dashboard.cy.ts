@@ -9,7 +9,7 @@ describe("Dashboard shell", () => {
   it("shows grouped navigation in a fixed sidebar on wide screens, with admin links for administrators", () => {
     cy.viewport(1280, 800);
     cy.login("administrator");
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("sidebar").should("be.visible").and("contain", "Explore").and("contain", "Administration");
     ["map", "places", "users", "countries", "imports"].forEach((item) => cy.dataCy(`nav-${item}`).should("be.visible"));
     cy.dataCy("open-menu").should("not.be.visible");
@@ -18,7 +18,7 @@ describe("Dashboard shell", () => {
   it("collapses to an icon rail on wide screens, keeps every link usable and remembers the choice", () => {
     cy.viewport(1280, 800);
     cy.login("administrator");
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("sidebar").invoke("outerWidth").should("eq", 228);
 
     cy.dataCy("sidebar-collapse").should("have.attr", "aria-label", "Collapse sidebar").click();
@@ -45,7 +45,7 @@ describe("Dashboard shell", () => {
     cy.viewport(360, 740);
     cy.login("general_public");
     cy.interceptApi("GET", "/admin-units?*", { data: [], meta: { total: 0 } });
-    cy.visit("/", { onBeforeLoad: (win) => win.localStorage.setItem("geoclime:sidebar-collapsed", "true") });
+    cy.visit("/map", { onBeforeLoad: (win) => win.localStorage.setItem("geoclime:sidebar-collapsed", "true") });
     cy.dataCy("sidebar-collapse").should("not.be.visible");
     cy.dataCy("open-menu").click();
     cy.dataCy("sidebar").should("be.visible").invoke("outerWidth").should("be.greaterThan", 200);
@@ -55,7 +55,7 @@ describe("Dashboard shell", () => {
   it("hides the Administration group from other roles", () => {
     cy.viewport(1280, 800);
     cy.login("researcher");
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("sidebar").should("not.contain", "Administration");
     cy.dataCy("nav-users").should("not.exist");
   });
@@ -64,7 +64,7 @@ describe("Dashboard shell", () => {
     cy.viewport(360, 740);
     cy.login("general_public");
     cy.interceptApi("GET", "/admin-units?*", { data: [], meta: { total: 0 } });
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("sidebar").should("not.be.visible");
     cy.dataCy("open-menu").click();
     cy.dataCy("sidebar").should("be.visible");
@@ -76,7 +76,7 @@ describe("Dashboard shell", () => {
   it("closes the drawer with Escape", () => {
     cy.viewport(390, 844);
     cy.login("general_public");
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("open-menu").click();
     cy.dataCy("sidebar").should("be.visible");
     cy.get("body").type("{esc}");
@@ -85,7 +85,7 @@ describe("Dashboard shell", () => {
 
   it("opens the account page from the account menu", () => {
     cy.login("general_public");
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("user-menu-trigger").click();
     cy.dataCy("account-link").click();
     cy.dataCy("account-page").should("be.visible");

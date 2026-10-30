@@ -40,6 +40,7 @@ import { errorMessage } from "../../../transport/api-error";
 import type { ImportFileType, ImportPreview, TemplateFormat } from "../../../types/import.types";
 import type { MapLayerLoadReport, OverlayLayerId } from "../../../types/map-layer.types";
 import { applySubmitError } from "../../../utils/form-errors";
+import { MAP_PATH } from "../../../utils/map-url";
 
 const FILE_TYPE_LABELS: Record<ImportFileType, string> = {
   xlsx: "Excel workbook",
@@ -585,7 +586,7 @@ export function ImportNewPage() {
                   </Callout>
                 )}
                 <div className="form-actions">
-                  <Button variant="secondary" onClick={() => navigate("/")}>
+                  <Button variant="secondary" onClick={() => navigate(MAP_PATH)}>
                     Open map
                   </Button>
                   <Button

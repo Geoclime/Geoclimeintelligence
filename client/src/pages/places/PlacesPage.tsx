@@ -75,7 +75,7 @@ export function PlacesPage() {
         <div>
           <p className="page__eyebrow">Places</p>
           <h1 className="page__title">Local government areas</h1>
-          <p className="page__lead">Every LGA in Rivers State, with its wards. Open one for its map, code and data source.</p>
+          <p className="page__lead">Every LGA on the platform, with its wards. Open one for its map, code and data source.</p>
         </div>
       </header>
 

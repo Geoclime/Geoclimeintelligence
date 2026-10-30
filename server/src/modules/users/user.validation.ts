@@ -8,6 +8,11 @@ export const listUsersSchema = z.object({
   query: offsetPageQuerySchema.extend({
     q: z.string().trim().max(100).optional().transform((value) => value || undefined),
     role: z.enum(USER_ROLES).optional(),
+    // "true" lists only users with an open role request; anything else is ignored.
+    pendingRequest: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => (value === "true" ? true : undefined)),
   }),
 });
 export type ListUsersQuery = z.infer<typeof listUsersSchema>["query"];

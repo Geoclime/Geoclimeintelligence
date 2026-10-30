@@ -1,5 +1,5 @@
-// Rivers State is on West Africa Time (UTC+1, no daylight saving). Dates are shown in that zone
-// on every device, so a responder travelling abroad reads the same date as the team in Port Harcourt.
+// Nigeria is on West Africa Time (UTC+1, no daylight saving). Dates are shown in that zone on
+// every device, so a responder travelling abroad reads the same date as the team at home.
 const TIME_ZONE = "Africa/Lagos";
 
 const dateFormatter = new Intl.DateTimeFormat("en-NG", {

@@ -19,10 +19,13 @@ import type { ManagedUser } from "../../types/user.types";
 import { parsePageParam } from "../../utils/pagination";
 import { roleLabel } from "../../utils/roles";
 
+/** The role filter's extra choice: accounts with an open role request (?requests=open). */
+const REQUESTS_FILTER = "requests";
+
 /**
- * Administrator user management: list accounts and change their role and region scope.
- * The page number, search text and role filter live in the URL (?page=2&q=ada&role=researcher),
- * so a refresh or a shared link keeps the view.
+ * Administrator user management: list accounts, change their role and region scope, and answer
+ * role requests. The page number, search text and filter live in the URL (?page=2&q=ada&role=researcher,
+ * or ?requests=open), so a refresh or a shared link keeps the view.
  */
 export function AdminUsersPage() {
   useDocumentTitle("Users");
@@ -50,17 +53,22 @@ export function AdminUsersPage() {
     );
   }, [q, setSearchParams]);
 
+  const pendingRequest = searchParams.get("requests") === "open";
+
+  // One select filters by role or shows the open role requests ("requests"), never both.
   const setRole = (next: string) =>
     setSearchParams((params) => {
-      if (next) params.set("role", next);
-      else params.delete("role");
+      params.delete("role");
+      params.delete("requests");
+      if (next === REQUESTS_FILTER) params.set("requests", "open");
+      else if (next) params.set("role", next);
       params.delete("page");
       return params;
     });
 
-  const filtered = Boolean(q || role);
-  const { users, loading, error, total, pageSize, hasNext, hasPrev, refetch, replaceUser } = useUsers({ page, q, role });
-  const { saveAccess } = useUpdateUserAccess();
+  const filtered = Boolean(q || role || pendingRequest);
+  const { users, loading, error, total, pageSize, hasNext, hasPrev, refetch, replaceUser } = useUsers({ page, q, role, pendingRequest });
+  const { saveAccess, declineRequest } = useUpdateUserAccess();
 
   const goToPage = useCallback(
     (next: number) => {
@@ -78,6 +86,16 @@ export function AdminUsersPage() {
       setEditing(null);
       const name = updated.displayName || updated.email || "The account";
       showToast({ type: "success", message: `${name} is now ${roleLabel(updated.role)}.` });
+    },
+    [replaceUser, showToast],
+  );
+
+  const handleDeclined = useCallback(
+    (updated: ManagedUser) => {
+      replaceUser(updated);
+      setEditing(null);
+      const name = updated.displayName || updated.email || "The account";
+      showToast({ type: "info", message: `${name}'s role request is declined. They stay ${roleLabel(updated.role)}.` });
     },
     [replaceUser, showToast],
   );
@@ -145,8 +163,8 @@ export function AdminUsersPage() {
           <p className="page__eyebrow">Administration</p>
           <h1 className="page__title">Users</h1>
           <p className="page__lead">
-            Every new account starts as General Public. Grant staff roles here, and limit responders and officials to
-            a region where needed.
+            Every new account starts as General Public. Answer role requests and grant staff roles here, and limit responders and
+            officials to a region where needed.
           </p>
         </div>
       </header>
@@ -169,7 +187,7 @@ export function AdminUsersPage() {
             <span className="visually-hidden">Filter by role</span>
             <select
               className="field__input"
-              value={role ?? ""}
+              value={pendingRequest ? REQUESTS_FILTER : (role ?? "")}
               onChange={(event) => setRole(event.target.value)}
               data-cy="user-role-filter"
             >
@@ -179,6 +197,7 @@ export function AdminUsersPage() {
                   {roleLabel(value)}
                 </option>
               ))}
+              <option value={REQUESTS_FILTER}>Open role requests</option>
             </select>
           </label>
           {!loading && total > 0 && (
@@ -197,6 +216,8 @@ export function AdminUsersPage() {
         onClose={() => setEditing(null)}
         onSave={saveAccess}
         onSaved={handleSaved}
+        onDecline={declineRequest}
+        onDeclined={handleDeclined}
       />
     </div>
   );

@@ -13,6 +13,7 @@ import { useAdminUnitLayer } from "../../hooks/useAdminUnitLayer";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useTheme } from "../../hooks/useTheme";
 import { formatCoordinates } from "../../utils/formatCoordinates";
+import { MAP_PATH } from "../../utils/map-url";
 
 /**
  * One LGA: outlined on a small map with its wards, its code, parent and source, its monthly
@@ -56,7 +57,7 @@ export function LgaProfilePage() {
             {unit.parent ? `${unit.levelName} in ${unit.parent.unitName} ${unit.parent.levelName}` : unit.levelName}
           </p>
         </div>
-        <Link to={`/?lga=${unit.id}`} className={buttonClassName({ variant: "secondary" })} data-cy="show-on-map">
+        <Link to={`${MAP_PATH}?lga=${unit.id}`} className={buttonClassName({ variant: "secondary" })} data-cy="show-on-map">
           Show on the main map
         </Link>
       </header>

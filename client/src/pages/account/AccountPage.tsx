@@ -8,6 +8,7 @@ import { Callout } from "../../components/shared/Callout";
 import { Icon, type IconName } from "../../components/shared/Icon";
 import { TextField } from "../../components/shared/TextField";
 import { AccessSummary } from "../../components/users/AccessSummary";
+import { RoleRequestCard } from "../../components/users/RoleRequestCard";
 import { RoleBadge } from "../../components/users/RoleBadge";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
 import { useAuth } from "../../hooks/useAuth";
@@ -16,6 +17,7 @@ import { useToast } from "../../hooks/useToast";
 import type { AuthUser } from "../../types/auth.types";
 import { applySubmitError } from "../../utils/form-errors";
 import { formatDate } from "../../utils/formatDate";
+import { MAP_PATH } from "../../utils/map-url";
 import { initials, profileChecklist } from "../../utils/profile";
 import { hasAnyRole } from "../../utils/roles";
 import { SetupChecklist } from "./SetupChecklist";
@@ -59,7 +61,7 @@ export function AccountPage() {
             <RoleBadge role={user.role} />
             <span className="profile-chip">
               <Icon name="pin" size={13} />
-              {user.scopeAdminUnitId ? (region?.unitName ?? "One region") : "All of Rivers State"}
+              {user.scopeAdminUnitId ? (region?.unitName ?? "One region") : "All regions"}
             </span>
             {user.createdAt && (
               <span className="profile-chip">
@@ -95,6 +97,7 @@ export function AccountPage() {
         <div className="account-page__main">
           <ProfileForm user={user} />
           <AccessSummary user={user} region={region} regionLoading={regionLoading} />
+          <RoleRequestCard user={user} />
         </div>
 
         <div className="account-page__side">
@@ -193,7 +196,7 @@ function ProfileForm({ user }: { user: AuthUser }) {
           <TextField
             label="Organisation"
             autoComplete="organization"
-            placeholder="e.g. Rivers State Emergency Management Agency"
+            placeholder="e.g. National Emergency Management Agency"
             error={errors.organisation?.message}
             data-cy="profile-organisation"
             {...register("organisation")}
@@ -278,7 +281,7 @@ function SecurityCard({ user }: { user: AuthUser }) {
 
 function QuickLinks({ isAdmin }: { isAdmin: boolean }) {
   const links: { to: string; icon: IconName; title: string; text: string }[] = [
-    { to: "/", icon: "map", title: "Explore the map", text: "Rivers State, its LGAs and wards." },
+    { to: MAP_PATH, icon: "map", title: "Explore the map", text: "States, LGAs and wards." },
     { to: "/places", icon: "pin", title: "Browse places", text: "Every LGA with its wards." },
     { to: "/help", icon: "info", title: "Help and guides", text: "How each part of the platform works." },
   ];

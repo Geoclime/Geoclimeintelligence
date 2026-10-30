@@ -2,9 +2,22 @@ import { BOUNDARY_LAYER_IDS, OVERLAY_LAYER_IDS, type MapLayerId } from "../compo
 
 /**
  * Shareable map links: the view, the selected LGA and the visible layers live in the address,
- * e.g. /?lng=7.0134&lat=4.7774&z=11.5&lga=<id>&layers=state,lga,ward, so a copied link opens the
- * same view. Bad or missing values fall back to defaults, never to an error.
+ * e.g. /map?lng=7.0134&lat=4.7774&z=11.5&lga=<id>&layers=state,lga,ward, so a copied link opens
+ * the same view. Bad or missing values fall back to defaults, never to an error.
  */
+
+/** Where the map lives. It was "/" until the public landing page took that address. */
+export const MAP_PATH = "/map";
+
+const MAP_PARAMS = ["lng", "lat", "z", "lga", "layers"];
+
+/**
+ * True for an address that carries map state, i.e. a map link copied before the map moved to
+ * /map (they all began "/?lng=..."). The landing page forwards those, so no old link breaks.
+ */
+export function isMapLink(params: URLSearchParams): boolean {
+  return MAP_PARAMS.some((name) => params.has(name));
+}
 
 export interface MapUrlView {
   longitude: number;

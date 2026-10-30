@@ -2,6 +2,7 @@ import { lazy } from "react";
 import { createBrowserRouter } from "react-router";
 import { AppShell, type RouteHandle } from "./components/layout/AppShell";
 import { AuthLayout } from "./components/layout/AuthLayout";
+import { PublicLayout } from "./components/layout/PublicLayout";
 import { GuestOnly } from "./components/routing/GuestOnly";
 import { RequireAuth } from "./components/routing/RequireAuth";
 import { RequireRole } from "./components/routing/RequireRole";
@@ -12,6 +13,12 @@ import { RouteErrorPage } from "./pages/RouteErrorPage";
 const page = <M,>(load: () => Promise<M>, pick: (m: M) => React.ComponentType) =>
   lazy(() => load().then((m) => ({ default: pick(m) })));
 
+const LandingPage = page(() => import("./pages/landing/LandingPage"), (m) => m.LandingPage);
+const AboutPage = page(() => import("./pages/public/AboutPage"), (m) => m.AboutPage);
+const ContactPage = page(() => import("./pages/public/ContactPage"), (m) => m.ContactPage);
+const AccessibilityPage = page(() => import("./pages/public/AccessibilityPage"), (m) => m.AccessibilityPage);
+const PrivacyPage = page(() => import("./pages/public/PrivacyPage"), (m) => m.PrivacyPage);
+const TermsPage = page(() => import("./pages/public/TermsPage"), (m) => m.TermsPage);
 const SignInPage = page(() => import("./pages/auth/SignInPage"), (m) => m.SignInPage);
 const SignUpPage = page(() => import("./pages/auth/SignUpPage"), (m) => m.SignUpPage);
 const ForgotPasswordPage = page(() => import("./pages/auth/ForgotPasswordPage"), (m) => m.ForgotPasswordPage);
@@ -37,6 +44,18 @@ export const router = createBrowserRouter([
   {
     errorElement: <RouteErrorPage />,
     children: [
+      // The public site: open to everyone, signed in or not, so it sits outside both guards.
+      {
+        element: <PublicLayout />,
+        children: [
+          { index: true, element: <LandingPage /> },
+          { path: "about", element: <AboutPage /> },
+          { path: "contact", element: <ContactPage /> },
+          { path: "accessibility", element: <AccessibilityPage /> },
+          { path: "privacy", element: <PrivacyPage /> },
+          { path: "terms", element: <TermsPage /> },
+        ],
+      },
       {
         element: <GuestOnly />,
         children: [
@@ -56,7 +75,7 @@ export const router = createBrowserRouter([
           {
             element: <AppShell />,
             children: [
-              { index: true, element: <MapPage />, handle: fullBleed },
+              { path: "map", element: <MapPage />, handle: fullBleed },
               { path: "account", element: <AccountPage /> },
               { path: "help", element: <HelpPage /> },
               { path: "places", element: <PlacesPage /> },

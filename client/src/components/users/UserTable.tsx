@@ -2,6 +2,7 @@ import { memo } from "react";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
 import type { ManagedUser } from "../../types/user.types";
 import { formatDate } from "../../utils/formatDate";
+import { roleLabel } from "../../utils/roles";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { RoleBadge } from "./RoleBadge";
@@ -63,6 +64,11 @@ export const UserTable = memo(function UserTable({ users, currentUserId, onEdit 
                 </td>
                 <td data-label="Role">
                   <RoleBadge role={user.role} />
+                  {user.roleRequest && (
+                    <span className="user-table__request" title={user.roleRequest.reason} data-cy="role-request-badge">
+                      Asks for {roleLabel(user.roleRequest.role)}
+                    </span>
+                  )}
                 </td>
                 <td data-label="Region">
                   {user.scopeAdminUnitId ? (

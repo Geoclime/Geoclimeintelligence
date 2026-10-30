@@ -1,8 +1,8 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { fetchCurrentUser, updateCurrentUser } from "../endpoints/auth.endpoints";
+import { fetchCurrentUser, submitRoleRequest, updateCurrentUser, withdrawRoleRequest } from "../endpoints/auth.endpoints";
 import { toApiError } from "../transport/api-error";
 import { identity } from "../transport/identity";
-import type { AuthUser, IdentitySession, ProfilePatch } from "../types/auth.types";
+import type { AuthUser, IdentitySession, ProfilePatch, RoleRequestBody } from "../types/auth.types";
 
 /**
  * - loading:    working out who is signed in (session restore, or waiting for /auth/me)
@@ -27,6 +27,10 @@ export interface AuthContextValue extends AuthState {
   signUp: (email: string, password: string, displayName?: string) => Promise<{ verificationSent: boolean }>;
   /** Saves the signed-in user's own profile details and swaps in the updated record. */
   updateProfile: (patch: ProfilePatch) => Promise<AuthUser>;
+  /** Asks an administrator for a staff role (it grants nothing until approved) and swaps in the updated record. */
+  requestRole: (body: RoleRequestBody) => Promise<AuthUser>;
+  /** Withdraws the open role request and swaps in the updated record. */
+  withdrawRoleRequest: () => Promise<AuthUser>;
   sendPasswordReset: (email: string) => Promise<void>;
   resendVerificationEmail: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -96,12 +100,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const retry = useCallback(() => void resolveUser(latestSession.current), [resolveUser]);
 
-  const updateProfile = useCallback(async (patch: ProfilePatch) => {
-    const { data } = await updateCurrentUser(patch);
+  /** Runs a call that returns the user's own updated record, and swaps it in. */
+  const saveOwnRecord = useCallback(async (call: () => Promise<{ data: AuthUser | null }>) => {
+    const { data } = await call();
     if (!data) throw new Error("The server returned no user record.");
     setState((prev) => (prev.user?.id === data.id ? { ...prev, user: data } : prev));
     return data;
   }, []);
+
+  const updateProfile = useCallback((patch: ProfilePatch) => saveOwnRecord(() => updateCurrentUser(patch)), [saveOwnRecord]);
+  const requestRole = useCallback((body: RoleRequestBody) => saveOwnRecord(() => submitRoleRequest(body)), [saveOwnRecord]);
+  const withdrawRole = useCallback(() => saveOwnRecord(withdrawRoleRequest), [saveOwnRecord]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -110,11 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn: (email, password) => identity.signIn(email, password),
       signUp: (email, password, displayName) => identity.signUp(email, password, displayName),
       updateProfile,
+      requestRole,
+      withdrawRoleRequest: withdrawRole,
       sendPasswordReset: (email) => identity.sendPasswordReset(email),
       resendVerificationEmail: (email, password) => identity.resendVerificationEmail(email, password),
       signOut: () => identity.signOut(),
     }),
-    [state, retry, updateProfile],
+    [state, retry, updateProfile, requestRole, withdrawRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

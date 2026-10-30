@@ -13,6 +13,13 @@ export type UserRole = (typeof USER_ROLES)[number];
 /** Every account starts here; only an Administrator can raise it. */
 export const DEFAULT_ROLE: UserRole = "general_public";
 
+/**
+ * Roles a user may ask an administrator for (a role request). Never administrator, and never
+ * the default role everyone already has. The users table's CHECK constraint matches this list.
+ */
+export const REQUESTABLE_ROLES = ["emergency_responder", "government_official", "researcher"] as const;
+export type RequestableRole = (typeof REQUESTABLE_ROLES)[number];
+
 /** Staff roles that may be restricted to an admin unit via `scope_admin_unit_id`. */
 export const REGION_SCOPABLE_ROLES: readonly UserRole[] = ["emergency_responder", "government_official"];
 

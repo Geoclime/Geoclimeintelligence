@@ -6,7 +6,7 @@ describe("Your profile", () => {
         message: "Profile updated",
       }).as("saveProfile");
     });
-    cy.visit("/");
+    cy.visit("/map");
     cy.wait("@getMe");
 
     cy.dataCy("user-menu-trigger").click();

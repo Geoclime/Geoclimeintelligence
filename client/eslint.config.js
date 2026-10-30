@@ -86,7 +86,7 @@ export default defineConfig([
   { files: ["src/utils/**"], rules: { "max-lines": maxLines(150) } },
   { files: ["src/contexts/**"], rules: { "max-lines": maxLines(200) } },
   {
-    files: ["cypress/**", "*.config.{js,ts}"],
+    files: ["cypress/**", "scripts/**", "*.config.{js,ts}"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 ]);

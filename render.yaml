@@ -36,3 +36,6 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      # Render puts one proxy in front of the service; the public routes' rate limit needs the client IP.
+      - key: TRUST_PROXY_HOPS
+        value: "1"

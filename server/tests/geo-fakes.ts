@@ -130,8 +130,10 @@ export class InMemoryAdminUnitRepository implements IAdminUnitRepository {
   }
 
   async findSummaries(filter: AdminUnitFilter) {
+    const needle = filter.q?.toLowerCase();
     const items = this.units
       .filter((u) => (filter.level === undefined || u.level === filter.level) && (!filter.parentId || u.parentId === filter.parentId))
+      .filter((u) => !needle || u.unitName.toLowerCase().includes(needle))
       .map((u) => this.summary(u));
     return { items, meta: { page: filter.page, pageSize: filter.pageSize, total: items.length } };
   }

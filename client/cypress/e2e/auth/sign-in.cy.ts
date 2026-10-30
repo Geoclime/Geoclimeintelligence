@@ -5,7 +5,7 @@ describe("Signing in", () => {
     cy.interceptApi("GET", "/auth/me", { data: buildUser({ role: "general_public", email: "ada@example.com" }) }).as(
       "getMe",
     );
-    cy.visit("/");
+    cy.visit("/map");
     cy.location("pathname").should("eq", "/sign-in");
 
     cy.dataCy("email").type("ada@example.com");
@@ -13,7 +13,7 @@ describe("Signing in", () => {
     cy.dataCy("submit").click();
 
     cy.wait("@getMe").its("request.headers.authorization").should("eq", "Bearer e2e-id-token");
-    cy.location("pathname").should("eq", "/");
+    cy.location("pathname").should("eq", "/map");
     cy.dataCy("map-page").should("be.visible");
     cy.dataCy("user-menu-trigger").click();
     cy.dataCy("user-menu").find('[data-cy="role-badge"]').should("have.text", "General Public");

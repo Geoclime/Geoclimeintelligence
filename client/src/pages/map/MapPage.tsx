@@ -221,7 +221,7 @@ export function MapPage() {
   return (
     <div className="map-page" data-cy="map-page">
       <ClimateMap
-        label="Map of Rivers State, its local government areas and wards"
+        label="Map of the states on the platform, their local government areas and wards"
         theme={theme}
         initialView={initialView ?? undefined}
         fitTo={focus ?? (initialView ? null : (stateUnit?.bbox ?? null))}

@@ -1,7 +1,7 @@
 import type { AuthUser, VerifiedIdentity } from "../src/common/access/auth-user";
 import type { TokenVerifier } from "../src/modules/auth/firebase-token-verifier";
 import { User } from "../src/modules/users/user.entity";
-import type { IUserRepository, NewUser, UserAccessPatch, UserListQuery, UserProfilePatch } from "../src/modules/users/user.types";
+import type { IUserRepository, NewUser, RoleRequestPatch, UserAccessPatch, UserListQuery, UserProfilePatch } from "../src/modules/users/user.types";
 
 let sequence = 0;
 
@@ -18,6 +18,9 @@ export function makeUser(overrides: Partial<User> = {}): User {
     jobTitle: null,
     role: "general_public",
     scopeAdminUnitId: null,
+    requestedRole: null,
+    roleRequestReason: null,
+    roleRequestedAt: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     ...overrides,
@@ -61,6 +64,7 @@ export class InMemoryUserRepository implements IUserRepository {
     const all = [...this.rows.values()].filter(
       (u) =>
         (!query.role || u.role === query.role) &&
+        (!query.pendingRequest || u.requestedRole !== null) &&
         (!needle || [u.email, u.displayName, u.organisation].some((value) => value?.toLowerCase().includes(needle))),
     );
     const start = (query.page - 1) * query.pageSize;
@@ -81,6 +85,13 @@ export class InMemoryUserRepository implements IUserRepository {
     const user = this.rows.get(id);
     if (!user) return null;
     Object.assign(user, patch);
+    return user;
+  }
+
+  async setRoleRequest(id: string, request: RoleRequestPatch | null) {
+    const user = this.rows.get(id);
+    if (!user) return null;
+    Object.assign(user, request ?? { requestedRole: null, roleRequestReason: null, roleRequestedAt: null });
     return user;
   }
 

@@ -38,6 +38,7 @@ export function useImportRun(id: string | undefined, { page = 1, pageSize = 50, 
       invalidateCached(CACHE_KEYS.adminUnits);
       invalidateCached(CACHE_KEYS.countries);
       invalidateCached(CACHE_KEYS.rainfall);
+      invalidateCached(CACHE_KEYS.public);
       setData((current) => current && { ...current, detail: { ...current.detail, run } });
       return run;
     } finally {

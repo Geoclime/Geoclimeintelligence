@@ -11,6 +11,25 @@ export type UserRole = (typeof USER_ROLES)[number];
 /** Mirrors REGION_SCOPABLE_ROLES on the backend: only these roles may carry a region scope. */
 export const REGION_SCOPABLE_ROLES: readonly UserRole[] = ["emergency_responder", "government_official"];
 
+/** Mirrors REQUESTABLE_ROLES on the backend: the roles a user may ask an administrator for. */
+export const REQUESTABLE_ROLES = ["emergency_responder", "government_official", "researcher"] as const;
+export type RequestableRole = (typeof REQUESTABLE_ROLES)[number];
+
+/** An open request for a staff role. It grants nothing until an administrator approves it. */
+export interface RoleRequest {
+  role: RequestableRole;
+  reason: string;
+  requestedAt: string;
+}
+
+/** Body for PUT /api/v1/auth/me/role-request. The organisation and job title are saved to the profile. */
+export interface RoleRequestBody {
+  role: RequestableRole;
+  reason: string;
+  organisation?: string | null;
+  jobTitle?: string | null;
+}
+
 /**
  * The backend's view of the signed-in user, from GET /api/v1/auth/me. Mirrors AuthUser in
  * server/src/common/access/auth-user.ts. Role and scope live in Postgres, never in the
@@ -28,6 +47,8 @@ export interface AuthUser {
   phone?: string | null;
   organisation?: string | null;
   jobTitle?: string | null;
+  /** The user's open request for a staff role; null or absent when there is none. */
+  roleRequest?: RoleRequest | null;
   createdAt?: string;
   updatedAt?: string;
 }

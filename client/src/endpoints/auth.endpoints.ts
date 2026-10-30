@@ -1,6 +1,6 @@
 import { httpClient } from "../transport/http";
 import type { ApiResponse } from "../types/api.types";
-import type { AuthUser, ProfilePatch } from "../types/auth.types";
+import type { AuthUser, ProfilePatch, RoleRequestBody } from "../types/auth.types";
 
 // Thin on purpose (standard section 6): sign-up, sign-in and password reset go straight to
 // Firebase through transport/identity.ts. This backend only ever sees the resulting ID token.
@@ -14,6 +14,18 @@ import type { AuthUser, ProfilePatch } from "../types/auth.types";
  */
 export async function fetchCurrentUser(): Promise<ApiResponse<AuthUser>> {
   const { data } = await httpClient.get<ApiResponse<AuthUser>>("/api/v1/auth/me");
+  return data;
+}
+
+/** Asks an administrator for a staff role (replacing any open request). Returns the updated record. */
+export async function submitRoleRequest(body: RoleRequestBody): Promise<ApiResponse<AuthUser>> {
+  const { data } = await httpClient.put<ApiResponse<AuthUser>>("/api/v1/auth/me/role-request", body);
+  return data;
+}
+
+/** Withdraws the signed-in user's open role request. */
+export async function withdrawRoleRequest(): Promise<ApiResponse<AuthUser>> {
+  const { data } = await httpClient.delete<ApiResponse<AuthUser>>("/api/v1/auth/me/role-request");
   return data;
 }
 

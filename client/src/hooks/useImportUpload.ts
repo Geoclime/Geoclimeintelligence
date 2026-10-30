@@ -37,6 +37,7 @@ export function useImportUpload() {
     const response = await uploadMapLayer(input);
     if (!response.data) throw new Error(response.message || "The server returned no load report.");
     invalidateCached(CACHE_KEYS.mapLayers);
+    invalidateCached(CACHE_KEYS.public);
     return response.data;
   }, []);
 
@@ -45,6 +46,7 @@ export function useImportUpload() {
     const response = await clearMapLayers(input);
     if (!response.data) throw new Error(response.message || "The server returned no clear report.");
     invalidateCached(CACHE_KEYS.mapLayers);
+    invalidateCached(CACHE_KEYS.public);
     return response.data;
   }, []);
 

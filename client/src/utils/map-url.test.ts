@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { readLayers, readMapView, writeLayers, writeMapView } from "./map-url";
+import { isMapLink, readLayers, readMapView, writeLayers, writeMapView } from "./map-url";
+
+describe("isMapLink", () => {
+  it("recognises an old map link by any of its parameters", () => {
+    expect(isMapLink(new URLSearchParams("lng=7.01&lat=4.77&z=11.5"))).toBe(true);
+    expect(isMapLink(new URLSearchParams("lga=abc"))).toBe(true);
+    expect(isMapLink(new URLSearchParams("layers=state,lga"))).toBe(true);
+  });
+
+  it("leaves a plain landing-page address alone", () => {
+    expect(isMapLink(new URLSearchParams(""))).toBe(false);
+    expect(isMapLink(new URLSearchParams("utm_source=newsletter"))).toBe(false);
+  });
+});
 
 describe("map URL state", () => {
   it("round-trips a view, rounded for a tidy link", () => {

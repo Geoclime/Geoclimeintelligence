@@ -11,11 +11,16 @@ import { authRouter } from "./modules/auth/auth.routes";
 import { dataSourcesRouter } from "./modules/data-sources/data-source.routes";
 import { importsRouter } from "./modules/data-sources/imports/import.routes";
 import { buildingsRouter, infrastructureRouter, mapLayersRouter, roadsRouter, settlementsRouter, waterwaysRouter } from "./modules/map-layers/map-layer.routes";
+import { publicRouter } from "./modules/public/public.routes";
 import { rainfallRouter } from "./modules/rainfall/rainfall.routes";
 import { usersRouter } from "./modules/users/user.routes";
 
 export function createApp(): Express {
   const app = express();
+
+  // Behind Render's proxy, req.ip is the proxy unless Express is told how many hops to trust.
+  // The public routes' rate limit is per client IP, so this must match the deployment.
+  if (env.TRUST_PROXY_HOPS > 0) app.set("trust proxy", env.TRUST_PROXY_HOPS);
 
   app.use(helmet());
   // Content-Disposition is exposed so the browser can read a template download's file name.
@@ -26,6 +31,10 @@ export function createApp(): Express {
   app.get("/health", (_req, res) => {
     res.json(ok({ status: "ok" }));
   });
+
+  // The landing page's reads: the only /api/v1 routes that need no sign-in. Mounted before the
+  // auth middleware, and answers every path under it itself (unknown ones with a 404).
+  app.use("/api/v1/public", publicRouter);
 
   // Auth and user resolution run exactly ONCE per request, mounted here before any feature
   // router -- never re-declared inside a router. See section 11's production incident.

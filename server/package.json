@@ -2,7 +2,7 @@
   "name": "climate-platform-server",
   "version": "0.1.0",
   "private": true,
-  "description": "Backend API for the Climate Intelligence & Disaster Management Platform (Rivers State, Nigeria)",
+  "description": "Backend API for the Climate Intelligence & Disaster Management Platform (Nigeria, expanding across Africa)",
   "license": "UNLICENSED",
   "type": "commonjs",
   "engines": {

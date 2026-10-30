@@ -52,7 +52,7 @@ export function AccessSummary({ user, region = null, regionLoading = false }: Ac
               </>
             ) : (
               <>
-                <span className="access-summary__value">All of Rivers State</span>
+                <span className="access-summary__value">All regions</span>
                 {isRegionScopable(user.role) && (
                   <p className="access-summary__note">No region restriction has been set for this account.</p>
                 )}

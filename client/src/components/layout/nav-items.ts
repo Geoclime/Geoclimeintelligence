@@ -1,4 +1,5 @@
 import type { UserRole } from "../../types/auth.types";
+import { MAP_PATH } from "../../utils/map-url";
 import type { IconName } from "../shared/Icon";
 
 export interface NavItem {
@@ -22,7 +23,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Explore",
     items: [
-      { to: "/", label: "Map", icon: "map", roles: [], description: "Rivers State, its LGAs and wards" },
+      { to: MAP_PATH, label: "Map", icon: "map", roles: [], description: "States, LGAs and wards" },
       { to: "/places", label: "Places", icon: "pin", roles: [], description: "LGA directory and ward lists" },
     ],
   },
@@ -46,9 +47,5 @@ export const NAV_GROUPS: NavGroup[] = [
 
 /** The nav item a path belongs to ("/places/abc" -> Places), for the top bar's title. */
 export function activeNavItem(pathname: string): NavItem | undefined {
-  const items = NAV_GROUPS.flatMap((group) => group.items);
-  return (
-    items.find((item) => item.to !== "/" && (pathname === item.to || pathname.startsWith(`${item.to}/`))) ??
-    items.find((item) => item.to === pathname)
-  );
+  return NAV_GROUPS.flatMap((group) => group.items).find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
 }

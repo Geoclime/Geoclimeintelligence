@@ -53,4 +53,5 @@ export const CACHE_KEYS = {
   adminUnits: "admin-units:",
   mapLayers: "map-layers:",
   rainfall: "rainfall:",
+  public: "public:",
 } as const;

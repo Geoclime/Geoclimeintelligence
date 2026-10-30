@@ -1,6 +1,6 @@
 import type { AuthUser } from "../../common/access/auth-user";
 import { assertScopeAllowedForRole } from "../../common/access/roles";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../common/errors/app-error";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../common/errors/app-error";
 import type { PageMeta } from "../../common/response/api-response";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
@@ -54,6 +54,22 @@ export class UserService {
     }
 
     const updated = await this.users.updateAccess(id, { role, scopeAdminUnitId });
+    if (!updated) throw new NotFoundError("User");
+    // Giving the user the role they asked for is approving their request, so it closes. Any other
+    // change (a scope, a different role) leaves an open request for the administrator to answer.
+    if (updated.requestedRole && updated.requestedRole === role) {
+      const resolved = await this.users.setRoleRequest(id, null);
+      if (resolved) return toUserDto(resolved);
+    }
+    return toUserDto(updated);
+  }
+
+  /** Declines a user's open role request: it closes and their role stays as it is. */
+  async declineRoleRequest(id: string): Promise<UserDto> {
+    const target = await this.users.findById(id);
+    if (!target) throw new NotFoundError("User");
+    if (!target.requestedRole) throw new ConflictError("This user has no open role request");
+    const updated = await this.users.setRoleRequest(id, null);
     if (!updated) throw new NotFoundError("User");
     return toUserDto(updated);
   }

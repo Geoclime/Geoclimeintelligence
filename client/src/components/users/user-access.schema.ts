@@ -19,7 +19,7 @@ export const userAccessSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["scopeAdminUnitId"],
-        message: "Enter a valid region ID (a UUID), or leave it blank for all of Rivers State",
+        message: "Enter a valid region ID (a UUID), or leave it blank for all regions",
       });
     }
   });

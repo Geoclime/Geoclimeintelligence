@@ -2,7 +2,7 @@ import { AppError } from "../../common/errors/app-error";
 import { BaseRepository } from "../../common/repository/base.repository";
 import type { PageMeta } from "../../common/response/api-response";
 import { User } from "./user.entity";
-import type { IUserRepository, NewUser, UserAccessPatch, UserListQuery, UserProfilePatch } from "./user.types";
+import type { IUserRepository, NewUser, RoleRequestPatch, UserAccessPatch, UserListQuery, UserProfilePatch } from "./user.types";
 
 export class UserRepository extends BaseRepository<User> implements IUserRepository {
   private static _instance?: UserRepository;
@@ -33,7 +33,11 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
   }
 
   override async findPage(query: UserListQuery): Promise<{ items: User[]; meta: PageMeta }> {
-    const qb = this.repo.createQueryBuilder("u").orderBy("u.createdAt", "ASC").addOrderBy("u.id", "ASC");
+    const qb = this.repo.createQueryBuilder("u");
+    // Open requests are a queue, so they come oldest request first; otherwise oldest account first.
+    if (query.pendingRequest) qb.where("u.requested_role IS NOT NULL").orderBy("u.roleRequestedAt", "ASC");
+    else qb.orderBy("u.createdAt", "ASC");
+    qb.addOrderBy("u.id", "ASC");
     if (query.q) {
       // Escape LIKE wildcards so a search for "a_b" means the text "a_b".
       const pattern = `%${query.q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
@@ -55,6 +59,11 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
 
   async updateProfile(id: string, patch: UserProfilePatch): Promise<User | null> {
     if (Object.keys(patch).length > 0) await this.repo.update({ id }, patch);
+    return this.findById(id);
+  }
+
+  async setRoleRequest(id: string, request: RoleRequestPatch | null): Promise<User | null> {
+    await this.repo.update({ id }, request ?? { requestedRole: null, roleRequestReason: null, roleRequestedAt: null });
     return this.findById(id);
   }
 

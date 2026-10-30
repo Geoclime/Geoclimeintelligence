@@ -22,6 +22,7 @@ All paths are relative to `server/`.
 | `DATABASE_SSL_CA` | no | – | Path to the database provider's CA certificate |
 | `FIREBASE_PROJECT_ID` | **yes** | – | The Firebase project whose ID tokens this API accepts |
 | `CORS_ORIGINS` | no | empty | Comma-separated browser origins allowed to call the API |
+| `TRUST_PROXY_HOPS` | no | `0` | Proxies in front of the API (Render: `1`), so `req.ip` is the visitor's address for the public routes' rate limit ([public-landing-api.md](public-landing-api.md)) |
 | `IMPORT_MAX_FILE_MB` | no | `60` | Maximum upload size in MB on the Imports routes (413 above it) |
 | `IMPORT_MAX_UNZIPPED_MB` | no | `100` | Maximum unpacked zip size in MB (zip-bomb guard) |
 | `IMPORT_MAX_GPKG_MB` | no | `200` | Largest single GeoPackage unpacked from an OpenStreetMap extract, in MB. Checked per file, since they are unpacked one at a time and streamed ([buildings-layer.md](buildings-layer.md)) |

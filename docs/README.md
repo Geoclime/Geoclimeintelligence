@@ -58,7 +58,16 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 ## Phase 5: Rainfall
 
 33. [rainfall.md](rainfall.md): why the platform needs rainfall, what "mm" means, how to tell a high month or year from a low one, why no single mm value means "flood" and what it would take to find one, with the loading steps in [data-import.md](data-import.md), section 8.
-34. [rainfall-automation.md](rainfall-automation.md): the plan (not built yet) for fetching rainfall on a schedule instead of by hand, plus daily rainfall and the other data to get (gauges, river levels, a longer baseline), as a checklist.
+34. [rainfall-automation.md](rainfall-automation.md): the plan (not built yet) for fetching rainfall on a schedule instead of by hand, plus daily rainfall and the other data to get (gauges, river levels, a longer baseline) and where to find flood-zone data (NIHSA's Annual Flood Outlook, HDX, the Global Flood Database), as a checklist.
+
+## Public landing page
+
+35. [public-landing-api.md](public-landing-api.md): the five `/api/v1/public` routes that need no sign-in, how they are mounted before auth, rate limited per IP and cached, and `TRUST_PROXY_HOPS`.
+36. [features/landing-page.md](features/landing-page.md): the landing page at `/`, the map's move to `/map` (old links still forward), the place finder, the SVG state outline, and the About, Contact, Accessibility, Privacy and Terms pages (placeholder contact details in `client/src/config/site.ts`).
+
+## Accounts
+
+37. [role-requests.md](role-requests.md): why nobody picks their own role; asking for a staff role at sign-up or on the profile page, and how administrators approve or decline it.
 
 ## Adding a new doc
 
