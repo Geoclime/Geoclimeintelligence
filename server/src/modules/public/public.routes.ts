@@ -16,6 +16,7 @@ publicRouter.use(rateLimit({ windowMs: 60_000, max: PUBLIC_REQUESTS_PER_MINUTE }
 
 publicRouter.get("/overview", PublicController.overview);
 publicRouter.get("/outline", PublicController.outline);
+publicRouter.get("/alert-map", PublicController.alertMap);
 publicRouter.get("/search", validate(publicSearchSchema), PublicController.search);
 publicRouter.get("/locate", validate(publicLocateSchema), PublicController.locate);
 publicRouter.get("/areas/:id", validate(publicAreaSchema), PublicController.area);

@@ -71,6 +71,8 @@ function setup(options: { coverage?: RainfallCoverageSummary | null; communities
       },
     },
     sources,
+    alerts: { list: async () => [] },
+    floodReports: { publishedSince: async () => [] },
     now: () => time,
   });
   return { service, units, catalog, searches, advance: (ms: number) => (time += ms) };
@@ -137,6 +139,8 @@ describe("PublicService.outline", () => {
       coverage: { findCoverage: async () => null },
       communities: { searchByName: async () => [] },
       sources,
+      alerts: { list: async () => [] },
+      floodReports: { publishedSince: async () => [] },
     });
     await expect(service.outline()).resolves.toEqual({ bbox: null, areas: { type: "FeatureCollection", features: [] } });
     expect(units.outlineQueries).toEqual([]);

@@ -35,6 +35,8 @@ beforeEach(() => {
       coverage: { findCoverage: async () => null },
       communities: { searchByName: async () => [] },
       sources,
+      alerts: { list: async () => [] },
+      floodReports: { publishedSince: async () => [] },
     }),
   );
 });

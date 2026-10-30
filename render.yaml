@@ -36,6 +36,9 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      # Cloudinary for flood-report media: cloudinary://<api_key>:<api_secret>@<cloud_name>, set in the dashboard.
+      - key: CLOUDINARY_URL
+        sync: false
       # Render puts one proxy in front of the service; the public routes' rate limit needs the client IP.
       - key: TRUST_PROXY_HOPS
         value: "1"

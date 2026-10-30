@@ -22,6 +22,7 @@ All paths are relative to `server/`.
 | `DATABASE_SSL_CA` | no | – | Path to the database provider's CA certificate |
 | `FIREBASE_PROJECT_ID` | **yes** | – | The Firebase project whose ID tokens this API accepts |
 | `CORS_ORIGINS` | no | empty | Comma-separated browser origins allowed to call the API |
+| `CLOUDINARY_URL` | no | empty | `cloudinary://<api_key>:<api_secret>@<cloud_name>`, from the Cloudinary dashboard: where flood-report photos, voice notes, videos and documents are stored ([flood-alerts-and-reports.md](flood-alerts-and-reports.md)) |
 | `TRUST_PROXY_HOPS` | no | `0` | Proxies in front of the API (Render: `1`), so `req.ip` is the visitor's address for the public routes' rate limit ([public-landing-api.md](public-landing-api.md)) |
 | `IMPORT_MAX_FILE_MB` | no | `60` | Maximum upload size in MB on the Imports routes (413 above it) |
 | `IMPORT_MAX_UNZIPPED_MB` | no | `100` | Maximum unpacked zip size in MB (zip-bomb guard) |

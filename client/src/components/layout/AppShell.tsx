@@ -10,6 +10,7 @@ import { Icon } from "../shared/Icon";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { activeNavItem } from "./nav-items";
 import { OfflineBanner } from "./OfflineBanner";
+import { PwaUpdateBanner } from "./PwaUpdateBanner";
 import { QuickSearch } from "./QuickSearch";
 import { Sidebar } from "./Sidebar";
 import { UserMenu } from "./UserMenu";
@@ -100,6 +101,7 @@ export function AppShell() {
           </div>
         </header>
         <OfflineBanner />
+      <PwaUpdateBanner />
         <main id="main" className={`app-main${fullBleed ? " app-main--full" : ""}`} tabIndex={-1}>
           <Suspense fallback={<LoadingSpinner />}>
             <Outlet />

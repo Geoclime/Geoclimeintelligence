@@ -29,7 +29,8 @@ const TOPICS: Topic[] = [
           <>
             Explore Nigeria's states, LGAs and wards on the <Link to={MAP_PATH}>map</Link>, look up any LGA or ward in{" "}
             <Link to="/places">Places</Link>, and see what your account is allowed to do on your{" "}
-            <Link to="/account">profile</Link>. More data (rainfall, flood risk, alerts) appears as it is published.
+            <Link to="/account">profile</Link>. See flood <Link to="/alerts">alerts</Link> in force, and{" "}
+            <Link to="/report">report flooding</Link> you can see: a coordinator checks each report before it goes on the public map.
           </>
         ),
       },

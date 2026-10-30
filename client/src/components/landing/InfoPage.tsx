@@ -18,6 +18,8 @@ interface InfoPageProps {
   sections: InfoSection[];
   /** Shown after the sections, e.g. a call to action. */
   footer?: ReactNode;
+  /** The "On this page" list beside the text on wide screens. On by default for long pages (3+ sections). */
+  toc?: boolean;
 }
 
 /**
@@ -25,7 +27,7 @@ interface InfoPageProps {
  * title band, a contents list beside the text on wide screens, and readable prose. Each section
  * has an anchor, so a link can point straight at it.
  */
-export function InfoPage({ eyebrow, title, lead, updated, sections, footer }: InfoPageProps) {
+export function InfoPage({ eyebrow, title, lead, updated, sections, footer, toc = sections.length > 2 }: InfoPageProps) {
   useDocumentTitle(title);
   return (
     <article className="info-page">
@@ -38,8 +40,8 @@ export function InfoPage({ eyebrow, title, lead, updated, sections, footer }: In
         </div>
       </header>
 
-      <div className="info-page__layout">
-        {sections.length > 2 && (
+      <div className={`info-page__layout${toc ? " info-page__layout--with-toc" : ""}`}>
+        {toc && (
           <nav className="info-page__toc" aria-label="On this page">
             <p className="info-page__toc-title">On this page</p>
             <ol>

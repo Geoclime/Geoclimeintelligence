@@ -1,11 +1,14 @@
 import type { BBox, LonLat } from "../../common/geo/geo";
+import type { FloodAlertDto } from "../alerts/alert.types";
+import type { PublicReportPoint } from "../flood-reports/flood-report.types";
 import type { AdminUnitFeatureCollection, AdminUnitRef } from "../admin-units/admin-unit.types";
 import type { MapLayerId } from "../map-layers/layer-rules";
 import type { RainfallSeriesDto } from "../rainfall/rainfall.types";
 
 // Replies of /api/v1/public: what the landing page shows before anyone signs in. Every field is
-// shared reference data (areas, map layers, rainfall). Nothing about users, imports or region
-// scopes is ever part of a public reply.
+// shared reference data (areas, map layers, rainfall) or public safety information (alerts in
+// force, and flood reports a reviewer has published, without the reporter). Nothing about users,
+// imports or region scopes is ever part of a public reply.
 
 /** How many areas there are at one level, e.g. 23 LGAs. */
 export interface AreaLevelCount {
@@ -107,4 +110,13 @@ export interface IRainfallCoverage {
 export interface ICommunitySearch {
   /** Settlements whose name contains `q` (case-insensitive); names starting with it first, then primary settlements. */
   searchByName(q: string, limit: number): Promise<PublicCommunityHit[]>;
+}
+
+/** GET /api/v1/public/alert-map: the alerts in force now and recently published flood reports. */
+export interface PublicAlertMapDto {
+  alerts: FloodAlertDto[];
+  reports: PublicReportPoint[];
+  /** How many days of published reports are included. */
+  reportDays: number;
+  generatedAt: string;
 }

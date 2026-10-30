@@ -6,6 +6,8 @@ import { env } from "./config/env";
 import { authMiddleware, resolveUserMiddleware } from "./middleware/auth.middleware";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.middleware";
 import { adminUnitsRouter } from "./modules/admin-units/admin-unit.routes";
+import { alertsRouter } from "./modules/alerts/alert.routes";
+import { floodReportsRouter } from "./modules/flood-reports/flood-report.routes";
 import { countriesRouter } from "./modules/admin-units/country.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { dataSourcesRouter } from "./modules/data-sources/data-source.routes";
@@ -53,6 +55,8 @@ export function createApp(): Express {
   app.use("/api/v1/infrastructure", infrastructureRouter);
   app.use("/api/v1/buildings", buildingsRouter);
   app.use("/api/v1/rainfall", rainfallRouter);
+  app.use("/api/v1/alerts", alertsRouter);
+  app.use("/api/v1/flood-reports", floodReportsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

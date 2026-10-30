@@ -1,8 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { envProblems } from "./config/env";
+import { envProblems, IS_E2E } from "./config/env";
+import { startPwa } from "./pwa/pwa-store";
 import "./styles/globals.css";
 import "./styles/dashboard.css";
+
+// The service worker only runs in production builds: in development it would serve stale code.
+startPwa({ register: import.meta.env.PROD && !IS_E2E });
 
 const root = createRoot(document.getElementById("root")!);
 

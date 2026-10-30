@@ -86,6 +86,11 @@ export default defineConfig([
   { files: ["src/utils/**"], rules: { "max-lines": maxLines(150) } },
   { files: ["src/contexts/**"], rules: { "max-lines": maxLines(200) } },
   {
+    // The service worker runs in its own global scope (self, caches, clients), not a window.
+    files: ["public/sw.js"],
+    languageOptions: { globals: globals.serviceworker },
+  },
+  {
     files: ["cypress/**", "scripts/**", "*.config.{js,ts}"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },

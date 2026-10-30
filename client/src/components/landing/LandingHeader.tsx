@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { MAP_PATH } from "../../utils/map-url";
+import { InstallAppButton } from "../layout/InstallAppButton";
 import { ThemeToggle } from "../layout/ThemeToggle";
 import { BrandMark } from "../shared/BrandMark";
 import { buttonClassName } from "../shared/Button";
@@ -8,6 +9,7 @@ import { Icon } from "../shared/Icon";
 
 /** The landing page's sections, linked from the header and footer on every public page. */
 export const LANDING_SECTIONS = [
+  { to: "/#alerts", label: "National alert map" },
   { to: "/#check", label: "Check your area" },
   { to: "/#features", label: "What you can do" },
   { to: "/#coverage", label: "Coverage" },
@@ -15,9 +17,9 @@ export const LANDING_SECTIONS = [
 ] as const;
 
 const HEADER_LINKS = [
+  { to: "/#alerts", label: "Alerts" },
   { to: "/#check", label: "Check your area" },
   { to: "/#features", label: "Platform" },
-  { to: "/#sources", label: "Data" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ] as const;
@@ -60,6 +62,7 @@ export function LandingHeader({ session }: LandingHeaderProps) {
         </nav>
 
         <div className="landing-header__actions">
+          <InstallAppButton variant="ghost" className="landing-header__install" />
           <ThemeToggle />
           {session === "signed-in" && (
             <Link to={MAP_PATH} className={buttonClassName({ variant: "primary", size: "sm" })} data-cy="landing-open-map">

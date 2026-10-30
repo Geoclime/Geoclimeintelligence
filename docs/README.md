@@ -65,6 +65,12 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 35. [public-landing-api.md](public-landing-api.md): the five `/api/v1/public` routes that need no sign-in, how they are mounted before auth, rate limited per IP and cached, and `TRUST_PROXY_HOPS`.
 36. [features/landing-page.md](features/landing-page.md): the landing page at `/`, the map's move to `/map` (old links still forward), the place finder, the SVG state outline, and the About, Contact, Accessibility, Privacy and Terms pages (placeholder contact details in `client/src/config/site.ts`).
 
+## Flooding
+
+38. [flood-alerts-and-reports.md](flood-alerts-and-reports.md): flood alerts (watch, warning, severe) for LGAs and states, community flood reports with GPS, depth, photos and voice notes, the review queue, and the national alert map on the landing page.
+
+39. [features/installable-app.md](features/installable-app.md): the PWA: install on phones and computers, offline use, and update prompts.
+
 ## Accounts
 
 37. [role-requests.md](role-requests.md): why nobody picks their own role; asking for a staff role at sign-up or on the profile page, and how administrators approve or decline it.

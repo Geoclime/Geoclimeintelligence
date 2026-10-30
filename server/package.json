@@ -23,6 +23,7 @@
     "layers:clear": "tsx src/scripts/clear-map-layers.ts"
   },
   "dependencies": {
+    "cloudinary": "2.11.0",
     "cors": "^2.8.6",
     "csv-parse": "^7.0.3",
     "dotenv": "^18.0.4",

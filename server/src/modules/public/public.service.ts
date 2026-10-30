@@ -2,6 +2,8 @@ import { NotFoundError } from "../../common/errors/app-error";
 import type { BBox } from "../../common/geo/geo";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import { AdminUnitService } from "../admin-units/admin-unit.service";
+import { AlertService } from "../alerts/alert.service";
+import { FloodReportService } from "../flood-reports/flood-report.service";
 import { toRef, type AdminUnitRef, type IAdminUnitRepository, type LocateResult } from "../admin-units/admin-unit.types";
 import { DataSourceRepository } from "../data-sources/data-source.repository";
 import type { IDataSourceRepository } from "../data-sources/data-source.types";
@@ -13,6 +15,7 @@ import type {
   IAreaStatistics,
   ICommunitySearch,
   IRainfallCoverage,
+  PublicAlertMapDto,
   PublicAreaDto,
   PublicOverviewDto,
   PublicOutlineDto,
@@ -23,6 +26,12 @@ import type { PublicLocateQuery, PublicSearchQuery } from "./public.validation";
 
 /** How long the overview and the outline are reused before they are read again. */
 export const PUBLIC_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** The alert map changes as alerts are issued, so it is reused for one minute only. */
+export const ALERT_MAP_TTL_MS = 60 * 1000;
+/** Published reports on the alert map: the last week, at most this many. */
+const REPORT_DAYS = 7;
+const REPORT_LIMIT = 500;
 
 /** The level drawn on the landing page: LGAs in Nigeria. */
 const OUTLINE_LEVEL = 2;
@@ -47,6 +56,8 @@ export interface PublicServiceDeps {
   coverage: IRainfallCoverage;
   communities: ICommunitySearch;
   sources: Pick<IDataSourceRepository, "findById">;
+  alerts: Pick<AlertService, "list">;
+  floodReports: Pick<FloodReportService, "publishedSince">;
   now?: () => number;
 }
 
@@ -67,6 +78,8 @@ export class PublicService {
       coverage: RainfallRepository.Instance,
       communities: SettlementPointRepository.Instance,
       sources: DataSourceRepository.Instance,
+      alerts: AlertService.Instance,
+      floodReports: FloodReportService.Instance,
     }));
   }
 
@@ -114,6 +127,21 @@ export class PublicService {
       const areas = await this.deps.units.findGeoJson({ level: OUTLINE_LEVEL, bbox, zoom: OUTLINE_ZOOM });
       return { bbox, areas };
     });
+  }
+
+  /**
+   * The national alert map: every alert in force now, and the reports reviewers published in the
+   * last week (points rounded, no reporter, no text). Cached for a minute.
+   */
+  alertMap(): Promise<PublicAlertMapDto> {
+    return this.cached(
+      "alert-map",
+      async () => {
+        const [alerts, reports] = await Promise.all([this.deps.alerts.list({ view: "active" }), this.deps.floodReports.publishedSince(REPORT_DAYS, REPORT_LIMIT)]);
+        return { alerts, reports, reportDays: REPORT_DAYS, generatedAt: new Date(this.now()).toISOString() };
+      },
+      ALERT_MAP_TTL_MS,
+    );
   }
 
   /** Areas and communities whose names contain the search. */
@@ -176,11 +204,11 @@ export class PublicService {
     return wardSummary?.parentId === lga.id ? result : { ...result, units: result.units.filter((u) => u.id !== ward.id) };
   }
 
-  private async cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+  private async cached<T>(key: string, load: () => Promise<T>, ttlMs = PUBLIC_CACHE_TTL_MS): Promise<T> {
     const hit = this.cache.get(key) as Cached<T> | undefined;
     if (hit && hit.expiresAt > this.now()) return hit.value;
     const value = await load();
-    this.cache.set(key, { value, expiresAt: this.now() + PUBLIC_CACHE_TTL_MS });
+    this.cache.set(key, { value, expiresAt: this.now() + ttlMs });
     return value;
   }
 }

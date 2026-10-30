@@ -4,6 +4,7 @@ import { BrandMark } from "../shared/BrandMark";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { ContourBackdrop } from "./ContourBackdrop";
 import { OfflineBanner } from "./OfflineBanner";
+import { PwaUpdateBanner } from "./PwaUpdateBanner";
 import { ThemeToggle } from "./ThemeToggle";
 import "./layout.css";
 
@@ -33,6 +34,7 @@ export function AuthLayout() {
           <ThemeToggle />
         </div>
         <OfflineBanner />
+      <PwaUpdateBanner />
         <main id="main" className="auth-main__content">
           <Suspense fallback={<LoadingSpinner />}>
             <Outlet />

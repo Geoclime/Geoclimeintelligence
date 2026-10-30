@@ -39,7 +39,10 @@ const portHarcourtArea = {
   },
 };
 
-function stubPublic() {
+const noAlerts = { alerts: [], reports: [], reportDays: 7, generatedAt: "2026-10-30T09:00:00.000Z" };
+
+function stubPublic(alertMap: object = noAlerts) {
+  cy.interceptApi("GET", "/public/alert-map", { data: alertMap }).as("getAlertMap");
   cy.interceptApi("GET", "/public/overview", { data: overview }).as("getOverview");
   cy.interceptApi("GET", "/public/outline", { data: { bbox: STATE.bbox, areas: featureCollection([PORT_HARCOURT, OBIO_AKPOR]) } }).as("getOutline");
   cy.interceptApi("GET", `/public/areas/${PORT_HARCOURT.id}`, { data: portHarcourtArea }).as("getArea");
@@ -102,6 +105,7 @@ describe("Landing page", () => {
   });
 
   it("says so, with a retry, when the live figures can't be loaded", () => {
+    cy.interceptApi("GET", "/public/alert-map", { data: noAlerts });
     cy.interceptApi("GET", "/public/overview", { statusCode: 500, message: "Something went wrong" });
     cy.interceptApi("GET", "/public/outline", { data: { bbox: null, areas: { type: "FeatureCollection", features: [] } } });
     cy.visit("/");
@@ -115,6 +119,43 @@ describe("Landing page", () => {
     cy.wait("@getMe");
     cy.dataCy("landing-open-map").should("have.attr", "href", "/map");
     cy.dataCy("landing-sign-in").should("not.exist");
+  });
+
+  it("shows the alerts in force, coloured on the map, with a live status line", () => {
+    stubPublic({
+      ...noAlerts,
+      alerts: [
+        {
+          id: "alert-1",
+          severity: "warning",
+          status: "active",
+          title: "River Bonny rising",
+          message: "Water levels are rising after two days of heavy rain.",
+          actions: ["Move valuables to higher ground."],
+          startsAt: "2026-10-30T06:00:00.000Z",
+          expiresAt: "2026-10-31T06:00:00.000Z",
+          endedAt: null,
+          areas: [{ id: PORT_HARCOURT.id, unitName: "Port Harcourt", levelName: "LGA", level: 2 }],
+          lgaIds: [PORT_HARCOURT.id],
+          createdAt: "2026-10-30T06:00:00.000Z",
+        },
+      ],
+      reports: [{ id: "r1", point: [7.0, 4.8], waterDepth: "knee", lgaName: "Port Harcourt", createdAt: "2026-10-30T08:00:00.000Z" }],
+    });
+    cy.visit("/");
+    cy.wait("@getAlertMap");
+    cy.dataCy("alert-strip").should("contain", "1 flood alert in force").and("contain", "flood warning");
+    cy.dataCy("landing-alerts").should("contain", "River Bonny rising").and("contain", "Move valuables to higher ground.");
+    cy.get(".alert-map__area--warning").should("have.length", 1);
+    cy.get(".alert-map__report").should("have.length", 1);
+    cy.dataCy("landing-report-flooding").should("have.attr", "href", "/report").and("contain", "Sign in to report flooding");
+  });
+
+  it("says plainly when no alerts are in force", () => {
+    stubPublic();
+    cy.visit("/");
+    cy.dataCy("alert-strip").should("contain", "No flood alerts in force");
+    cy.dataCy("no-alerts").should("be.visible");
   });
 
   it("forwards a map link from before the map moved to /map", () => {

@@ -35,6 +35,9 @@ const ConfigurationPage = page(() => import("./pages/admin/configuration/Configu
 const ImportHistoryPage = page(() => import("./pages/admin/imports/ImportHistoryPage"), (m) => m.ImportHistoryPage);
 const ImportNewPage = page(() => import("./pages/admin/imports/ImportNewPage"), (m) => m.ImportNewPage);
 const ImportReviewPage = page(() => import("./pages/admin/imports/ImportReviewPage"), (m) => m.ImportReviewPage);
+const AlertsPage = page(() => import("./pages/alerts/AlertsPage"), (m) => m.AlertsPage);
+const ReportFloodPage = page(() => import("./pages/reports/ReportFloodPage"), (m) => m.ReportFloodPage);
+const ReviewReportsPage = page(() => import("./pages/reports/ReviewReportsPage"), (m) => m.ReviewReportsPage);
 const HelpPage = page(() => import("./pages/help/HelpPage"), (m) => m.HelpPage);
 const NotFoundPage = page(() => import("./pages/NotFoundPage"), (m) => m.NotFoundPage);
 
@@ -78,6 +81,13 @@ export const router = createBrowserRouter([
               { path: "map", element: <MapPage />, handle: fullBleed },
               { path: "account", element: <AccountPage /> },
               { path: "help", element: <HelpPage /> },
+              { path: "alerts", element: <AlertsPage /> },
+              { path: "report", element: <ReportFloodPage /> },
+              {
+                path: "reports/review",
+                element: <RequireRole roles={["emergency_responder", "government_official"]} />,
+                children: [{ index: true, element: <ReviewReportsPage /> }],
+              },
               { path: "places", element: <PlacesPage /> },
               { path: "places/:id", element: <LgaProfilePage /> },
               { path: "places/:id/wards/:wardId", element: <WardPage /> },

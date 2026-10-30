@@ -38,6 +38,23 @@ const envSchema = z.object({
   // One GeoPackage from an OpenStreetMap extract, unpacked on its own and streamed (Rivers State buildings: 104 MB).
   IMPORT_MAX_GPKG_MB: z.coerce.number().int().positive().default(200),
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(100_000),
+  // Cloudinary stores flood-report media (photos, voice notes, videos, documents): one setting,
+  // copied as-is from the Cloudinary dashboard ("API environment variable"):
+  // cloudinary://<api_key>:<api_secret>@<cloud_name>. Optional: without it, photos and voice notes
+  // are kept in the database and videos and documents are refused.
+  CLOUDINARY_URL: z
+    .string()
+    .trim()
+    .default("")
+    .transform((value, ctx) => {
+      if (!value) return null;
+      const match = /^cloudinary:\/\/([^:@\s]+):([^@\s]+)@([\w-]+)\/?$/.exec(value.replace(/^CLOUDINARY_URL=/, ""));
+      if (!match) {
+        ctx.addIssue({ code: "custom", message: "CLOUDINARY_URL must look like cloudinary://<api_key>:<api_secret>@<cloud_name>" });
+        return z.NEVER;
+      }
+      return { apiKey: match[1]!, apiSecret: match[2]!, cloudName: match[3]! };
+    }),
 });
 
 export type Env = z.infer<typeof envSchema>;

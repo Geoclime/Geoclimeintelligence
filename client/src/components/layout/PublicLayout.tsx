@@ -5,6 +5,7 @@ import { LandingFooter } from "../landing/LandingFooter";
 import { LandingHeader } from "../landing/LandingHeader";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { OfflineBanner } from "./OfflineBanner";
+import { PwaUpdateBanner } from "./PwaUpdateBanner";
 import "./layout.css";
 import "../landing/landing.css";
 
@@ -35,6 +36,7 @@ export function PublicLayout() {
       </a>
       <LandingHeader session={session} />
       <OfflineBanner />
+      <PwaUpdateBanner />
       <main id="main">
         <Suspense fallback={<LoadingSpinner />}>
           <Outlet />

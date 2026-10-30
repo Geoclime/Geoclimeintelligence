@@ -1,4 +1,14 @@
 import type { AdminUnitFeatureCollection, AdminUnitRef, BBox, LonLat } from "./admin-unit.types";
+import type { FloodAlert } from "./alert.types";
+import type { PublicReportPoint } from "./flood-report.types";
+
+/** GET /api/v1/public/alert-map: the alerts in force now and the reports published in the last `reportDays` days. */
+export interface PublicAlertMap {
+  alerts: FloodAlert[];
+  reports: PublicReportPoint[];
+  reportDays: number;
+  generatedAt: string;
+}
 import type { RainfallSeries } from "./rainfall.types";
 
 // Mirrors server/src/modules/public/public.types.ts: what the landing page reads before sign-in.

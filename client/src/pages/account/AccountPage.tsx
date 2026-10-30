@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router";
+import { InstallAppButton } from "../../components/layout/InstallAppButton";
 import { ThemeToggle } from "../../components/layout/ThemeToggle";
 import { Button } from "../../components/shared/Button";
 import { Callout } from "../../components/shared/Callout";
@@ -13,6 +14,7 @@ import { RoleBadge } from "../../components/users/RoleBadge";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { usePwa } from "../../hooks/usePwa";
 import { useToast } from "../../hooks/useToast";
 import type { AuthUser } from "../../types/auth.types";
 import { applySubmitError } from "../../utils/form-errors";
@@ -114,6 +116,7 @@ export function AccountPage() {
               </div>
               <ThemeToggle />
             </div>
+            <InstallRow />
           </section>
           <QuickLinks isAdmin={isAdmin} />
         </div>
@@ -276,6 +279,21 @@ function SecurityCard({ user }: { user: AuthUser }) {
         </Button>
       </div>
     </section>
+  );
+}
+
+/** "Install the app", shown only where the browser offers installation and it isn't installed yet. */
+function InstallRow() {
+  const { canInstall, standalone } = usePwa();
+  if (!canInstall || standalone) return null;
+  return (
+    <div className="account-row">
+      <div>
+        <p className="account-row__label">App</p>
+        <p className="account-row__hint">Install it for quick access from your home screen, and for use on a poor connection.</p>
+      </div>
+      <InstallAppButton />
+    </div>
   );
 }
 

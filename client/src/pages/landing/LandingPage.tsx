@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
+import { AlertStrip } from "../../components/alerts/AlertStrip";
+import { AlertsSection } from "../../components/landing/AlertsSection";
 import { CoverageStats } from "../../components/landing/CoverageStats";
 import { SITE } from "../../config/site";
 import { PlaceFinder, type PlaceSelection } from "../../components/landing/PlaceFinder";
@@ -9,6 +11,7 @@ import { buttonClassName } from "../../components/shared/Button";
 import { Icon, type IconName } from "../../components/shared/Icon";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { usePublicAlertMap } from "../../hooks/usePublicAlertMap";
 import { usePublicOutline } from "../../hooks/usePublicOutline";
 import { usePublicOverview } from "../../hooks/usePublicOverview";
 import type { PublicOverview } from "../../types/public.types";
@@ -78,11 +81,13 @@ function Landing() {
   const signedIn = useAuth().status === "signed-in";
   const { overview, loading: overviewLoading, error: overviewError, refetch } = usePublicOverview();
   const { outline, loading: outlineLoading } = usePublicOutline();
+  const { alertMap, error: alertError } = usePublicAlertMap();
   const [selection, setSelection] = useState<PlaceSelection | null>(null);
   const facts = heroFacts(overview);
 
   return (
     <>
+      <AlertStrip alerts={alertMap?.alerts ?? null} to="/#alerts" />
       <section className="landing-hero" aria-labelledby="landing-title">
         <ContourBackdrop />
         <div className="landing-hero__inner">
@@ -135,6 +140,8 @@ function Landing() {
           </div>
         </div>
       </section>
+
+      <AlertsSection alertMap={alertMap} error={alertError} outline={outline} outlineLoading={outlineLoading} signedIn={signedIn} />
 
       <section id="check" className="landing-section landing-section--raised" aria-labelledby="check-title">
         <div className="landing-section__inner">

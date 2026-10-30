@@ -1,7 +1,7 @@
 import { httpClient } from "../transport/http";
 import type { LocateResult } from "../types/admin-unit.types";
 import type { ApiResponse } from "../types/api.types";
-import type { PublicArea, PublicOutline, PublicOverview, PublicSearchResults } from "../types/public.types";
+import type { PublicAlertMap, PublicArea, PublicOutline, PublicOverview, PublicSearchResults } from "../types/public.types";
 
 // server/src/modules/public/public.routes.ts. No sign-in needed: the landing page calls these.
 
@@ -14,6 +14,12 @@ export async function fetchPublicOverview(): Promise<ApiResponse<PublicOverview>
 /** The LGAs, simplified, for the drawing of the state. */
 export async function fetchPublicOutline(): Promise<ApiResponse<PublicOutline>> {
   const { data } = await httpClient.get<ApiResponse<PublicOutline>>("/api/v1/public/outline");
+  return data;
+}
+
+/** The alerts in force now and recently published flood reports. */
+export async function fetchPublicAlertMap(): Promise<ApiResponse<PublicAlertMap>> {
+  const { data } = await httpClient.get<ApiResponse<PublicAlertMap>>("/api/v1/public/alert-map");
   return data;
 }
 

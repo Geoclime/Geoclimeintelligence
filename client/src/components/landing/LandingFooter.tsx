@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { SITE } from "../../config/site";
 import { MAP_PATH } from "../../utils/map-url";
+import { InstallAppButton } from "../layout/InstallAppButton";
 import { BrandMark } from "../shared/BrandMark";
 import { LANDING_SECTIONS } from "./LandingHeader";
 
@@ -24,6 +25,7 @@ export function LandingFooter({ signedIn }: { signedIn: boolean }) {
           <p className="landing-footer__emergency">
             In an emergency, call <a href={`tel:${SITE.emergencyNumber}`}>{SITE.emergencyNumber}</a>, Nigeria's free national emergency number.
           </p>
+          <InstallAppButton className="landing-footer__install" />
         </div>
 
         <nav className="landing-footer__links" aria-label="Footer">

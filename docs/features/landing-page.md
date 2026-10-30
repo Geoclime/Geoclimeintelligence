@@ -19,7 +19,7 @@ Sections, in order:
 7. **Data sources.** Every source, with a link and its licence.
 8. **Closing call to action**, then the **footer** with the OpenStreetMap credit.
 
-Nothing on the page advertises a feature that doesn't exist yet (standard section 17.1). Flood risk and alerts are not mentioned until they ship.
+Nothing on the page advertises a feature that doesn't exist yet (standard section 17.1). Flood risk is not mentioned until it ships. Alerts and community flood reports now have their own live strip and *National alert map* section: see [flood-alerts-and-reports.md](../flood-alerts-and-reports.md).
 
 **Nigeria-wide, starting with Rivers State.** The platform presents itself as covering Nigeria, and it is built around countries and their levels so it can grow across Africa. Where it says which states are live, that comes from the data: the overview's `states` list gives the hero line "Live in Rivers State", and it updates as each state is loaded. Map, places and profile wording is generic ("states, LGAs and wards", "All regions"), and the sign-in panel and site details describe Nigeria.
 

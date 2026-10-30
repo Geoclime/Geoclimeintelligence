@@ -29,6 +29,15 @@ export class PublicController {
     }
   }
 
+  static async alertMap(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const map = await PublicService.Instance.alertMap();
+      return res.set("Cache-Control", SHORT_CACHE).json(ok(map));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async search(req: Request, res: Response, next: NextFunction) {
     try {
       const results = await PublicService.Instance.search(req.query as unknown as PublicSearchQuery);

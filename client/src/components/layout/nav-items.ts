@@ -17,14 +17,28 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-// Only screens that exist are listed. Rainfall, flood risk and alerts join once their backend
-// endpoints ship, never before (standard sections 10 and 17.1).
+// Only screens that exist are listed. Flood risk joins once its backend endpoints ship, never
+// before (standard sections 10 and 17.1).
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Explore",
     items: [
       { to: MAP_PATH, label: "Map", icon: "map", roles: [], description: "States, LGAs and wards" },
       { to: "/places", label: "Places", icon: "pin", roles: [], description: "LGA directory and ward lists" },
+    ],
+  },
+  {
+    label: "Flooding",
+    items: [
+      { to: "/alerts", label: "Alerts", icon: "alert", roles: [], description: "Flood alerts in force and the alert map" },
+      { to: "/report", label: "Report flooding", icon: "edit", roles: [], description: "Tell coordinators what you see" },
+      {
+        to: "/reports/review",
+        label: "Review reports",
+        icon: "inbox",
+        roles: ["emergency_responder", "government_official"],
+        description: "Check community reports before they go public",
+      },
     ],
   },
   {

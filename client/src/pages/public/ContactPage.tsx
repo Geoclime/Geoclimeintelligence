@@ -40,6 +40,7 @@ export function ContactPage() {
       eyebrow="Contact"
       title="Contact us"
       lead={`Choose the address that fits your message and we'll reply within ${SITE.responseDays} working days.`}
+      toc={false}
       sections={[
         {
           id: "emergency",
@@ -78,21 +79,40 @@ export function ContactPage() {
           id: "office",
           title: "Office",
           body: (
-            <>
-              <address className="contact-address">
-                {SITE.contact.address.map((line) => (
-                  <span key={line}>
-                    {line}
-                    <br />
-                  </span>
-                ))}
-              </address>
-              <p>
-                Phone: <a href={telHref(SITE.contact.phone)}>{SITE.contact.phone}</a>
-                <br />
-                {SITE.contact.hours}
-              </p>
-            </>
+            <dl className="contact-office">
+              <div>
+                <dt>
+                  <Icon name="pin" size={14} />
+                  Address
+                </dt>
+                <dd>
+                  <address className="contact-address">
+                    {SITE.contact.address.map((line) => (
+                      <span key={line}>
+                        {line}
+                        <br />
+                      </span>
+                    ))}
+                  </address>
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <Icon name="phone" size={14} />
+                  Phone
+                </dt>
+                <dd>
+                  <a href={telHref(SITE.contact.phone)}>{SITE.contact.phone}</a>
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <Icon name="history" size={14} />
+                  Office hours
+                </dt>
+                <dd>{SITE.contact.hours}</dd>
+              </div>
+            </dl>
           ),
         },
       ]}
