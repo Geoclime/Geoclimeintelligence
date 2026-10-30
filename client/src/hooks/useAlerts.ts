@@ -2,16 +2,19 @@ import { useCallback } from "react";
 import { endAlert, fetchAlerts, issueAlert } from "../endpoints/alert.endpoints";
 import type { FloodAlert, NewAlertBody } from "../types/alert.types";
 import { useLoader } from "./useLoader";
+import { useRealtimeEvent } from "./useRealtimeEvent";
 
 /**
  * Alerts for the signed-in Alerts page ("recent": in force, scheduled, and the last 30 days), with
  * issuing and ending for officials and administrators. Not cached: alerts must be current.
  */
 export function useAlerts() {
-  const { data, setData, ...state } = useLoader<FloodAlert[]>("alerts:recent", async () => {
+  const { data, setData, refetch, ...state } = useLoader<FloodAlert[]>("alerts:recent", async () => {
     const response = await fetchAlerts("recent");
     return response.data ?? [];
   });
+  // Another official issued or ended an alert: show it without a reload.
+  useRealtimeEvent("alerts:changed", refetch);
 
   /** Rejects with an ApiError so the form can show a 400's field errors. */
   const issue = useCallback(
@@ -36,5 +39,5 @@ export function useAlerts() {
     [setData],
   );
 
-  return { alerts: data ?? [], ...state, issue, end };
+  return { alerts: data ?? [], ...state, refetch, issue, end };
 }

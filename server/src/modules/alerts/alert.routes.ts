@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authorise } from "../../middleware/authorise.middleware";
+import { requireCompleteProfile } from "../../middleware/profile.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { AlertController } from "./alert.controller";
 import { alertIdSchema, createAlertSchema, listAlertsSchema } from "./alert.validation";
@@ -10,5 +11,5 @@ import { alertIdSchema, createAlertSchema, listAlertsSchema } from "./alert.vali
 export const alertsRouter = Router();
 
 alertsRouter.get("/", validate(listAlertsSchema), AlertController.list);
-alertsRouter.post("/", authorise("government_official"), validate(createAlertSchema), AlertController.create);
+alertsRouter.post("/", authorise("government_official"), requireCompleteProfile, validate(createAlertSchema), AlertController.create);
 alertsRouter.post("/:id/end", authorise("government_official"), validate(alertIdSchema), AlertController.end);

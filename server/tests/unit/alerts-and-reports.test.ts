@@ -23,6 +23,7 @@ const user = (role: AuthUser["role"], scopeAdminUnitId: string | null = null, id
   displayName: null,
   role,
   scopeAdminUnitId,
+  profileComplete: true,
 });
 
 /** Region scope over the fake areas: a scope covers itself and its children. */

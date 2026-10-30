@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Link } from "react-router";
 import { InstallAppButton } from "../../components/layout/InstallAppButton";
 import { ThemeToggle } from "../../components/layout/ThemeToggle";
@@ -9,6 +9,7 @@ import { Callout } from "../../components/shared/Callout";
 import { Icon, type IconName } from "../../components/shared/Icon";
 import { TextField } from "../../components/shared/TextField";
 import { AccessSummary } from "../../components/users/AccessSummary";
+import { HomeAreaFields } from "../../components/users/HomeAreaFields";
 import { RoleRequestCard } from "../../components/users/RoleRequestCard";
 import { RoleBadge } from "../../components/users/RoleBadge";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
@@ -129,12 +130,13 @@ function toFormValues(user: AuthUser): ProfileInput {
   return {
     displayName: user.displayName ?? "",
     phone: user.phone ?? "",
+    homeAdminUnitId: user.homeAdminUnitId ?? "",
     organisation: user.organisation ?? "",
     jobTitle: user.jobTitle ?? "",
   };
 }
 
-/** Name and contact details. Only changed fields are sent; an emptied field is cleared. */
+/** Name, contact details and home area. Only changed fields are sent; an emptied optional field is cleared. */
 function ProfileForm({ user }: { user: AuthUser }) {
   const { updateProfile } = useAuth();
   const { showToast } = useToast();
@@ -143,6 +145,7 @@ function ProfileForm({ user }: { user: AuthUser }) {
     handleSubmit,
     reset,
     setError,
+    control,
     formState: { errors, isSubmitting, isDirty, dirtyFields },
   } = useForm<ProfileInput>({ resolver: zodResolver(profileSchema), mode: "onTouched", values: toFormValues(user) });
 
@@ -195,6 +198,13 @@ function ProfileForm({ user }: { user: AuthUser }) {
             error={errors.phone?.message}
             data-cy="profile-phone"
             {...register("phone")}
+          />
+          <Controller
+            control={control}
+            name="homeAdminUnitId"
+            render={({ field, fieldState }) => (
+              <HomeAreaFields value={field.value} onChange={(id) => field.onChange(id)} error={fieldState.error?.message} />
+            )}
           />
           <TextField
             label="Organisation"

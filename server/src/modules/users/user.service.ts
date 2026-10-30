@@ -1,4 +1,5 @@
 import type { AuthUser } from "../../common/access/auth-user";
+import { domainEvents } from "../../common/events/domain-events";
 import { assertScopeAllowedForRole } from "../../common/access/roles";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../common/errors/app-error";
 import type { PageMeta } from "../../common/response/api-response";
@@ -53,8 +54,11 @@ export class UserService {
       throw new ValidationError([{ field: "scopeAdminUnitId", message: "No area with this id exists" }]);
     }
 
+    const previousRole = target.role;
     const updated = await this.users.updateAccess(id, { role, scopeAdminUnitId });
     if (!updated) throw new NotFoundError("User");
+    // A new role (asked for or not) is news to the person: they hear about it.
+    if (role !== previousRole) domainEvents.emit("role.answered", { userId: id, role, approved: true });
     // Giving the user the role they asked for is approving their request, so it closes. Any other
     // change (a scope, a different role) leaves an open request for the administrator to answer.
     if (updated.requestedRole && updated.requestedRole === role) {
@@ -71,6 +75,7 @@ export class UserService {
     if (!target.requestedRole) throw new ConflictError("This user has no open role request");
     const updated = await this.users.setRoleRequest(id, null);
     if (!updated) throw new NotFoundError("User");
+    domainEvents.emit("role.answered", { userId: id, role: target.requestedRole, approved: false });
     return toUserDto(updated);
   }
 }

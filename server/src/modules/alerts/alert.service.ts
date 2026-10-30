@@ -1,4 +1,5 @@
 import type { AuthUser } from "../../common/access/auth-user";
+import { domainEvents } from "../../common/events/domain-events";
 import { RegionAccess } from "../../common/access/region-access";
 import { ConflictError, NotFoundError, ValidationError } from "../../common/errors/app-error";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
@@ -55,6 +56,7 @@ export class AlertService {
       areaIds,
       createdBy: user.id,
     });
+    domainEvents.emit("alert.issued", { alertId: id, issuerId: user.id });
     return this.get(id);
   }
 
@@ -64,6 +66,7 @@ export class AlertService {
     if (alert.status === "ended" || alert.status === "expired") throw new ConflictError("This alert is no longer in force");
     for (const area of alert.areas) await this.regions.assert(user, area.id);
     await this.alerts.end(id, this.now());
+    domainEvents.emit("alert.ended", { alertId: id });
     return this.get(id);
   }
 

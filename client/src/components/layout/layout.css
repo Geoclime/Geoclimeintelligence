@@ -783,6 +783,29 @@
   color: var(--color-text-muted);
 }
 
+/* "Step 1 of 2" above the title of a multi-step card (Finish setting up). */
+.auth-card__step {
+  margin-bottom: var(--space-2);
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* A button that reads as a link, inside a sentence. */
+.auth-card__link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;

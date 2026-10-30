@@ -3,6 +3,13 @@ import { z } from "zod";
 
 config({ quiet: true });
 
+/** "true"/"false" (any case) to a boolean, with a default when unset. */
+const bool = (fallback: boolean) =>
+  z
+    .enum(["true", "false", "TRUE", "FALSE", "True", "False", ""])
+    .default(fallback ? "true" : "false")
+    .transform((value) => (value === "" ? fallback : value.toLowerCase() === "true"));
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
@@ -55,6 +62,57 @@ const envSchema = z.object({
       }
       return { apiKey: match[1]!, apiSecret: match[2]!, cloudName: match[3]! };
     }),
+  // Where the web app lives, for links in emails and push notifications.
+  APP_URL: z
+    .url("APP_URL must be a full URL, e.g. https://geoclime.example.com")
+    .default("http://localhost:5173")
+    .transform((url) => url.replace(/\/+$/, "")),
+  // ── Email (optional), docs/email.md ──
+  // smtp (Nodemailer) | apps_script (Google Apps Script web app) | none
+  EMAIL_PROVIDER: z.enum(["smtp", "apps_script", "none"]).default("none"),
+  // true: when the chosen provider fails, try the other one if it is configured.
+  EMAIL_FALLBACK: bool(true),
+  EMAIL_FROM_NAME: z.string().trim().default("GeoClime Intelligence"),
+  EMAIL_REPLY_TO: z.string().trim().default("").refine((v) => v === "" || z.email().safeParse(v).success, "EMAIL_REPLY_TO must be an email address"),
+  // Emails sent per worker tick (one tick every few seconds), so a big alert doesn't hit provider limits at once.
+  EMAIL_MAX_PER_TICK: z.coerce.number().int().min(1).max(500).default(30),
+  // Nodemailer / SMTP (for Gmail, use an app password).
+  SMTP_HOST: z.string().trim().default(""),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: bool(false),
+  SMTP_USER: z.string().trim().default(""),
+  SMTP_PASS: z.string().default(""),
+  EMAIL_FROM_ADDRESS: z.string().trim().default("").refine((v) => v === "" || z.email().safeParse(v).success, "EMAIL_FROM_ADDRESS must be an email address"),
+  // Apps Script web app URL ending in /exec, and the optional shared token it checks.
+  EMAIL_APPS_SCRIPT_URL: z.string().trim().default("").refine((v) => v === "" || /^https:\/\/script\.google\.com\/.+\/exec$/.test(v), "EMAIL_APPS_SCRIPT_URL must be the web app URL ending in /exec"),
+  EMAIL_APPS_SCRIPT_TOKEN: z.string().trim().default(""),
+  // Push notifications (Firebase Cloud Messaging) need a service account: the JSON key file from
+  // Firebase console > Project settings > Service accounts, pasted as-is or base64-encoded.
+  // Empty: push notifications are off. Verifying sign-ins doesn't need it.
+  FIREBASE_SERVICE_ACCOUNT: z
+    .string()
+    .trim()
+    .default("")
+    .transform((value, ctx) => {
+      if (!value) return null;
+      try {
+        const json = value.startsWith("{") ? value : Buffer.from(value, "base64").toString("utf8");
+        const parsed = JSON.parse(json) as { project_id?: string; client_email?: string; private_key?: string };
+        if (!parsed.client_email || !parsed.private_key) throw new Error("missing fields");
+        return { projectId: parsed.project_id ?? "", clientEmail: parsed.client_email, privateKey: parsed.private_key };
+      } catch {
+        ctx.addIssue({ code: "custom", message: "FIREBASE_SERVICE_ACCOUNT must be the service-account JSON (or it base64-encoded)" });
+        return z.NEVER;
+      }
+    }),
+}).superRefine((e, ctx) => {
+  // The provider chosen must have what it needs; a fallback is used only if it is complete too.
+  if (e.EMAIL_PROVIDER === "smtp" && !(e.SMTP_HOST && e.EMAIL_FROM_ADDRESS)) {
+    ctx.addIssue({ code: "custom", path: ["SMTP_HOST"], message: "EMAIL_PROVIDER=smtp needs SMTP_HOST and EMAIL_FROM_ADDRESS" });
+  }
+  if (e.EMAIL_PROVIDER === "apps_script" && !e.EMAIL_APPS_SCRIPT_URL) {
+    ctx.addIssue({ code: "custom", path: ["EMAIL_APPS_SCRIPT_URL"], message: "EMAIL_PROVIDER=apps_script needs EMAIL_APPS_SCRIPT_URL" });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,10 +1,12 @@
 import { Suspense, useCallback, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useMatches } from "react-router";
+import { NotificationProvider } from "../../contexts/NotificationContext";
 import { useAuth } from "../../hooks/useAuth";
 import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useSubmitPendingRoleRequest } from "../../hooks/useSubmitPendingRoleRequest";
 import { useToast } from "../../hooks/useToast";
 import { MAP_PATH } from "../../utils/map-url";
+import { NotificationBell } from "../notifications/NotificationBell";
 import { BrandMark } from "../shared/BrandMark";
 import { Icon } from "../shared/Icon";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
@@ -59,55 +61,58 @@ export function AppShell() {
   };
 
   return (
-    <div className="app-shell">
-      <a href="#main" className="skip-link">
-        Skip to content
-      </a>
-      <Sidebar
-        role={user.role}
-        open={drawerOpen}
-        onClose={closeDrawer}
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={toggleSidebarCollapsed}
-      />
+    <NotificationProvider>
+      <div className="app-shell">
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
+        <Sidebar
+          role={user.role}
+          open={drawerOpen}
+          onClose={closeDrawer}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebarCollapsed}
+        />
 
-      <div className={`app-body${fullBleed ? " app-body--full" : ""}`}>
-        <header className="app-topbar">
-          <button
-            ref={menuButton}
-            type="button"
-            className="app-topbar__menu"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open menu"
-            aria-controls="app-sidebar"
-            aria-expanded={drawerOpen}
-            data-cy="open-menu"
-          >
-            <Icon name="menu" size={20} />
-          </button>
-          <Link to={MAP_PATH} className="app-topbar__brand" aria-label="GeoClime Intelligence, map">
-            <BrandMark showName={false} />
-          </Link>
-          <div className="app-topbar__title">
-            <p className="app-topbar__section">{section?.label ?? "Account"}</p>
-            <p className="app-topbar__description">{section?.description ?? "Your profile and access"}</p>
-          </div>
-          <div className="app-topbar__actions">
-            <QuickSearch role={user.role} />
-            <NavLink to="/help" className="app-topbar__help" aria-label="Help and guides" title="Help and guides">
-              <Icon name="info" size={18} />
-            </NavLink>
-            <UserMenu user={user} onSignOut={() => void handleSignOut()} />
-          </div>
-        </header>
-        <OfflineBanner />
-      <PwaUpdateBanner />
-        <main id="main" className={`app-main${fullBleed ? " app-main--full" : ""}`} tabIndex={-1}>
-          <Suspense fallback={<LoadingSpinner />}>
-            <Outlet />
-          </Suspense>
-        </main>
+        <div className={`app-body${fullBleed ? " app-body--full" : ""}`}>
+          <header className="app-topbar">
+            <button
+              ref={menuButton}
+              type="button"
+              className="app-topbar__menu"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+              aria-controls="app-sidebar"
+              aria-expanded={drawerOpen}
+              data-cy="open-menu"
+            >
+              <Icon name="menu" size={20} />
+            </button>
+            <Link to={MAP_PATH} className="app-topbar__brand" aria-label="GeoClime Intelligence, map">
+              <BrandMark showName={false} />
+            </Link>
+            <div className="app-topbar__title">
+              <p className="app-topbar__section">{section?.label ?? "Account"}</p>
+              <p className="app-topbar__description">{section?.description ?? "Your profile and access"}</p>
+            </div>
+            <div className="app-topbar__actions">
+              <QuickSearch role={user.role} />
+              <NotificationBell />
+              <NavLink to="/help" className="app-topbar__help" aria-label="Help and guides" title="Help and guides">
+                <Icon name="info" size={18} />
+              </NavLink>
+              <UserMenu user={user} onSignOut={() => void handleSignOut()} />
+            </div>
+          </header>
+          <OfflineBanner />
+          <PwaUpdateBanner />
+          <main id="main" className={`app-main${fullBleed ? " app-main--full" : ""}`} tabIndex={-1}>
+            <Suspense fallback={<LoadingSpinner />}>
+              <Outlet />
+            </Suspense>
+          </main>
+        </div>
       </div>
-    </div>
+    </NotificationProvider>
   );
 }

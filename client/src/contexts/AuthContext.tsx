@@ -1,6 +1,8 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchCurrentUser, submitRoleRequest, updateCurrentUser, withdrawRoleRequest } from "../endpoints/auth.endpoints";
+import { unregisterPushToken } from "../endpoints/notification.endpoints";
 import { toApiError } from "../transport/api-error";
+import { currentPushToken, deletePushToken } from "../transport/push-messaging";
 import { identity } from "../transport/identity";
 import type { AuthUser, IdentitySession, ProfilePatch, RoleRequestBody } from "../types/auth.types";
 
@@ -123,7 +125,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       withdrawRoleRequest: withdrawRole,
       sendPasswordReset: (email) => identity.sendPasswordReset(email),
       resendVerificationEmail: (email, password) => identity.resendVerificationEmail(email, password),
-      signOut: () => identity.signOut(),
+      signOut: async () => {
+        // Stop push on this device first (it needs the session), so a shared computer doesn't keep
+        // receiving the last person's alerts. Best effort: signing out never waits on it failing.
+        const token = await currentPushToken().catch(() => null);
+        if (token) await unregisterPushToken(token).catch(() => undefined);
+        await deletePushToken();
+        await identity.signOut();
+      },
     }),
     [state, retry, updateProfile, requestRole, withdrawRole],
   );

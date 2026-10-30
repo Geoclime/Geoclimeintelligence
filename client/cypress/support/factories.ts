@@ -13,6 +13,8 @@ export interface StubUser {
   jobTitle?: string | null;
   role: Role;
   scopeAdminUnitId: string | null;
+  homeAdminUnitId?: string | null;
+  profileComplete?: boolean;
   roleRequest?: { role: "emergency_responder" | "government_official" | "researcher"; reason: string; requestedAt: string } | null;
   createdAt: string;
   updatedAt: string;

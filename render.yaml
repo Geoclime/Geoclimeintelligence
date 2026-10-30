@@ -39,6 +39,37 @@ services:
       # Cloudinary for flood-report media: cloudinary://<api_key>:<api_secret>@<cloud_name>, set in the dashboard.
       - key: CLOUDINARY_URL
         sync: false
+      # Notifications (docs/notifications.md, docs/email.md). Secrets: set in the dashboard.
+      - key: APP_URL
+        sync: false
+      - key: EMAIL_PROVIDER
+        sync: false
+      - key: EMAIL_FALLBACK
+        value: "true"
+      - key: EMAIL_FROM_NAME
+        value: GeoClime Intelligence
+      - key: EMAIL_REPLY_TO
+        sync: false
+      - key: EMAIL_MAX_PER_TICK
+        value: "30"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        sync: false
+      - key: EMAIL_APPS_SCRIPT_URL
+        sync: false
+      - key: EMAIL_APPS_SCRIPT_TOKEN
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
       # Render puts one proxy in front of the service; the public routes' rate limit needs the client IP.
       - key: TRUST_PROXY_HOPS
         value: "1"

@@ -1,7 +1,7 @@
 import type { AuthUser, VerifiedIdentity } from "../src/common/access/auth-user";
 import type { TokenVerifier } from "../src/modules/auth/firebase-token-verifier";
 import { User } from "../src/modules/users/user.entity";
-import type { IUserRepository, NewUser, RoleRequestPatch, UserAccessPatch, UserListQuery, UserProfilePatch } from "../src/modules/users/user.types";
+import { toAuthUser, type IUserRepository, type NewUser, type RoleRequestPatch, type UserAccessPatch, type UserListQuery, type UserProfilePatch } from "../src/modules/users/user.types";
 
 let sequence = 0;
 
@@ -18,6 +18,7 @@ export function makeUser(overrides: Partial<User> = {}): User {
     jobTitle: null,
     role: "general_public",
     scopeAdminUnitId: null,
+    homeAdminUnitId: null,
     requestedRole: null,
     roleRequestReason: null,
     roleRequestedAt: null,
@@ -29,8 +30,7 @@ export function makeUser(overrides: Partial<User> = {}): User {
 }
 
 export function asAuthUser(user: User): AuthUser {
-  const { id, firebaseUid, email, displayName, role, scopeAdminUnitId } = user;
-  return { id, firebaseUid, email, displayName, role, scopeAdminUnitId };
+  return toAuthUser(user);
 }
 
 /** In-memory IUserRepository -- lets services run with no database. */

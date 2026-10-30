@@ -49,16 +49,27 @@ export interface AuthUser {
   jobTitle?: string | null;
   /** The user's open request for a staff role; null or absent when there is none. */
   roleRequest?: RoleRequest | null;
+  /** The LGA they live or work in: decides which flood alerts reach them. */
+  homeAdminUnitId?: string | null;
+  /**
+   * Name, phone and home area are filled in. False sends them to "Finish setting up" before
+   * anything else; absent (an older backend) counts as complete.
+   */
+  profileComplete?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
 
-/** Body for PATCH /api/v1/auth/me. Role and scope can't be changed here; "" or null clears a field. */
+/**
+ * Body for PATCH /api/v1/auth/me. Role and scope can't be changed here. Organisation and job title
+ * can be cleared with null; name, phone and home area can be changed but never cleared.
+ */
 export interface ProfilePatch {
   displayName?: string | null;
   phone?: string | null;
   organisation?: string | null;
   jobTitle?: string | null;
+  homeAdminUnitId?: string | null;
 }
 
 /**

@@ -5,6 +5,7 @@ import { AuthLayout } from "./components/layout/AuthLayout";
 import { PublicLayout } from "./components/layout/PublicLayout";
 import { GuestOnly } from "./components/routing/GuestOnly";
 import { RequireAuth } from "./components/routing/RequireAuth";
+import { RequireCompleteProfile } from "./components/routing/RequireCompleteProfile";
 import { RequireRole } from "./components/routing/RequireRole";
 import { RouteErrorPage } from "./pages/RouteErrorPage";
 
@@ -38,6 +39,8 @@ const ImportReviewPage = page(() => import("./pages/admin/imports/ImportReviewPa
 const AlertsPage = page(() => import("./pages/alerts/AlertsPage"), (m) => m.AlertsPage);
 const ReportFloodPage = page(() => import("./pages/reports/ReportFloodPage"), (m) => m.ReportFloodPage);
 const ReviewReportsPage = page(() => import("./pages/reports/ReviewReportsPage"), (m) => m.ReviewReportsPage);
+const WelcomePage = page(() => import("./pages/onboarding/WelcomePage"), (m) => m.WelcomePage);
+const NotificationsPage = page(() => import("./pages/notifications/NotificationsPage"), (m) => m.NotificationsPage);
 const HelpPage = page(() => import("./pages/help/HelpPage"), (m) => m.HelpPage);
 const NotFoundPage = page(() => import("./pages/NotFoundPage"), (m) => m.NotFoundPage);
 
@@ -75,38 +78,49 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          // Finish setting up: signed in, but before the app (RequireCompleteProfile sends people here).
           {
-            element: <AppShell />,
+            element: <AuthLayout />,
+            children: [{ path: "welcome", element: <WelcomePage /> }],
+          },
+          {
+            element: <RequireCompleteProfile />,
             children: [
-              { path: "map", element: <MapPage />, handle: fullBleed },
-              { path: "account", element: <AccountPage /> },
-              { path: "help", element: <HelpPage /> },
-              { path: "alerts", element: <AlertsPage /> },
-              { path: "report", element: <ReportFloodPage /> },
               {
-                path: "reports/review",
-                element: <RequireRole roles={["emergency_responder", "government_official"]} />,
-                children: [{ index: true, element: <ReviewReportsPage /> }],
-              },
-              { path: "places", element: <PlacesPage /> },
-              { path: "places/:id", element: <LgaProfilePage /> },
-              { path: "places/:id/wards/:wardId", element: <WardPage /> },
-              {
-                path: "admin",
-                element: <RequireRole roles={["administrator"]} />,
+                element: <AppShell />,
                 children: [
-                  { path: "users", element: <AdminUsersPage /> },
-                  { path: "countries", element: <AdminCountriesPage /> },
-                  { path: "countries/new", element: <CountryFormPage /> },
-                  { path: "countries/:code", element: <CountryDetailPage /> },
-                  { path: "countries/:code/edit", element: <CountryFormPage /> },
-                  { path: "configuration", element: <ConfigurationPage /> },
-                  { path: "imports", element: <ImportHistoryPage /> },
-                  { path: "imports/new", element: <ImportNewPage /> },
-                  { path: "imports/:id", element: <ImportReviewPage /> },
+                  { path: "map", element: <MapPage />, handle: fullBleed },
+                  { path: "account", element: <AccountPage /> },
+                  { path: "notifications", element: <NotificationsPage /> },
+                  { path: "help", element: <HelpPage /> },
+                  { path: "alerts", element: <AlertsPage /> },
+                  { path: "report", element: <ReportFloodPage /> },
+                  {
+                    path: "reports/review",
+                    element: <RequireRole roles={["emergency_responder", "government_official"]} />,
+                    children: [{ index: true, element: <ReviewReportsPage /> }],
+                  },
+                  { path: "places", element: <PlacesPage /> },
+                  { path: "places/:id", element: <LgaProfilePage /> },
+                  { path: "places/:id/wards/:wardId", element: <WardPage /> },
+                  {
+                    path: "admin",
+                    element: <RequireRole roles={["administrator"]} />,
+                    children: [
+                      { path: "users", element: <AdminUsersPage /> },
+                      { path: "countries", element: <AdminCountriesPage /> },
+                      { path: "countries/new", element: <CountryFormPage /> },
+                      { path: "countries/:code", element: <CountryDetailPage /> },
+                      { path: "countries/:code/edit", element: <CountryFormPage /> },
+                      { path: "configuration", element: <ConfigurationPage /> },
+                      { path: "imports", element: <ImportHistoryPage /> },
+                      { path: "imports/new", element: <ImportNewPage /> },
+                      { path: "imports/:id", element: <ImportReviewPage /> },
+                    ],
+                  },
+                  { path: "*", element: <NotFoundPage /> },
                 ],
               },
-              { path: "*", element: <NotFoundPage /> },
             ],
           },
         ],

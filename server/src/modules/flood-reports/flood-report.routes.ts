@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from "express"
 import multer from "multer";
 import { AppError, ValidationError } from "../../common/errors/app-error";
 import { authorise } from "../../middleware/authorise.middleware";
+import { requireCompleteProfile } from "../../middleware/profile.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { FloodReportController } from "./flood-report.controller";
 import {
@@ -42,7 +43,7 @@ function uploadMedia(req: Request, res: Response, next: NextFunction) {
 export const floodReportsRouter = Router();
 
 // The fixed paths come before "/:id".
-floodReportsRouter.post("/", uploadMedia, validate(createReportSchema), FloodReportController.create);
+floodReportsRouter.post("/", requireCompleteProfile, uploadMedia, validate(createReportSchema), FloodReportController.create);
 floodReportsRouter.get("/options", FloodReportController.options);
 floodReportsRouter.get("/mine", validate(myReportsSchema), FloodReportController.mine);
 floodReportsRouter.get("/", authorise("emergency_responder", "government_official"), validate(listReportsSchema), FloodReportController.list);

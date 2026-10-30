@@ -53,6 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Support",
     items: [
+      { to: "/notifications", label: "Notifications", icon: "bell", roles: [], description: "Your inbox and notification settings" },
       { to: "/help", label: "Help", icon: "info", roles: [], description: "Guides for every part of the platform" },
       { to: "/account", label: "Profile", icon: "user", roles: [], description: "Your details, access and preferences" },
     ],

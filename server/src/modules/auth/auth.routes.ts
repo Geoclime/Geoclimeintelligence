@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireCompleteProfile } from "../../middleware/profile.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { AuthController } from "./auth.controller";
 import { roleRequestSchema, updateProfileSchema } from "./auth.validation";
@@ -11,5 +12,5 @@ authRouter.get("/me", AuthController.me);
 // Each user edits only their own profile details; role and region scope are not accepted here.
 authRouter.patch("/me", validate(updateProfileSchema), AuthController.updateProfile);
 // Asking for a staff role grants nothing until an administrator approves it (PATCH /users/:id/access).
-authRouter.put("/me/role-request", validate(roleRequestSchema), AuthController.requestRole);
+authRouter.put("/me/role-request", requireCompleteProfile, validate(roleRequestSchema), AuthController.requestRole);
 authRouter.delete("/me/role-request", AuthController.withdrawRoleRequest);

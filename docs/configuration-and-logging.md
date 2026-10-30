@@ -23,6 +23,9 @@ All paths are relative to `server/`.
 | `FIREBASE_PROJECT_ID` | **yes** | – | The Firebase project whose ID tokens this API accepts |
 | `CORS_ORIGINS` | no | empty | Comma-separated browser origins allowed to call the API |
 | `CLOUDINARY_URL` | no | empty | `cloudinary://<api_key>:<api_secret>@<cloud_name>`, from the Cloudinary dashboard: where flood-report photos, voice notes, videos and documents are stored ([flood-alerts-and-reports.md](flood-alerts-and-reports.md)) |
+| `APP_URL` | no | `http://localhost:5173` | Where the web app lives: links in emails and push notifications |
+| `EMAIL_PROVIDER` | no | `none` | `smtp`, `apps_script` or `none`; with `EMAIL_FALLBACK`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`, `EMAIL_MAX_PER_TICK`, the `SMTP_*` settings, `EMAIL_FROM_ADDRESS`, `EMAIL_APPS_SCRIPT_URL` and `EMAIL_APPS_SCRIPT_TOKEN` ([email.md](email.md)) |
+| `FIREBASE_SERVICE_ACCOUNT` | no | empty | Service-account JSON (or base64) for push notifications ([notifications.md](notifications.md)) |
 | `TRUST_PROXY_HOPS` | no | `0` | Proxies in front of the API (Render: `1`), so `req.ip` is the visitor's address for the public routes' rate limit ([public-landing-api.md](public-landing-api.md)) |
 | `IMPORT_MAX_FILE_MB` | no | `60` | Maximum upload size in MB on the Imports routes (413 above it) |
 | `IMPORT_MAX_UNZIPPED_MB` | no | `100` | Maximum unpacked zip size in MB (zip-bomb guard) |

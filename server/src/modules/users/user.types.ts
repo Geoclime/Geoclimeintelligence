@@ -23,6 +23,15 @@ export interface UserProfilePatch {
   phone?: string | null;
   organisation?: string | null;
   jobTitle?: string | null;
+  homeAdminUnitId?: string | null;
+}
+
+/**
+ * A complete profile has a full name, a phone number and a home LGA. Until it is complete, the app
+ * asks for them before anything else, and the API refuses reports and requests.
+ */
+export function isProfileComplete(user: Pick<User, "displayName" | "phone" | "homeAdminUnitId">): boolean {
+  return (user.displayName?.trim().length ?? 0) >= 2 && Boolean(user.phone?.trim()) && Boolean(user.homeAdminUnitId);
 }
 
 /** What a user sends to ask for a role (PUT /api/v1/auth/me/role-request). */
@@ -79,6 +88,10 @@ export interface UserDto {
   jobTitle: string | null;
   role: UserRole;
   scopeAdminUnitId: string | null;
+  /** The LGA they live or work in. */
+  homeAdminUnitId: string | null;
+  /** Name, phone and home area are all filled in (isProfileComplete). */
+  profileComplete: boolean;
   /** The user's open request for a staff role, if any. */
   roleRequest: RoleRequestDto | null;
   createdAt: string;
@@ -96,6 +109,8 @@ export function toUserDto(user: User): UserDto {
     jobTitle: user.jobTitle ?? null,
     role: user.role,
     scopeAdminUnitId: user.scopeAdminUnitId,
+    homeAdminUnitId: user.homeAdminUnitId ?? null,
+    profileComplete: isProfileComplete(user),
     roleRequest:
       user.requestedRole && user.roleRequestedAt
         ? { role: user.requestedRole, reason: user.roleRequestReason ?? "", requestedAt: user.roleRequestedAt.toISOString() }
@@ -113,5 +128,6 @@ export function toAuthUser(user: User): AuthUser {
     displayName: user.displayName,
     role: user.role,
     scopeAdminUnitId: user.scopeAdminUnitId,
+    profileComplete: isProfileComplete(user),
   };
 }

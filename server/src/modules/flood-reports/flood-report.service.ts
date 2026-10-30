@@ -1,4 +1,5 @@
 import type { AuthUser } from "../../common/access/auth-user";
+import { domainEvents } from "../../common/events/domain-events";
 import { RegionAccess } from "../../common/access/region-access";
 import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../common/errors/app-error";
 import type { PageMeta } from "../../common/response/api-response";
@@ -125,6 +126,7 @@ export class FloodReportService {
       await this.discard(media);
       throw error;
     }
+    domainEvents.emit("report.submitted", { reportId: id, reporterId: user.id });
     return this.toDto((await this.reports.findReport(id))!, user);
   }
 
@@ -156,6 +158,7 @@ export class FloodReportService {
       at: this.now(),
     });
     if (!done) throw new ConflictError("This report has already been reviewed");
+    domainEvents.emit("report.reviewed", { reportId: id, reviewerId: user.id });
     return this.toDto((await this.reports.findReport(id))!, user);
   }
 

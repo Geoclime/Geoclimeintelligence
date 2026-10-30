@@ -71,6 +71,12 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 
 39. [features/installable-app.md](features/installable-app.md): the PWA: install on phones and computers, offline use, and update prompts.
 
+## Notifications
+
+40. [notifications.md](notifications.md): in-app (Socket.IO), email and push (FCM) notifications: what triggers them, who receives them, per-person settings, and setting up push.
+41. [email.md](email.md): the email outbox and worker, SMTP or Google Apps Script, fallback, retries, and the Apps Script to deploy.
+42. [features/onboarding.md](features/onboarding.md): "Finish setting up": name, phone and home LGA before using the app.
+
 ## Accounts
 
 37. [role-requests.md](role-requests.md): why nobody picks their own role; asking for a staff role at sign-up or on the profile page, and how administrators approve or decline it.

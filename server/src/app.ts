@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler.middle
 import { adminUnitsRouter } from "./modules/admin-units/admin-unit.routes";
 import { alertsRouter } from "./modules/alerts/alert.routes";
 import { floodReportsRouter } from "./modules/flood-reports/flood-report.routes";
+import { notificationsRouter } from "./modules/notifications/notification.routes";
 import { countriesRouter } from "./modules/admin-units/country.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { dataSourcesRouter } from "./modules/data-sources/data-source.routes";
@@ -57,6 +58,7 @@ export function createApp(): Express {
   app.use("/api/v1/rainfall", rainfallRouter);
   app.use("/api/v1/alerts", alertsRouter);
   app.use("/api/v1/flood-reports", floodReportsRouter);
+  app.use("/api/v1/notifications", notificationsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

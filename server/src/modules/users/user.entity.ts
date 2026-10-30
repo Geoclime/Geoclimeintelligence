@@ -40,6 +40,10 @@ export class User {
   @Column({ name: "scope_admin_unit_id", type: "uuid", nullable: true })
   scopeAdminUnitId!: string | null;
 
+  /** The LGA this person lives or works in: part of a complete profile, and which flood alerts reach them. */
+  @Column({ name: "home_admin_unit_id", type: "uuid", nullable: true })
+  homeAdminUnitId!: string | null;
+
   /** An open request for a staff role, set by the user and resolved by an administrator. All three are null together. */
   @Column({ name: "requested_role", type: "varchar", length: 32, nullable: true })
   requestedRole!: RequestableRole | null;

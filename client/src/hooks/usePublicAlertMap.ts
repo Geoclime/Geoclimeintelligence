@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { fetchPublicAlertMap } from "../endpoints/public.endpoints";
 import type { PublicAlertMap } from "../types/public.types";
 import { useLoader } from "./useLoader";
+import { useRealtimeEvent } from "./useRealtimeEvent";
 
 /** How often alerts are re-checked while the page is open and visible. */
 const REFRESH_MS = 2 * 60 * 1000;
@@ -17,6 +18,9 @@ export function usePublicAlertMap() {
     if (!response.data) throw new Error(response.message || "The server returned no alerts.");
     return response.data;
   });
+
+  // Signed in, the live connection says when alerts change; the timer covers everyone else.
+  useRealtimeEvent("alerts:changed", refetch);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

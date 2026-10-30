@@ -13,7 +13,7 @@
  *
  * Bump VERSION when this file's behaviour changes; old caches are deleted on activate.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = `geoclime-shell-${VERSION}`;
 const ASSETS = `geoclime-assets-${VERSION}`;
 const STATIC = `geoclime-static-${VERSION}`;
@@ -35,6 +35,51 @@ self.addEventListener("activate", (event) => {
       const names = await caches.keys();
       await Promise.all(names.filter((name) => name.startsWith("geoclime-") && !KEEP.includes(name)).map((name) => caches.delete(name)));
       await self.clients.claim();
+    })(),
+  );
+});
+
+// Push notifications (Firebase Cloud Messaging). The server sends data-only messages
+// (server/src/common/push/push-sender.ts: title, body, link, tag) and this worker shows them, so
+// they look the same on every browser. While the app is open and focused it shows nothing: the
+// in-app notification, which arrived over the live connection, already covers it.
+self.addEventListener("push", (event) => {
+  event.waitUntil(
+    (async () => {
+      let message;
+      try {
+        const payload = event.data ? event.data.json() : {};
+        message = payload.data || payload;
+      } catch {
+        return;
+      }
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      if (windows.some((client) => client.focused)) return;
+      await self.registration.showNotification(message.title || "GeoClime Intelligence", {
+        body: message.body || "",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        tag: message.tag || "geoclime",
+        renotify: true,
+        data: { link: message.link || "/" },
+      });
+    })(),
+  );
+});
+
+// Tapping a notification opens its page: in an open app window if there is one, else a new one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.link) || "/", self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      if (open) {
+        await open.focus();
+        return open.navigate(target);
+      }
+      return self.clients.openWindow(target);
     })(),
   );
 });

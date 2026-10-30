@@ -12,6 +12,8 @@ export interface AuthUser {
   role: UserRole;
   /** null = unrestricted; otherwise the admin unit (and its descendants) this user may act on. */
   scopeAdminUnitId: string | null;
+  /** Name, phone and home area are filled in. Some actions need it (middleware/profile.middleware.ts). */
+  profileComplete: boolean;
 }
 
 /** The identity Firebase vouches for after an ID token is verified. */
