@@ -84,3 +84,9 @@
 .button--danger:hover:not(:disabled) {
   background: var(--color-danger-hover);
 }
+
+/* The dark theme's red is light, so white text on it is hard to read: use the dark surface colour. */
+:root[data-theme="dark"] .button--danger,
+:root[data-theme="dark"] .button--danger:hover:not(:disabled) {
+  color: #2b0b08;
+}

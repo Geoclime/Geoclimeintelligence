@@ -310,6 +310,14 @@
   cursor: pointer;
 }
 
+/* The voice, video and document buttons sit together, wrapping on narrow screens. */
+.media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
 .media-row__video,
 .report-card__video {
   width: 100%;
@@ -382,4 +390,23 @@
   font-size: var(--text-sm);
   font-weight: 600;
   text-decoration: none;
+}
+
+/* ---------- Cards on the flooding pages ---------- */
+/* Their own padding and title, so these pages never depend on another page's stylesheet. */
+
+.flood-card {
+  padding: var(--space-4);
+}
+
+.flood-card__title {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+@media (min-width: 640px) {
+  .flood-card {
+    padding: var(--space-5) var(--space-6);
+  }
 }

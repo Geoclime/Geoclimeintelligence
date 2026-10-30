@@ -15,7 +15,7 @@ import { TextAreaField } from "../shared/TextAreaField";
 import { TextField } from "../shared/TextField";
 import { LocationPicker } from "./LocationPicker";
 import { PhotoPicker } from "./PhotoPicker";
-import { reportFormSchema, type ReportFormValues } from "./report-form.schema";
+import { MAX_RECORDING_SECONDS, reportFormSchema, type ReportFormValues } from "./report-form.schema";
 import { DocumentPicker } from "./DocumentPicker";
 import { VideoPicker } from "./VideoPicker";
 import { VoiceRecorder } from "./VoiceRecorder";
@@ -148,11 +148,16 @@ export function ReportFloodForm({ onSubmit, onSent }: ReportFloodFormProps) {
           {limits?.video.enabled ? "Photos, video and voice note" : "Photos and voice note"} <span className="report-form__optional">(optional)</span>
         </h2>
         <PhotoPicker photos={photos} onChange={setPhotos} />
-        <VoiceRecorder recording={audio} onChange={setAudio} />
-        {limits?.video.enabled && (
-          <VideoPicker video={video} onChange={setVideo} maxBytes={limits.video.maxBytes} maxSeconds={limits.video.maxSeconds ?? 60} />
-        )}
-        {limits?.file.enabled && <DocumentPicker files={files} onChange={setFiles} maxCount={limits.file.maxCount} maxBytes={limits.file.maxBytes} />}
+        <div className="media-actions">
+          <VoiceRecorder recording={audio} onChange={setAudio} />
+          {limits?.video.enabled && (
+            <VideoPicker video={video} onChange={setVideo} maxBytes={limits.video.maxBytes} maxSeconds={limits.video.maxSeconds ?? MAX_RECORDING_SECONDS} />
+          )}
+          {limits?.file.enabled && <DocumentPicker files={files} onChange={setFiles} maxCount={limits.file.maxCount} maxBytes={limits.file.maxBytes} />}
+        </div>
+        <p className="media-picker__note">
+          Voice notes{limits?.video.enabled ? " and videos" : ""} can be up to {MAX_RECORDING_SECONDS} seconds.
+        </p>
       </section>
 
       <Button type="submit" variant="danger" size="lg" fullWidth loading={isSubmitting} loadingLabel="Sending report…" data-cy="report-submit">

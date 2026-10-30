@@ -34,7 +34,7 @@ export function ReportFloodPage() {
       </header>
 
       <div className="flood-page__grid">
-        <section className="card account-card" aria-label="Flood report">
+        <section className="card flood-card" aria-label="Flood report">
           <ReportFloodForm
             key={formKey}
             onSubmit={submit}
@@ -50,8 +50,8 @@ export function ReportFloodPage() {
           <Callout tone="danger" title="Is anyone in danger?">
             Call <a href={`tel:${SITE.emergencyNumber}`}>{SITE.emergencyNumber}</a> first. Reports here help coordinators plan; they don't send help.
           </Callout>
-          <section className="card account-card" aria-labelledby="my-reports-title" data-cy="my-reports">
-            <h2 id="my-reports-title" className="account-card__title">
+          <section className="card flood-card" aria-labelledby="my-reports-title" data-cy="my-reports">
+            <h2 id="my-reports-title" className="flood-card__title">
               Your reports
             </h2>
             {mine.loading && mine.reports.length === 0 ? (

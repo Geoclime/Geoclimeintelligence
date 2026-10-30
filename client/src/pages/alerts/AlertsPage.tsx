@@ -102,7 +102,7 @@ export function AlertsPage() {
           reportDays={alertMap?.reportDays ?? 7}
         />
         <section aria-labelledby="in-force-title" className="flood-page__side">
-          <h2 id="in-force-title" className="account-card__title">
+          <h2 id="in-force-title" className="flood-card__title">
             In force
           </h2>
           {loading && alerts.length === 0 ? (

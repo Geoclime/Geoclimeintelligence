@@ -91,7 +91,7 @@ describe("Flood reports", () => {
     });
     cy.visit("/report", { onBeforeLoad: (win) => cy.stub(win.navigator.geolocation, "getCurrentPosition").callsFake(() => undefined) });
     cy.dataCy("video-picker").should("contain", "Add a video");
-    cy.dataCy("document-picker").should("contain", "Attach a document");
+    cy.dataCy("document-picker").should("contain", "Attach a PDF");
     cy.dataCy("report-submit").click();
     cy.dataCy("field-error").should("contain", "Choose how deep the water is").and("contain", "Describe what you see");
   });

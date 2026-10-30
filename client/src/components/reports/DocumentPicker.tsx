@@ -44,7 +44,7 @@ export function DocumentPicker({ files, onChange, maxCount, maxBytes }: Document
       {files.length < maxCount && (
         <label htmlFor={inputId} className="button button--secondary button--sm media-row__pick">
           <Icon name="file" size={14} />
-          <span>Attach a document (PDF)</span>
+          <span>Attach a PDF</span>
           <input
             id={inputId}
             type="file"

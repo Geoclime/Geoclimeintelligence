@@ -59,7 +59,7 @@ export function VideoPicker({ video, onChange, maxBytes, maxSeconds }: VideoPick
       ) : (
         <label htmlFor={inputId} className="button button--secondary button--sm media-row__pick">
           <Icon name="plus" size={14} />
-          <span>Add a video (up to {maxSeconds}s)</span>
+          <span>Add a video</span>
           <input
             id={inputId}
             type="file"

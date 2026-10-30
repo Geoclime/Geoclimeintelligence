@@ -92,7 +92,7 @@ export function VoiceRecorder({ recording, onChange }: VoiceRecorderProps) {
         </>
       ) : (
         <Button variant="secondary" size="sm" onClick={start} data-cy="voice-record">
-          Record a voice note (up to {MAX_RECORDING_SECONDS}s)
+          Record a voice note
         </Button>
       )}
       {error && <p className="media-picker__note">{error}</p>}
