@@ -1,7 +1,22 @@
 import { Link } from "react-router";
 import type { LocateResult, LonLat } from "../../types/admin-unit.types";
 import { formatCoordinates } from "../../utils/formatCoordinates";
+import { googleMapsUrl } from "../../utils/google-maps";
+import { Icon } from "../shared/Icon";
 import { Spinner } from "../shared/Spinner";
+
+/** The spot's coordinates, as a link that opens it in Google Maps in a new tab. */
+export function CoordinatesLink({ point }: { point: LonLat }) {
+  const text = formatCoordinates(point);
+  return (
+    <p className="location-summary__point">
+      <a href={googleMapsUrl(point)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${text} in Google Maps (opens in a new tab)`} title="Open in Google Maps" data-cy="open-in-google-maps">
+        {text}
+        <Icon name="externalLink" size={12} />
+      </a>
+    </p>
+  );
+}
 
 interface LocationSummaryProps {
   point: LonLat;
@@ -27,7 +42,7 @@ export function LocationSummary({ point, result, loading, error, title }: Locati
           {title}
         </p>
       )}
-      <p className="location-summary__point">{formatCoordinates(point)}</p>
+      <CoordinatesLink point={point} />
       {loading && (
         <p className="location-summary__status">
           <Spinner size="sm" decorative /> Finding the area…

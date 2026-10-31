@@ -1,11 +1,11 @@
 import type { Point } from "geojson";
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import type { FacilityType } from "./layer-rules";
+import type { FacilityOrigin, FacilityType } from "./layer-rules";
 
 /**
  * One facility (Backlog2 ERD `infrastructure`): a clinic, school, police station, market, ferry
- * terminal, water point... from Geofabrik's OpenStreetMap extract. Rows only arrive through the
- * map-layer loader.
+ * terminal, water point... Most come from Geofabrik's OpenStreetMap extract through the map-layer
+ * loader (`origin` 'import'); an administrator can also save one from the map (`origin` 'manual').
  */
 @Entity("infrastructure")
 export class Infrastructure {
@@ -19,9 +19,9 @@ export class Infrastructure {
   @Column({ name: "admin_unit_id", type: "uuid", nullable: true })
   adminUnitId!: string | null;
 
-  /** OpenStreetMap's id, as Geofabrik writes it. Unique together with `fromArea`. */
-  @Column({ name: "osm_id", type: "varchar", length: 40 })
-  osmId!: string;
+  /** OpenStreetMap's id, as Geofabrik writes it. Unique together with `fromArea`. Null only for a place saved by hand. */
+  @Column({ name: "osm_id", type: "varchar", length: 40, nullable: true })
+  osmId!: string | null;
 
   /** Mapped in OSM as an outline (a hospital's grounds); `geom` is then a point inside it. */
   @Column({ name: "from_area", type: "boolean", default: false })
@@ -43,6 +43,18 @@ export class Infrastructure {
 
   @Column({ name: "source_id", type: "uuid" })
   sourceId!: string;
+
+  /** 'import' for a loader row, 'manual' for a place an administrator saved from the map. */
+  @Column({ type: "varchar", length: 10, default: "import" })
+  origin!: FacilityOrigin;
+
+  /** What the administrator wrote about a place saved by hand. Always null for an imported row. */
+  @Column({ type: "varchar", length: 500, nullable: true })
+  note!: string | null;
+
+  /** The administrator who saved the place. Null for an imported row, or once that user is deleted. */
+  @Column({ name: "created_by", type: "uuid", nullable: true })
+  createdBy!: string | null;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

@@ -11,6 +11,7 @@ import { MapOverlayLayers } from "../map/MapOverlayLayers";
 import { PinLayer } from "../map/PinLayer";
 import { buttonClassName } from "../shared/Button";
 import { Icon } from "../shared/Icon";
+import { googleMapsUrl } from "../../utils/google-maps";
 import "../map/map.css";
 import "./reports.css";
 
@@ -63,7 +64,7 @@ export function ReportLocationMap({ point, placeName, lgaId = null }: ReportLoca
   const data = useMapLayers(view?.bbox ?? null, view?.zoom ?? ZOOM, layers);
   const [longitude, latitude] = point;
   const platformMap = `${MAP_PATH}?${writePin(writeMapView(new URLSearchParams(), { longitude, latitude, zoom: ZOOM + 1 }), point, "Flood report")}`;
-  const googleMaps = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+  const googleMaps = googleMapsUrl(point);
 
   const chooseSatellite = (next: boolean) => {
     setSatellite(next);

@@ -22,7 +22,7 @@ export class InfrastructureRepository extends BaseRepository<Infrastructure> imp
     const rows: { fc: InfrastructureFeatureCollection }[] = await this.repo.query(
       `WITH view AS (SELECT ST_MakeEnvelope($1, $2, $3, $4, 4326) AS box),
             picked AS (
-              SELECT f.id, f.name, f.facility_type, f.osm_class, f.geom,
+              SELECT f.id, f.name, f.facility_type, f.osm_class, f.origin, f.note, f.geom,
                      row_number() OVER (ORDER BY array_position($6::text[], f.facility_type::text), f.name, f.id) AS n
                 FROM infrastructure f, view
                WHERE f.geom && view.box AND ST_Intersects(f.geom, view.box)
@@ -36,7 +36,8 @@ export class InfrastructureRepository extends BaseRepository<Infrastructure> imp
            'type', 'Feature',
            'id', id,
            'geometry', ST_AsGeoJSON(geom, 6)::json,
-           'properties', json_build_object('id', id, 'name', name, 'facilityType', facility_type, 'osmClass', osm_class)
+           'properties', json_build_object('id', id, 'name', name, 'facilityType', facility_type, 'osmClass', osm_class,
+                                           'origin', origin, 'note', note)
          ) ORDER BY n) FILTER (WHERE n <= $7::int), '[]'::json)
        ) AS fc
        FROM picked`,

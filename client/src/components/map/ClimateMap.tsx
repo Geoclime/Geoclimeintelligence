@@ -12,6 +12,7 @@ import Map, {
 import { env } from "../../config/env";
 import type { ResolvedTheme } from "../../contexts/ThemeContext";
 import type { BBox, LonLat } from "../../types/admin-unit.types";
+import type { ClickedFeature } from "../../types/map-layer.types";
 import { Icon } from "../shared/Icon";
 import { DEFAULT_VIEW, mapStyleUrl, padBBox } from "./map-style";
 import { MapErrorBoundary } from "./MapErrorBoundary";
@@ -67,7 +68,8 @@ interface ClimateMapProps {
   fitPadding?: FitPadding;
   /** Called once the map has loaded and after every pan or zoom. */
   onViewChange?: (view: MapView) => void;
-  onMapClick?: (point: LonLat) => void;
+  /** `features` are the drawn features under the click that belong to `interactiveLayerIds`. */
+  onMapClick?: (point: LonLat, features: ClickedFeature[]) => void;
   interactiveLayerIds?: string[];
   /** Map sources, layers and popups. */
   children?: ReactNode;
@@ -75,6 +77,15 @@ interface ClimateMapProps {
   overlay?: ReactNode;
   className?: string;
   dataCy?: string;
+}
+
+function toClickedFeature(feature: NonNullable<MapMouseEvent["features"]>[number]): ClickedFeature {
+  const geometry = feature.geometry;
+  return {
+    layerId: feature.layer?.id ?? "",
+    properties: feature.properties ?? {},
+    coordinates: geometry.type === "Point" ? [geometry.coordinates[0]!, geometry.coordinates[1]!] : null,
+  };
 }
 
 function viewOf(event: MapEvent | ViewStateChangeEvent): MapView {
@@ -174,7 +185,7 @@ function MapCanvas({
   const handleMoveEnd = useCallback((event: ViewStateChangeEvent) => onViewChange?.(viewOf(event)), [onViewChange]);
 
   const handleClick = useCallback(
-    (event: MapMouseEvent) => onMapClick?.([event.lngLat.lng, event.lngLat.lat]),
+    (event: MapMouseEvent) => onMapClick?.([event.lngLat.lng, event.lngLat.lat], (event.features ?? []).map(toClickedFeature)),
     [onMapClick],
   );
 

@@ -22,6 +22,7 @@ import type {
  * coordinates, repaired if invalid, inside the country's rough box. Rows are never updated once
  * stored, except that a settlement, facility or building saved without a ward is linked when its ward later exists.
  * layers:clear deletes a country's roads, waterways, infrastructure or buildings, so they can be reloaded or the country deleted.
+ * It leaves facilities an administrator saved by hand (origin 'manual'): no import put them there.
  */
 
 /** Why PostGIS refuses a shape, as the keys of the check query and the words shown to the user. */
@@ -314,7 +315,11 @@ class PostgresLayerLoadTx implements LayerLoadTx {
   }
 
   async deleteInfrastructure(countryCode: string): Promise<number> {
-    const rows: unknown[] = await this.manager.query(`DELETE FROM infrastructure WHERE country_code = $1 RETURNING 1`, [countryCode]);
+    // Only what an import put there: a place an administrator saved by hand from the map stays.
+    const rows: unknown[] = await this.manager.query(
+      `DELETE FROM infrastructure WHERE country_code = $1 AND origin = 'import' RETURNING 1`,
+      [countryCode],
+    );
     return rows.length;
   }
 

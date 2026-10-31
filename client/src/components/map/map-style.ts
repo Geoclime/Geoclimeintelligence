@@ -130,7 +130,7 @@ export function mapStyleUrl(theme: ResolvedTheme, satellite = false): string {
 }
 
 /** Layer ids the map listens to for clicks and hover. */
-export const INTERACTIVE_LAYERS = ["lga-fill", "ward-fill"];
+export const INTERACTIVE_LAYERS = ["lga-fill", "ward-fill", "infrastructure-dots"];
 
 export function boundaryLayers(palette: MapPalette, selectedLgaId: string | null) {
   const state: LayerProps = {
@@ -290,14 +290,24 @@ export function overlayLayers(palette: MapPalette) {
     ...(Object.entries(FACILITY_GROUP_OF) as [FacilityType, FacilityGroup][]).flatMap(([type, group]) => [type, palette.facility[group]]),
     palette.facility.other,
   ] as unknown as string;
+  // A place an administrator saved by hand gets a dark ring and a slightly larger dot, so they can find their own.
+  const savedByHand = ["==", ["get", "origin"], "manual"];
   const infrastructureDots: LayerProps = {
     id: "infrastructure-dots",
     type: "circle",
     paint: {
       "circle-color": facilityColour,
-      "circle-stroke-color": palette.settlementStroke,
-      "circle-stroke-width": 1,
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 6],
+      "circle-stroke-color": ["case", savedByHand, palette.label, palette.settlementStroke] as unknown as string,
+      "circle-stroke-width": ["case", savedByHand, 2, 1] as unknown as number,
+      "circle-radius": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8,
+        ["case", savedByHand, 4, 2.5],
+        14,
+        ["case", savedByHand, 8, 6],
+      ] as unknown as number,
     },
   };
   const infrastructureLabels: LayerProps = {

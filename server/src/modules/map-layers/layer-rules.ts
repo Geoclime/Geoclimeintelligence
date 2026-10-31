@@ -129,6 +129,16 @@ export function facilityTypeOf(osmClass: string): FacilityType | null {
   return FACILITY_CLASSES[normalised] ?? (WORSHIP_CLASS.test(normalised) ? "worship" : null);
 }
 
+/** Where a facility came from: the OpenStreetMap loader, or an administrator saving a place from the map. */
+export type FacilityOrigin = "import" | "manual";
+
+/** The level a facility is linked to (State, LGA, Ward), as the loader's own default. */
+export const DEFAULT_WARD_LEVEL = 3;
+
+/** Mirrors infrastructure.name (varchar 200) and infrastructure.note (varchar 500). */
+export const MAX_FACILITY_NAME_LENGTH = 200;
+export const MAX_FACILITY_NOTE_LENGTH = 500;
+
 /** Health and emergency from the start, then services people travel to, then everything up close. */
 export function facilityTypesAtZoom(zoom?: number): FacilityType[] {
   if (zoom === undefined || zoom >= 12) return [...FACILITY_TYPES];

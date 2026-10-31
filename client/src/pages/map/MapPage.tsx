@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { AdminBoundaryLayers } from "../../components/map/AdminBoundaryLayers";
 import { AdminUnitPopup } from "../../components/map/AdminUnitPopup";
 import { ClimateMap, type MapView } from "../../components/map/ClimateMap";
+import { DeletePlaceDialog } from "../../components/map/DeletePlaceDialog";
 import { LayerToggle, type LayerOption } from "../../components/map/LayerToggle";
 import { LocationTrace } from "../../components/map/LocationTrace";
 import { MapLayerSources } from "../../components/map/MapLayerSources";
@@ -11,6 +12,8 @@ import { MapOverlayLayers } from "../../components/map/MapOverlayLayers";
 import { MyLocationLayer } from "../../components/map/MyLocationLayer";
 import { MapOverviewPanel } from "../../components/map/MapOverviewPanel";
 import { PinLayer } from "../../components/map/PinLayer";
+import { PlaceFormDialog } from "../../components/map/PlaceFormDialog";
+import { SavedPlacePopup } from "../../components/map/SavedPlacePopup";
 import { TraceLineLayer } from "../../components/map/TraceLineLayer";
 import {
   INTERACTIVE_LAYERS,
@@ -30,12 +33,15 @@ import { useGeolocation } from "../../hooks/useGeolocation";
 import { useLocatePoint } from "../../hooks/useLocatePoint";
 import { useMapLayerCatalog } from "../../hooks/useMapLayerCatalog";
 import { useMapLayers } from "../../hooks/useMapLayers";
+import { useSavedPlaces } from "../../hooks/useSavedPlaces";
 import { useTheme } from "../../hooks/useTheme";
 import type { BBox, LonLat } from "../../types/admin-unit.types";
+import type { ClickedFeature } from "../../types/map-layer.types";
 import { boundsAround } from "../../utils/geo-distance";
 import { readLayers, readMapView, readPin, readPinLabel, writeLayers, writeMapView, writePin } from "../../utils/map-url";
 import { overlayHint } from "../../utils/overlay-layers";
 import { hasAnyRole } from "../../utils/roles";
+import { describeWhere, handSavedPlaceIn } from "../../utils/saved-places";
 import "./MapPage.css";
 
 const LEGEND = [
@@ -79,6 +85,8 @@ export function MapPage() {
   const [panelsOpen, setPanelsOpen] = useState(false);
   const [focus, setFocus] = useState<BBox | null>(null);
   const [focusNonce, setFocusNonce] = useState(0);
+  // Bumped when an administrator saves, edits or deletes a place, so the facilities are fetched again.
+  const [facilitiesRefresh, setFacilitiesRefresh] = useState(0);
 
   const layers = readLayers(searchParams);
   const selectedLgaId = searchParams.get("lga");
@@ -99,7 +107,7 @@ export function MapPage() {
     infrastructure: infrastructureLayer,
     buildings: buildingLayer,
     error: layerError,
-  } = useMapLayers(view?.bbox ?? null, zoom, layers);
+  } = useMapLayers(view?.bbox ?? null, zoom, layers, facilitiesRefresh);
   const { catalog } = useMapLayerCatalog();
   const located = useLocatePoint();
   const geolocation = useGeolocation();
@@ -145,13 +153,31 @@ export function MapPage() {
     [updateParams],
   );
 
+  // A saved, edited or deleted place changes the facilities layer: fetch it again, and switch it on so
+  // a place just saved can be seen. The spot's own popup has done its job.
+  const clearLocated = located.clear;
+  const placesChanged = useCallback(() => {
+    clearLocated();
+    setFacilitiesRefresh((count) => count + 1);
+    updateParams((params) => writeLayers(params, { ...readLayers(params), infrastructure: true }));
+  }, [clearLocated, updateParams]);
+  const savedPlaces = useSavedPlaces(placesChanged);
+
   const handleMapClick = useCallback(
-    async (point: LonLat) => {
+    async (point: LonLat, clicked: ClickedFeature[] = []) => {
+      // An administrator clicking a place they saved opens that place, instead of asking which ward it is in.
+      const place = isAdmin ? handSavedPlaceIn(clicked) : null;
+      if (place) {
+        located.clear();
+        savedPlaces.select(place);
+        return;
+      }
+      savedPlaces.closeSelected();
       const result = await located.locate(point);
       const lga = result?.units.find((unit) => unit.level === 2);
       if (lga) selectLga(lga.id);
     },
-    [located, selectLga],
+    [isAdmin, located, savedPlaces, selectLga],
   );
 
   // A link with a pinned place (a flood report's "Open on the full map") opens with it marked and
@@ -270,7 +296,7 @@ export function MapPage() {
         fitNonce={focusNonce}
         fitPadding={fitPadding}
         onViewChange={handleViewChange}
-        onMapClick={(point) => void handleMapClick(point)}
+        onMapClick={(point, clicked) => void handleMapClick(point, clicked)}
         interactiveLayerIds={INTERACTIVE_LAYERS}
         className="map-page__map"
         dataCy="home-map"
@@ -302,6 +328,15 @@ export function MapPage() {
             error={located.error}
             onClose={closePopup}
             title={popupTitle}
+            onSavePlace={isAdmin ? () => savedPlaces.openCreate(located.point!, describeWhere(located.result)) : undefined}
+          />
+        )}
+        {savedPlaces.selected && (
+          <SavedPlacePopup
+            place={savedPlaces.selected}
+            onEdit={() => savedPlaces.openEdit(savedPlaces.selected!)}
+            onDelete={() => savedPlaces.askRemove(savedPlaces.selected)}
+            onClose={savedPlaces.closeSelected}
           />
         )}
       </ClimateMap>
@@ -349,6 +384,17 @@ export function MapPage() {
       >
         {panelsOpen ? "Hide layers" : "Layers"}
       </Button>
+
+      {savedPlaces.form && (
+        <PlaceFormDialog
+          key={savedPlaces.formKey}
+          target={savedPlaces.form}
+          onClose={savedPlaces.closeForm}
+          onSubmit={savedPlaces.submit}
+          onDone={savedPlaces.finished}
+        />
+      )}
+      <DeletePlaceDialog place={savedPlaces.removing} onClose={savedPlaces.closeRemove} onConfirm={savedPlaces.confirmRemove} />
 
       {noCountry && (
         <div className="map-page__empty" data-cy="map-empty">

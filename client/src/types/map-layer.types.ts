@@ -54,15 +54,71 @@ export type RoadFeatureCollection = LayerFeatureCollection<MultiLineString, Road
 export type WaterwayFeatureCollection = LayerFeatureCollection<MultiLineString | MultiPolygon, WaterwayFeatureProperties>;
 export type SettlementFeatureCollection = LayerFeatureCollection<Point, SettlementFeatureProperties>;
 
+/** Where a facility came from: the OpenStreetMap import, or an administrator saving it from the map. */
+export type FacilityOrigin = "import" | "manual";
+
 export interface InfrastructureFeatureProperties {
   id: string;
   name: string | null;
   facilityType: FacilityType;
-  /** The OSM class as delivered, e.g. "clinic" within "health". */
+  /** The OSM class as delivered, e.g. "clinic" within "health". For a place saved by hand, the kind chosen. */
   osmClass: string;
+  origin: FacilityOrigin;
+  /** What the administrator wrote about a place saved by hand; always null for an imported one. */
+  note: string | null;
 }
 
 export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
+
+/** A place an administrator saved from the map. Mirrors FacilityDto in server/src/modules/map-layers/map-layer.types.ts. */
+export interface SavedPlace {
+  id: string;
+  name: string | null;
+  facilityType: FacilityType;
+  osmClass: string;
+  note: string | null;
+  origin: FacilityOrigin;
+  longitude: number;
+  latitude: number;
+  /** The ward the place sits in; null when the point is in no loaded ward. */
+  adminUnitId: string | null;
+  createdAt: string;
+}
+
+/** POST /api/v1/infrastructure. `kind` is a facility class such as "hospital" (utils/facility-kinds.ts). */
+export interface NewPlaceBody {
+  name: string;
+  kind: string;
+  note?: string;
+  longitude: number;
+  latitude: number;
+}
+
+/** PATCH /api/v1/infrastructure/:id. A blank note clears it. The point can't be moved. */
+export interface UpdatePlaceBody {
+  name?: string;
+  kind?: string;
+  note?: string;
+}
+
+/** A hand-saved place on the map: what the popup and the edit form need. */
+export interface PlaceOnMap {
+  id: string;
+  name: string | null;
+  facilityType: FacilityType;
+  osmClass: string;
+  note: string | null;
+  /** [longitude, latitude] */
+  point: [number, number];
+}
+
+/** One drawn feature under a click: which layer, and the properties it was built from. */
+export interface ClickedFeature {
+  layerId: string;
+  properties: Record<string, unknown>;
+  /** [longitude, latitude] of a point feature; null for any other shape. */
+  coordinates: [number, number] | null;
+}
 
 export interface BuildingFeatureProperties {
   id: string;

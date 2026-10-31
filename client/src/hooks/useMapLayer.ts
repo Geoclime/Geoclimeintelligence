@@ -10,6 +10,8 @@ interface LayerOptions {
   enabled?: boolean;
   /** Lets the server thin the layer and simplify shapes for this zoom. Rounded so tiny zooms don't refetch. */
   zoom?: number;
+  /** Change it to fetch the same view again, e.g. after a place was saved. */
+  refreshKey?: number;
 }
 
 /**
@@ -18,7 +20,7 @@ interface LayerOptions {
  * then fetches that bbox, and replies for an older view are dropped. Never cached: a bbox key
  * would almost never repeat (standard section 14).
  */
-export function useMapLayer<L extends OverlayLayerId>(layer: L, bbox: BBox | null, { enabled = true, zoom }: LayerOptions = {}) {
+export function useMapLayer<L extends OverlayLayerId>(layer: L, bbox: BBox | null, { enabled = true, zoom, refreshKey = 0 }: LayerOptions = {}) {
   const roundedZoom = zoom === undefined ? undefined : Math.round(zoom);
   const view = useDebounce(enabled && bbox ? { bbox, zoom: roundedZoom } : null, 300);
   const [data, setData] = useState<OverlayCollections[L] | null>(null);
@@ -49,7 +51,7 @@ export function useMapLayer<L extends OverlayLayerId>(layer: L, bbox: BBox | nul
       });
     // viewKey stands in for `view`, whose identity changes on every debounce.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewKey, layer]);
+  }, [viewKey, layer, refreshKey]);
 
   return { data: enabled ? data : null, loading: enabled && loading, error: enabled ? error : null };
 }

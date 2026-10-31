@@ -430,6 +430,22 @@
   font-size: var(--text-xs);
 }
 
+/* The coordinates open the spot in Google Maps: underlined so they read as a link. */
+.location-summary__point a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.location-summary__point a:hover,
+.location-summary__point a:focus-visible {
+  color: var(--color-text);
+  text-decoration-style: solid;
+}
+
 .location-summary__status {
   display: flex;
   align-items: center;
@@ -544,4 +560,35 @@
   .detail-map {
     height: 420px;
   }
+}
+
+/* ---------- Places an administrator saved by hand ---------- */
+
+.admin-unit-popup__save {
+  margin-top: var(--space-3);
+}
+
+.saved-place {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 200px;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.saved-place__kind {
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+}
+
+.saved-place__note {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.saved-place__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }

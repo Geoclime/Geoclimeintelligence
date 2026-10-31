@@ -4,11 +4,14 @@ import { AppError, ValidationError } from "../../common/errors/app-error";
 import { authorise } from "../../middleware/authorise.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { MAX_IMPORT_FILE_BYTES } from "../data-sources/imports/readers/reader-limits";
+import { FacilityController } from "./facility.controller";
+import { createFacilitySchema, facilityIdSchema, updateFacilitySchema } from "./facility.validation";
 import { MapLayerController } from "./map-layer.controller";
 import { clearMapLayerSchema, layerGeoJsonSchema, uploadMapLayerSchema } from "./map-layer.validation";
 
 // Mounted at /api/v1/map-layers, /api/v1/roads, /api/v1/waterways, /api/v1/settlements, /api/v1/infrastructure and /api/v1/buildings. Read
-// routes are open to any signed-in user; POST /api/v1/map-layers/upload is Administrator-only.
+// routes are open to any signed-in user; POST /api/v1/map-layers/upload and saving, changing or
+// deleting a place by hand on /api/v1/infrastructure are Administrator-only.
 
 const singleFile = multer({
   storage: multer.memoryStorage(),
@@ -46,9 +49,15 @@ waterwaysRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController
 export const settlementsRouter = Router();
 settlementsRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController.settlements);
 
-/** GET /api/v1/infrastructure/geojson?bbox=...&zoom=... */
+/**
+ * GET /api/v1/infrastructure/geojson?bbox=...&zoom=... for any signed-in user. POST / saves a place
+ * an import missed, and PATCH and DELETE /:id change or remove one saved that way: Administrator-only.
+ */
 export const infrastructureRouter = Router();
 infrastructureRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController.infrastructure);
+infrastructureRouter.post("/", authorise("administrator"), validate(createFacilitySchema), FacilityController.create);
+infrastructureRouter.patch("/:id", authorise("administrator"), validate(updateFacilitySchema), FacilityController.update);
+infrastructureRouter.delete("/:id", authorise("administrator"), validate(facilityIdSchema), FacilityController.remove);
 
 /** GET /api/v1/buildings/geojson?bbox=...&zoom=... (empty below zoom 15) */
 export const buildingsRouter = Router();

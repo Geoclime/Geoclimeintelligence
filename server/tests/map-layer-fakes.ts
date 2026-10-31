@@ -13,9 +13,13 @@ import type {
   SettlementRow,
   WaterwayRow,
 } from "../src/modules/map-layers/map-layer-loader.types";
+import type { FacilityOrigin } from "../src/modules/map-layers/layer-rules";
 import type {
   BuildingFeatureCollection,
+  FacilityChanges,
+  FacilityDto,
   IBuildingRepository,
+  IFacilityRepository,
   IInfrastructureRepository,
   InfrastructureFeatureCollection,
   IRoadRepository,
@@ -23,6 +27,8 @@ import type {
   IWaterwayRepository,
   LayerGeoJsonQuery,
   LayerSummary,
+  ManualFacilitySource,
+  NewFacility,
   RoadFeatureCollection,
   SettlementFeatureCollection,
   WaterwayFeatureCollection,
@@ -48,6 +54,71 @@ export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepos
 
   async summarise() {
     return this.summary;
+  }
+}
+
+/**
+ * Places saved by hand, kept in memory. `seed` adds a row as if it were already stored, which is how
+ * a test gets an imported facility (origin "import") to refuse a change to.
+ */
+export class InMemoryFacilityRepository implements IFacilityRepository {
+  rows = new Map<string, FacilityDto & { origin: FacilityOrigin }>();
+  sources: ManualFacilitySource[] = [];
+  created: NewFacility[] = [];
+  private sequence = 0;
+
+  seed(overrides: Partial<FacilityDto> = {}): FacilityDto {
+    this.sequence += 1;
+    const row: FacilityDto = {
+      id: `50000000-0000-4000-8000-${String(this.sequence).padStart(12, "0")}`,
+      name: "Seeded clinic",
+      facilityType: "health",
+      osmClass: "clinic",
+      note: null,
+      origin: "manual",
+      longitude: 7,
+      latitude: 4.8,
+      adminUnitId: null,
+      createdAt: "2026-10-30T00:00:00.000Z",
+      ...overrides,
+    };
+    this.rows.set(row.id, row);
+    return row;
+  }
+
+  async findById(id: string) {
+    return this.rows.get(id) ?? null;
+  }
+
+  async ensureManualSource(input: ManualFacilitySource) {
+    if (!this.sources.some((source) => source.datasetName === input.datasetName)) this.sources.push(input);
+    return "60000000-0000-4000-8000-000000000001";
+  }
+
+  async create(input: NewFacility) {
+    this.created.push(input);
+    return this.seed({
+      name: input.name,
+      facilityType: input.facilityType,
+      osmClass: input.osmClass,
+      note: input.note,
+      longitude: input.longitude,
+      latitude: input.latitude,
+      adminUnitId: input.adminUnitId,
+    });
+  }
+
+  async update(id: string, changes: FacilityChanges) {
+    const row = this.rows.get(id);
+    if (!row || row.origin !== "manual") return null;
+    Object.assign(row, changes);
+    return row;
+  }
+
+  async delete(id: string) {
+    const row = this.rows.get(id);
+    if (!row || row.origin !== "manual") return false;
+    return this.rows.delete(id);
   }
 }
 
