@@ -41,14 +41,15 @@ Every report starts *Waiting for review*. Emergency responders, government offic
 - The map is only downloaded when it is opened, so the queue stays quick on a slow connection. If it can't load, the rest of the card still works.
 - Reviewers see the exact position. The public alert map still shows it rounded to about 100 m, and never names the reporter.
 
-**The national alert map.** It colours each LGA by its most severe alert in force, with published reports from the last 7 days as dots.
-- **Landing page:** a live status strip under the header (the count of alerts in force in the colour of the most severe one; amber, "No official flood alerts in force. 2 community flood reports in the last 7 days, the deepest chest-deep", when there is no alert but community reports have been published; and "No flood alerts in force right now" in green only when there is neither: calling it all-clear next to a report of deep water would be wrong), and a *National alert map* section with the alerts and a *Report flooding* button.
+**The national alert map.** It colours each LGA by its most severe alert in force, with published reports from the last 7 days as dots, and the **floods responders recorded on the ground** as larger magenta markers (sized by area; see [field-survey.md](field-survey.md)).
+- **Landing page:** a live status strip under the header (the count of alerts in force in the colour of the most severe one; amber, "No official flood alerts in force. 2 community flood reports in the last 7 days, the deepest chest-deep", when there is no alert but community reports have been published, and likewise for "1 flood recorded on the ground in the last 3 days, the largest 3.2 ha"; and "No flood alerts in force right now" in green only when there is none of these: calling it all-clear next to a report of deep water, or a measured flood, would be wrong), and a *National alert map* section with the alerts and a *Report flooding* button.
+- **The status strip scrolls when its sentence is too long to fit** (a ticker, with the link fixed on the right), so a long line never wraps and strands the link. A short sentence stays still. It holds still while the pointer is over it, and for anyone whose device is set to reduce motion it is a plain wrapped line. See [`useTicker.ts`](../client/src/hooks/useTicker.ts) and [`AlertStrip.tsx`](../client/src/components/alerts/AlertStrip.tsx).
 - **Signed-in app:** `/alerts` has the same map, past alerts, and *Issue an alert* for officials.
 - **Navigation:** a new *Flooding* group with Alerts, Report flooding and Review reports.
 
 | Endpoint | Who |
 |---|---|
-| `GET /api/v1/public/alert-map` | Anyone (no sign-in): alerts in force and published reports, rounded |
+| `GET /api/v1/public/alert-map` | Anyone (no sign-in): alerts in force, published reports and recorded floods, rounded |
 | `GET /api/v1/alerts?view=active\|recent` | Signed in |
 | `POST /api/v1/alerts`, `PATCH /api/v1/alerts/:id`, `POST /api/v1/alerts/:id/end`, `DELETE /api/v1/alerts/:id` | Official, administrator (region-checked) |
 | `POST /api/v1/flood-reports` (multipart), `GET /api/v1/flood-reports/mine` | Signed in |

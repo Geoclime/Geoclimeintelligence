@@ -39,7 +39,7 @@ const portHarcourtArea = {
   },
 };
 
-const noAlerts = { alerts: [], reports: [], reportDays: 7, generatedAt: "2026-10-30T09:00:00.000Z" };
+const noAlerts = { alerts: [], reports: [], reportDays: 7, floods: [], floodDays: 3, generatedAt: "2026-10-30T09:00:00.000Z" };
 
 function stubPublic(alertMap: object = noAlerts) {
   cy.interceptApi("GET", "/public/alert-map", { data: alertMap }).as("getAlertMap");

@@ -37,6 +37,7 @@ beforeEach(() => {
       sources,
       alerts: { list: async () => [] },
       floodReports: { publishedSince: async () => [] },
+      floodExtents: { publicActive: async () => [] },
     }),
   );
 });

@@ -1,4 +1,4 @@
-import { BOUNDARY_LAYER_IDS, OVERLAY_LAYER_IDS, type MapLayerId } from "../components/map/map-style";
+import { BOUNDARY_LAYER_IDS, OVERLAY_LAYER_IDS, SURVEY_LAYER_IDS, type MapLayerId } from "../components/map/map-style";
 import type { LonLat } from "../types/admin-unit.types";
 
 /**
@@ -26,7 +26,7 @@ export interface MapUrlView {
   zoom: number;
 }
 
-const ALL_LAYERS: MapLayerId[] = [...BOUNDARY_LAYER_IDS, ...OVERLAY_LAYER_IDS];
+const ALL_LAYERS: MapLayerId[] = [...BOUNDARY_LAYER_IDS, ...OVERLAY_LAYER_IDS, ...SURVEY_LAYER_IDS];
 
 function num(value: string | null, min: number, max: number): number | null {
   if (value === null || value.trim() === "") return null;

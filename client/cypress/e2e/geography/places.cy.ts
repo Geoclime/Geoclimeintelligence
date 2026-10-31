@@ -68,6 +68,8 @@ describe("Places", () => {
       }).as("getWards");
       cy.interceptApi("GET", "/admin-units/geojson?*", { data: featureCollection([WARD]) }, { query: { level: "3" } }).as("wardShapes");
       cy.interceptApi("GET", "/rainfall?*", { data: rainfallSeries() }).as("getRainfall");
+      cy.interceptApi("GET", "/flood-extents/history*", { data: { total: 0, active: 0, largestAreaM2: 0, latestAt: null, items: [] } }).as("getFloodHistory");
+      cy.interceptApi("GET", "/flood-extents/geojson*", { data: { type: "FeatureCollection", features: [], truncated: false } }).as("floodLayer");
     });
 
     it("shows the latest month and the last 12 months against their averages, with a table view", () => {
@@ -91,6 +93,46 @@ describe("Places", () => {
       cy.get('[aria-label^="2025 total"]').click();
       cy.dataCy("rainfall-period").should("have.value", "2025");
       cy.dataCy("rainfall-years").find("tbody tr").should("have.length", 3);
+    });
+
+    it("shows the floods responders recorded in the LGA, newest first, with a link to each on the map", () => {
+      const flood = (id: string, overrides: Record<string, unknown> = {}) => ({
+        id,
+        areaM2: 103_000,
+        depth: "knee",
+        method: "walked",
+        observedAt: "2026-10-30T09:00:00.000Z",
+        receded: false,
+        recededAt: null,
+        wardName: "Phward 2",
+        longitude: 7.0134,
+        latitude: 4.7774,
+        ...overrides,
+      });
+      cy.interceptApi("GET", "/flood-extents/history*", {
+        data: {
+          total: 2,
+          active: 1,
+          largestAreaM2: 103_000,
+          latestAt: "2026-10-30T09:00:00.000Z",
+          items: [flood("f1"), flood("f2", { areaM2: 8_000, receded: true, recededAt: "2026-09-03T09:00:00.000Z", observedAt: "2026-09-02T09:00:00.000Z" })],
+        },
+      }).as("getFloodHistory");
+
+      cy.visit(`/places/${PORT_HARCOURT.id}`);
+      cy.wait("@getFloodHistory").its("request.query").should("include", { areaId: PORT_HARCOURT.id });
+      cy.dataCy("flood-history-figures").should("contain", "10.3 ha").and("contain", "Still active");
+      cy.dataCy("flood-history-item").should("have.length", 2).first().should("contain", "10.3 ha").and("contain", "Active").and("contain", "Phward 2");
+      cy.dataCy("flood-history-item").last().should("contain", "Receded");
+      cy.dataCy("flood-history-map-link").first().should("have.attr", "href").and("match", /^\/map\?.*lng=7\.0134.*lat=4\.7774/);
+      // The floods are drawn on the LGA's own map too, asked for over the LGA's box.
+      cy.wait("@floodLayer").its("request.query.bbox").should("match", /^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/);
+    });
+
+    it("says honestly when no flood has been recorded in the LGA", () => {
+      cy.visit(`/places/${PORT_HARCOURT.id}`);
+      cy.dataCy("flood-history-empty").should("contain", "No floods have been recorded in Port Harcourt yet");
+      cy.dataCy("flood-history-item").should("not.exist");
     });
 
     it("says so when no rainfall is loaded for the LGA", () => {
@@ -122,6 +164,50 @@ describe("Places", () => {
   });
 
   describe("Ward view", () => {
+    beforeEach(() => {
+      cy.interceptApi("GET", "/flood-extents/history*", { data: { total: 0, active: 0, largestAreaM2: 0, latestAt: null, items: [] } }).as("getFloodHistory");
+      cy.interceptApi("GET", "/flood-extents/geojson*", { data: { type: "FeatureCollection", features: [], truncated: false } }).as("floodLayer");
+    });
+
+    it("shows the floods recorded in the ward, without repeating the ward on every row", () => {
+      cy.interceptApi("GET", `/admin-units/${WARD.id}`, { data: detail(WARD, PORT_HARCOURT) });
+      cy.interceptApi("GET", `/admin-units/${PORT_HARCOURT.id}`, { data: detail(PORT_HARCOURT, STATE) });
+      cy.interceptApi("GET", "/flood-extents/history*", {
+        data: {
+          total: 1,
+          active: 1,
+          largestAreaM2: 103_000,
+          latestAt: "2026-10-30T09:00:00.000Z",
+          items: [
+            {
+              id: "f1",
+              areaM2: 103_000,
+              depth: "knee",
+              method: "walked",
+              observedAt: "2026-10-30T09:00:00.000Z",
+              receded: false,
+              recededAt: null,
+              wardName: "Phward 17",
+              longitude: 7.0134,
+              latitude: 4.7774,
+            },
+          ],
+        },
+      }).as("getFloodHistory");
+
+      cy.visit(`/places/${PORT_HARCOURT.id}/wards/${WARD.id}`);
+      cy.wait("@getFloodHistory").its("request.query").should("include", { areaId: WARD.id });
+      cy.dataCy("flood-history-item").should("have.length", 1).first().should("contain", "10.3 ha").and("contain", "Knee-deep").and("not.contain", "Phward 17");
+      cy.wait("@floodLayer").its("request.query.bbox").should("match", /^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/);
+    });
+
+    it("says honestly when no flood has been recorded in the ward", () => {
+      cy.interceptApi("GET", `/admin-units/${WARD.id}`, { data: detail(WARD, PORT_HARCOURT) });
+      cy.interceptApi("GET", `/admin-units/${PORT_HARCOURT.id}`, { data: detail(PORT_HARCOURT, STATE) });
+      cy.visit(`/places/${PORT_HARCOURT.id}/wards/${WARD.id}`);
+      cy.dataCy("flood-history-empty").should("contain", "No floods have been recorded in Phward 17 yet");
+    });
+
     it("shows the ward with its parent LGA and source", () => {
       cy.interceptApi("GET", `/admin-units/${WARD.id}`, { data: detail(WARD, PORT_HARCOURT) });
       cy.interceptApi("GET", `/admin-units/${PORT_HARCOURT.id}`, { data: detail(PORT_HARCOURT, STATE) });

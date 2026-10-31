@@ -3,6 +3,8 @@ import type { BBox } from "../../common/geo/geo";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import { AdminUnitService } from "../admin-units/admin-unit.service";
 import { AlertService } from "../alerts/alert.service";
+import { FloodExtentService } from "../field-survey/flood-extent.service";
+import { SURVEY_LIMITS } from "../field-survey/survey-rules";
 import { FloodReportService } from "../flood-reports/flood-report.service";
 import { toRef, type AdminUnitRef, type IAdminUnitRepository, type LocateResult } from "../admin-units/admin-unit.types";
 import { DataSourceRepository } from "../data-sources/data-source.repository";
@@ -63,6 +65,7 @@ export interface PublicServiceDeps {
   sources: Pick<IDataSourceRepository, "findById">;
   alerts: Pick<AlertService, "list">;
   floodReports: Pick<FloodReportService, "publishedSince">;
+  floodExtents: Pick<FloodExtentService, "publicActive">;
   now?: () => number;
 }
 
@@ -85,6 +88,7 @@ export class PublicService {
       sources: DataSourceRepository.Instance,
       alerts: AlertService.Instance,
       floodReports: FloodReportService.Instance,
+      floodExtents: FloodExtentService.Instance,
     }));
   }
 
@@ -145,8 +149,12 @@ export class PublicService {
     return this.cached(
       "alert-map",
       async () => {
-        const [alerts, reports] = await Promise.all([this.deps.alerts.list({ view: "active" }), this.deps.floodReports.publishedSince(REPORT_DAYS, REPORT_LIMIT)]);
-        return { alerts, reports, reportDays: REPORT_DAYS, generatedAt: new Date(this.now()).toISOString() };
+        const [alerts, reports, floods] = await Promise.all([
+          this.deps.alerts.list({ view: "active" }),
+          this.deps.floodReports.publishedSince(REPORT_DAYS, REPORT_LIMIT),
+          this.deps.floodExtents.publicActive(),
+        ]);
+        return { alerts, reports, reportDays: REPORT_DAYS, floods, floodDays: SURVEY_LIMITS.publicFloodDays, generatedAt: new Date(this.now()).toISOString() };
       },
       ALERT_MAP_TTL_MS,
     );

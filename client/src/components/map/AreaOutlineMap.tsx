@@ -1,10 +1,13 @@
 import type { Feature, FeatureCollection, MultiPolygon } from "geojson";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Layer, Source } from "react-map-gl/mapbox";
 import type { ResolvedTheme } from "../../contexts/ThemeContext";
 import type { AdminUnitFeatureCollection, BBox } from "../../types/admin-unit.types";
+import type { FloodExtentFeatureCollection, SelectedSurvey } from "../../types/field-survey.types";
+import { surveyFeatureIn } from "../../utils/survey-click";
 import { ClimateMap, type MapView } from "./ClimateMap";
 import { mapPalette } from "./map-style";
+import { surveyLayers } from "./survey-style";
 
 interface AreaOutlineMapProps {
   label: string;
@@ -16,15 +19,22 @@ interface AreaOutlineMapProps {
   contextGeometry?: MultiPolygon | null;
   /** Areas inside this one (e.g. an LGA's wards), drawn dashed. */
   innerAreas?: AdminUnitFeatureCollection | null;
+  /** Floods recorded in this area, drawn as on the main map. */
+  floods?: FloodExtentFeatureCollection | null;
+  /** Called with the flood that was clicked, or null for a click elsewhere. Makes the floods clickable. */
+  onSelectFlood?: (flood: Extract<SelectedSurvey, { type: "flood" }> | null) => void;
   onViewChange?: (view: MapView) => void;
   dataCy?: string;
+  /** Anything else to draw on the map, such as the popup of the flood that was clicked. */
+  children?: ReactNode;
 }
 
 const asFeature = (geometry: MultiPolygon): Feature<MultiPolygon> => ({ type: "Feature", geometry, properties: {} });
 
 /** A small map that outlines one area: the LGA profile and ward pages use it. */
-export function AreaOutlineMap({ label, theme, geometry, bbox, contextGeometry, innerAreas, onViewChange, dataCy }: AreaOutlineMapProps) {
+export function AreaOutlineMap({ label, theme, geometry, bbox, contextGeometry, innerAreas, floods, onSelectFlood, onViewChange, dataCy, children }: AreaOutlineMapProps) {
   const palette = useMemo(() => mapPalette(theme), [theme]);
+  const flood = useMemo(() => surveyLayers(palette), [palette]);
   const area = useMemo<FeatureCollection<MultiPolygon>>(
     () => ({ type: "FeatureCollection", features: [asFeature(geometry)] }),
     [geometry],
@@ -35,7 +45,23 @@ export function AreaOutlineMap({ label, theme, geometry, bbox, contextGeometry, 
   );
 
   return (
-    <ClimateMap label={label} theme={theme} fitTo={bbox} onViewChange={onViewChange} className="detail-map" dataCy={dataCy}>
+    <ClimateMap
+      label={label}
+      theme={theme}
+      fitTo={bbox}
+      onViewChange={onViewChange}
+      onMapClick={
+        onSelectFlood
+          ? (point, clicked) => {
+              const found = surveyFeatureIn(clicked, point);
+              onSelectFlood(found?.type === "flood" ? found : null);
+            }
+          : undefined
+      }
+      interactiveLayerIds={onSelectFlood ? [flood.floodFill.id as string] : undefined}
+      className="detail-map"
+      dataCy={dataCy}
+    >
       {context && (
         <Source id="context" type="geojson" data={context}>
           <Layer id="context-line" type="line" paint={{ "line-color": palette.lga, "line-width": 1.5 }} />
@@ -54,6 +80,14 @@ export function AreaOutlineMap({ label, theme, geometry, bbox, contextGeometry, 
         <Layer id="area-fill" type="fill" paint={{ "fill-color": palette.selected, "fill-opacity": 0.12 }} />
         <Layer id="area-line" type="line" paint={{ "line-color": palette.selected, "line-width": 2.5 }} />
       </Source>
+      {floods && (
+        <Source id="flood-extents" type="geojson" data={floods}>
+          <Layer {...flood.floodFill} />
+          <Layer {...flood.floodLine} />
+          <Layer {...flood.floodRecededLine} />
+        </Source>
+      )}
+      {children}
     </ClimateMap>
   );
 }

@@ -18,10 +18,14 @@ export const DEFAULT_VIEW = { longitude: 7.0, latitude: 4.85, zoom: 8 };
 
 export type BoundaryLayerId = "state" | "lga" | "ward";
 
-/** Every switchable layer: the boundaries, then the roads, waterways and settlements drawn over them. */
-export type MapLayerId = BoundaryLayerId | OverlayLayerId;
+/** What responders record on the ground: floods walked or drawn, and the drains that should carry them away. */
+export type SurveyLayerId = "floodExtents" | "drainage";
+
+/** Every switchable layer: the boundaries, then the roads, waterways and settlements drawn over them, then field survey. */
+export type MapLayerId = BoundaryLayerId | OverlayLayerId | SurveyLayerId;
 export const BOUNDARY_LAYER_IDS: BoundaryLayerId[] = ["state", "lga", "ward"];
 export const OVERLAY_LAYER_IDS: OverlayLayerId[] = ["roads", "waterways", "settlements", "infrastructure", "buildings"];
+export const SURVEY_LAYER_IDS: SurveyLayerId[] = ["floodExtents", "drainage"];
 
 /** Buildings are only fetched and drawn from street level. Mirrors BUILDING_MIN_ZOOM in server/src/modules/map-layers/layer-rules.ts. */
 export const BUILDING_MIN_ZOOM = 15;
@@ -69,6 +73,15 @@ export interface MapPalette {
   facility: Record<FacilityGroup, string>;
   building: string;
   buildingLine: string;
+  /**
+   * Field survey (survey-style.ts): a flood still going, one that has receded, a drain by its condition,
+   * and a walk in progress. Floods are magenta, not blue: blue is water, and a flood beside a river must not read as the river.
+   * The walk in progress is the flood's own colour, dashed, so it visibly becomes the saved flood.
+   */
+  flood: string;
+  floodReceded: string;
+  drain: { good: string; warn: string; bad: string };
+  draft: string;
 }
 
 export function mapPalette(theme: ResolvedTheme): MapPalette {
@@ -95,6 +108,10 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         facility: { health: "#f97066", education: "#fac515", civic: "#f670c7", community: "#32d583", other: "#98a2b3" },
         building: "#7a5c45",
         buildingLine: "#c4a484",
+        flood: "#e879f9",
+        floodReceded: "#98a2b3",
+        drain: { good: "#32d583", warn: "#fec84b", bad: "#f97066" },
+        draft: "#e879f9",
       }
     : {
         state: brand.tealDeep,
@@ -118,6 +135,10 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         facility: { health: "#d92d20", education: "#ca8504", civic: "#c11574", community: "#039855", other: "#667085" },
         building: "#d6bfa9",
         buildingLine: "#9c7356",
+        flood: "#c026d3",
+        floodReceded: "#667085",
+        drain: { good: "#039855", warn: "#dc6803", bad: "#d92d20" },
+        draft: "#c026d3",
       };
 }
 

@@ -4,6 +4,8 @@ import { AdminBoundaryLayers } from "../../components/map/AdminBoundaryLayers";
 import { AdminUnitPopup } from "../../components/map/AdminUnitPopup";
 import { ClimateMap, type MapView } from "../../components/map/ClimateMap";
 import { DeletePlaceDialog } from "../../components/map/DeletePlaceDialog";
+import { FieldSurveyDock } from "../../components/map/FieldSurveyDock";
+import { FieldSurveyForms, SurveyOnMap } from "../../components/map/FieldSurveyParts";
 import { LayerToggle, type LayerOption } from "../../components/map/LayerToggle";
 import { LocationTrace } from "../../components/map/LocationTrace";
 import { MapLayerSources } from "../../components/map/MapLayerSources";
@@ -14,6 +16,8 @@ import { MapOverviewPanel } from "../../components/map/MapOverviewPanel";
 import { PinLayer } from "../../components/map/PinLayer";
 import { PlaceFormDialog } from "../../components/map/PlaceFormDialog";
 import { SavedPlacePopup } from "../../components/map/SavedPlacePopup";
+import { SurveyLayers } from "../../components/map/SurveyLayers";
+import { SURVEY_INTERACTIVE_LAYERS } from "../../components/map/survey-style";
 import { TraceLineLayer } from "../../components/map/TraceLineLayer";
 import {
   INTERACTIVE_LAYERS,
@@ -29,11 +33,13 @@ import { useAdminUnits } from "../../hooks/useAdminUnits";
 import { useAuth } from "../../hooks/useAuth";
 import { useCountries } from "../../hooks/useCountries";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useFieldSurvey } from "../../hooks/useFieldSurvey";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useLocatePoint } from "../../hooks/useLocatePoint";
 import { useMapLayerCatalog } from "../../hooks/useMapLayerCatalog";
 import { useMapLayers } from "../../hooks/useMapLayers";
 import { useSavedPlaces } from "../../hooks/useSavedPlaces";
+import { useSurveyLayers } from "../../hooks/useSurveyLayers";
 import { useTheme } from "../../hooks/useTheme";
 import type { BBox, LonLat } from "../../types/admin-unit.types";
 import type { ClickedFeature } from "../../types/map-layer.types";
@@ -41,6 +47,7 @@ import { boundsAround } from "../../utils/geo-distance";
 import { readLayers, readMapView, readPin, readPinLabel, writeLayers, writeMapView, writePin } from "../../utils/map-url";
 import { overlayHint } from "../../utils/overlay-layers";
 import { hasAnyRole } from "../../utils/roles";
+import { canRecordSurvey } from "../../utils/field-survey";
 import { describeWhere, handSavedPlaceIn } from "../../utils/saved-places";
 import "./MapPage.css";
 
@@ -63,6 +70,15 @@ const OVERLAY_LEGEND = [
   { key: "facility-civic", label: "Police and government", swatch: "facility-civic", layer: "infrastructure" },
   { key: "facility-community", label: "Community centres and worship", swatch: "facility-community", layer: "infrastructure" },
   { key: "facility-other", label: "Markets, transport, water, telecom", swatch: "facility-other", layer: "infrastructure" },
+] as const;
+
+/** Legend rows for what responders recorded; a row shows only while its layer is switched on. */
+const SURVEY_LEGEND = [
+  { key: "flood", label: "Flood, as recorded", swatch: "flood", layer: "floodExtents" },
+  { key: "flood-receded", label: "Flood, receded", swatch: "flood-receded", layer: "floodExtents" },
+  { key: "drain-clear", label: "Drain: clear", swatch: "drain-clear", layer: "drainage" },
+  { key: "drain-partly", label: "Drain: partly blocked", swatch: "drain-partly", layer: "drainage" },
+  { key: "drain-bad", label: "Drain: blocked, overflowing or damaged", swatch: "drain-bad", layer: "drainage" },
 ] as const;
 
 const sameSpot = (a: LonLat | null | undefined, b: LonLat | null | undefined) => Boolean(a && b && a[0] === b[0] && a[1] === b[1]);
@@ -116,6 +132,10 @@ export function MapPage() {
   const country = countries.find((c) => c.countryCode === stateUnit?.countryCode) ?? countries[0] ?? null;
   const selectedLga = lgaList.find((lga) => lga.id === selectedLgaId) ?? null;
   const isAdmin = user ? hasAnyRole(user.role, ["administrator"]) : false;
+  // Responders, officials and administrators record floods and drains on the ground; everyone sees them.
+  const canRecord = user ? canRecordSurvey(user.role) : false;
+  const survey = useFieldSurvey(canRecord);
+  const surveyData = useSurveyLayers(view?.bbox ?? null, layers, survey.refresh);
 
   // Two updates can land in the same tick (a layer tick and the map's own "moved" event). The router
   // builds each from the params of the last render, so the second would overwrite the first; this
@@ -264,13 +284,29 @@ export function MapPage() {
       loading: buildingLayer.loading,
       hint: hintFor("buildings", buildingLayer.data?.truncated),
     },
+    {
+      id: "floodExtents",
+      label: "Floods",
+      checked: layers.floodExtents,
+      loading: surveyData.floodExtents.loading,
+      hint: surveyData.floodExtents.data?.truncated ? "Zoom in to see them all" : undefined,
+    },
+    {
+      id: "drainage",
+      label: "Drainage",
+      checked: layers.drainage,
+      loading: surveyData.drainage.loading,
+      hint: surveyData.drainage.data?.truncated ? "Zoom in to see them all" : undefined,
+    },
   ];
   const fix = geolocation.fix;
+  const layerProblem = layerError ?? surveyData.floodExtents.error ?? surveyData.drainage.error;
   const legendItems = [
     ...LEGEND,
     ...(pin ? [{ key: "pin", label: "Pinned place", swatch: "pin" }] : []),
     ...(fix ? [{ key: "you", label: "Your location", swatch: "you" }] : []),
     ...OVERLAY_LEGEND.filter((item) => layers[item.layer]),
+    ...SURVEY_LEGEND.filter((item) => layers[item.layer]),
   ];
   // Mapbox stacks layers in the order they were added, and a boundary layer is added when its data
   // arrives. Remounting the markers whenever one appears or goes puts them back on top of the tint.
@@ -296,8 +332,17 @@ export function MapPage() {
         fitNonce={focusNonce}
         fitPadding={fitPadding}
         onViewChange={handleViewChange}
-        onMapClick={(point, clicked) => void handleMapClick(point, clicked)}
-        interactiveLayerIds={INTERACTIVE_LAYERS}
+        onMapClick={(point, clicked) => {
+          // While a walk is open, and on a recorded flood or drain, the click belongs to field survey: no other popup opens over it.
+          if (survey.handleMapClick(point, clicked)) {
+            located.clear();
+            savedPlaces.closeSelected();
+            return;
+          }
+          survey.selection.closeSelected();
+          void handleMapClick(point, clicked);
+        }}
+        interactiveLayerIds={[...INTERACTIVE_LAYERS, ...SURVEY_INTERACTIVE_LAYERS]}
         className="map-page__map"
         dataCy="home-map"
       >
@@ -309,6 +354,7 @@ export function MapPage() {
           infrastructure={infrastructureLayer.data}
           buildings={buildingLayer.data}
         />
+        <SurveyLayers palette={palette} floods={surveyData.floodExtents.data} drains={surveyData.drainage.data} />
         <AdminBoundaryLayers
           palette={palette}
           state={stateLayer.data}
@@ -339,6 +385,7 @@ export function MapPage() {
             onClose={savedPlaces.closeSelected}
           />
         )}
+        <SurveyOnMap survey={survey} palette={palette} canRecord={canRecord} layerKey={markerKey} />
       </ClimateMap>
 
       <div className="map-page__top">
@@ -360,9 +407,9 @@ export function MapPage() {
             onClear={() => updateParams((params) => writePin(params, null))}
           />
         )}
-        {layerError && (
+        {layerProblem && (
           <p className="map-panel map-page__error" role="alert" data-cy="layer-error">
-            Some map layers couldn't load: {layerError}
+            Some map layers couldn't load: {layerProblem}
           </p>
         )}
       </div>
@@ -395,6 +442,9 @@ export function MapPage() {
         />
       )}
       <DeletePlaceDialog place={savedPlaces.removing} onClose={savedPlaces.closeRemove} onConfirm={savedPlaces.confirmRemove} />
+
+      {canRecord && <FieldSurveyDock survey={survey} />}
+      <FieldSurveyForms survey={survey} />
 
       {noCountry && (
         <div className="map-page__empty" data-cy="map-empty">

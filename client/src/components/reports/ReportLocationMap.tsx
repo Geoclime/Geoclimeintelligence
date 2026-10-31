@@ -37,6 +37,9 @@ const ALL_LAYERS: Record<MapLayerId, boolean> = {
   settlements: true,
   infrastructure: true,
   buildings: true,
+  // Field survey is drawn on the full map only.
+  floodExtents: false,
+  drainage: false,
 };
 
 interface ReportLocationMapProps {

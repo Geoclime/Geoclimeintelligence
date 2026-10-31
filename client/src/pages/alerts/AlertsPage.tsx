@@ -138,6 +138,8 @@ export function AlertsPage() {
           severities={severityByLga(alerts)}
           reports={alertMap?.reports ?? []}
           reportDays={alertMap?.reportDays ?? 7}
+          floods={alertMap?.floods ?? []}
+          floodDays={alertMap?.floodDays ?? 3}
         />
         <section aria-labelledby="in-force-title" className="flood-page__side">
           <h2 id="in-force-title" className="flood-card__title">

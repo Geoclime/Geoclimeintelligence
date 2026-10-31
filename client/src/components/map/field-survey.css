@@ -1,0 +1,219 @@
+/* ---------- Field survey: the recorder over the map, and what it recorded ---------- */
+
+.field-dock {
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: calc(var(--space-3) + 72px);
+  z-index: 7;
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.field-dock > *,
+.field-dock.map-panel {
+  pointer-events: auto;
+}
+
+.field-dock--card {
+  justify-items: stretch;
+  box-shadow: var(--shadow-lg);
+}
+
+.field-dock__menu {
+  display: grid;
+  gap: var(--space-2);
+  justify-self: stretch;
+}
+
+.field-dock__howto,
+.field-dock__hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.field-dock__hint {
+  font-size: var(--text-xs);
+}
+
+.field-dock__choice {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.field-dock__choice:hover,
+.field-dock__choice:focus-visible {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.field-dock__choice-title {
+  font-weight: 700;
+}
+
+.field-dock__choice-text {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.field-dock__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.field-dock__header .map-panel__title {
+  margin-bottom: 0;
+}
+
+.field-dock__gps {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.field-dock__gps--good {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.field-dock__gps--fair {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.field-dock__gps--poor {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.field-dock__stats {
+  display: flex;
+  gap: var(--space-5);
+  margin: 0;
+}
+
+.field-dock__stats dt {
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field-dock__stats dd {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.field-dock__error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.field-dock__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.field-dock__tap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* The saved floods and drains' popups. */
+
+.survey-popup {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 220px;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.survey-popup__figure {
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.survey-popup__figure span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.survey-popup__meta,
+.survey-popup__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.survey-popup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.flood-impact {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-block: 1px solid var(--color-border);
+}
+
+.flood-impact__headline {
+  font-weight: 700;
+}
+
+.flood-impact__line,
+.flood-impact__list {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.flood-impact__list {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.flood-impact__distance {
+  color: var(--color-text-subtle);
+}
+
+@media (min-width: 640px) {
+  .field-dock {
+    left: var(--space-4);
+    right: auto;
+    width: 360px;
+    bottom: calc(var(--space-5) + 16px);
+  }
+}

@@ -18,6 +18,10 @@ export interface DomainEvents {
   "report.updated": { reportId: string; reporterId: string };
   /** `byReviewer`: someone other than the sender deleted it, so the sender should be told. */
   "report.deleted": { reportId: string; reporterId: string | null; locationName: string; byReviewer: boolean };
+  /** A responder recorded the extent of a flood, marked it receded, or deleted it: it is on (or leaves) the public alert map. */
+  "flood.recorded": { floodId: string };
+  "flood.receded": { floodId: string };
+  "flood.deleted": { floodId: string };
   "role.requested": { userId: string };
   "role.answered": { userId: string; role: string; approved: boolean };
 }

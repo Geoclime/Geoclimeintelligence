@@ -87,7 +87,14 @@ function Landing() {
 
   return (
     <>
-      <AlertStrip alerts={alertMap?.alerts ?? null} reports={alertMap?.reports ?? []} reportDays={alertMap?.reportDays ?? 7} to="/#alerts" />
+      <AlertStrip
+        alerts={alertMap?.alerts ?? null}
+        reports={alertMap?.reports ?? []}
+        reportDays={alertMap?.reportDays ?? 7}
+        floods={alertMap?.floods ?? []}
+        floodDays={alertMap?.floodDays ?? 3}
+        to="/#alerts"
+      />
       <section className="landing-hero" aria-labelledby="landing-title">
         <ContourBackdrop />
         <div className="landing-hero__inner">

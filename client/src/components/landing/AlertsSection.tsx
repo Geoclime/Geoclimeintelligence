@@ -46,6 +46,8 @@ export function AlertsSection({ alertMap, error, outline, outlineLoading, signed
             severities={severityByLga(alerts)}
             reports={alertMap?.reports ?? []}
             reportDays={alertMap?.reportDays ?? 7}
+            floods={alertMap?.floods ?? []}
+            floodDays={alertMap?.floodDays ?? 3}
           />
           <div className="landing-alerts__list">
             {error && !alertMap ? (
@@ -84,6 +86,8 @@ export function AlertsSection({ alertMap, error, outline, outlineLoading, signed
                   {alertMap.reports.length === 0
                     ? `No flood reports published in the last ${alertMap.reportDays} days.`
                     : `${alertMap.reports.length} flood ${alertMap.reports.length === 1 ? "report" : "reports"} published in the last ${alertMap.reportDays} days, shown as dots on the map.`}
+                  {(alertMap.floods ?? []).length > 0 &&
+                    ` ${alertMap.floods.length} ${alertMap.floods.length === 1 ? "flood" : "floods"} recorded on the ground by responders, shown as pink markers.`}
                 </p>
               )}
             </div>

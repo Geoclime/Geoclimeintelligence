@@ -51,13 +51,19 @@ describe("map URL state", () => {
     expect(readPin(new URLSearchParams("pin=abc,4"))).toBeNull();
   });
 
-  const everything = { state: true, lga: true, ward: true, roads: true, waterways: true, settlements: true, infrastructure: true, buildings: true };
-  const nothing = { state: false, lga: false, ward: false, roads: false, waterways: false, settlements: false, infrastructure: false, buildings: false };
+  const everything = {
+    state: true, lga: true, ward: true, roads: true, waterways: true, settlements: true, infrastructure: true, buildings: true,
+    floodExtents: true, drainage: true,
+  };
+  const nothing = {
+    state: false, lga: false, ward: false, roads: false, waterways: false, settlements: false, infrastructure: false, buildings: false,
+    floodExtents: false, drainage: false,
+  };
 
   it("shows every layer by default and only lists layers when some are off", () => {
     expect(readLayers(new URLSearchParams(""))).toEqual(everything);
     const params = writeLayers(new URLSearchParams(""), { ...everything, lga: false, roads: false });
-    expect(params.get("layers")).toBe("state,ward,waterways,settlements,infrastructure,buildings");
+    expect(params.get("layers")).toBe("state,ward,waterways,settlements,infrastructure,buildings,floodExtents,drainage");
     expect(readLayers(params)).toEqual({ ...everything, lga: false, roads: false });
     expect(writeLayers(params, everything).has("layers")).toBe(false);
   });
@@ -65,6 +71,10 @@ describe("map URL state", () => {
   it("carries the roads, waterways, settlements and infrastructure layers in the link", () => {
     expect(readLayers(new URLSearchParams("layers=roads,settlements"))).toEqual({ ...nothing, roads: true, settlements: true });
     expect(readLayers(new URLSearchParams("layers=infrastructure"))).toEqual({ ...nothing, infrastructure: true });
+  });
+
+  it("carries the flood and drainage layers in the link", () => {
+    expect(readLayers(new URLSearchParams("layers=floodExtents,drainage"))).toEqual({ ...nothing, floodExtents: true, drainage: true });
   });
 
   it("drops unknown layer names", () => {

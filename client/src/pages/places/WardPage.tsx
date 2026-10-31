@@ -1,5 +1,7 @@
 import { Link, useParams } from "react-router";
+import { FloodHistoryCard } from "../../components/floods/FloodHistoryCard";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
+import { FloodExtentPopup } from "../../components/map/FloodExtentPopup";
 import { SourceBadge } from "../../components/map/SourceBadge";
 import { Breadcrumbs } from "../../components/shared/Breadcrumbs/Breadcrumbs";
 import { buttonClassName } from "../../components/shared/Button";
@@ -7,16 +9,21 @@ import { EmptyState } from "../../components/shared/EmptyState";
 import { ErrorState } from "../../components/shared/ErrorState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
+import { useAreaFloods } from "../../hooks/useAreaFloods";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useTheme } from "../../hooks/useTheme";
 import { formatCoordinates } from "../../utils/formatCoordinates";
 
-/** One ward on a small map, inside its parent LGA's outline, with its code and source. */
+/**
+ * One ward on a small map, inside its parent LGA's outline, with its code and source, and its flood history
+ * (the floods responders recorded in it, listed and drawn on the map, where a click opens one).
+ */
 export function WardPage() {
   const { id, wardId } = useParams();
   const { resolved: theme } = useTheme();
   const { unit: ward, loading, error, notFound, refetch } = useAdminUnit(wardId);
   const { unit: lga } = useAdminUnit(id);
+  const areaFloods = useAreaFloods(ward?.id, ward?.bbox ?? null);
   useDocumentTitle(ward?.unitName ?? "Ward");
 
   if (loading && !ward) return <LoadingSpinner message="Loading the ward…" />;
@@ -79,6 +86,7 @@ export function WardPage() {
           <section className="card card__body">
             <SourceBadge source={ward.source} variant="full" />
           </section>
+          <FloodHistoryCard areaId={ward.id} areaName={ward.unitName} showWard={false} />
         </div>
         <AreaOutlineMap
           label={`Map of ${ward.unitName} ward in ${lgaName}`}
@@ -86,8 +94,12 @@ export function WardPage() {
           geometry={ward.geometry}
           bbox={lga?.bbox ?? ward.bbox}
           contextGeometry={lga?.geometry ?? null}
+          floods={areaFloods.floods}
+          onSelectFlood={areaFloods.select}
           dataCy="ward-map"
-        />
+        >
+          {areaFloods.selected && <FloodExtentPopup key={areaFloods.selected.properties.id} flood={areaFloods.selected} canRecord={false} onClose={areaFloods.close} />}
+        </AreaOutlineMap>
       </div>
     </div>
   );

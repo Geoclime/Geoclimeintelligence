@@ -73,6 +73,7 @@ function setup(options: { coverage?: RainfallCoverageSummary | null; communities
     sources,
     alerts: { list: async () => [] },
     floodReports: { publishedSince: async () => [] },
+      floodExtents: { publicActive: async () => [] },
     now: () => time,
   });
   return { service, units, catalog, searches, advance: (ms: number) => (time += ms) };
@@ -141,6 +142,7 @@ describe("PublicService.outline", () => {
       sources,
       alerts: { list: async () => [] },
       floodReports: { publishedSince: async () => [] },
+      floodExtents: { publicActive: async () => [] },
     });
     await expect(service.outline()).resolves.toEqual({ bbox: null, areas: { type: "FeatureCollection", features: [] } });
     expect(units.outlineQueries).toEqual([]);

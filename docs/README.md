@@ -70,6 +70,7 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 38. [flood-alerts-and-reports.md](flood-alerts-and-reports.md): flood alerts (watch, warning, severe) for LGAs and states, community flood reports with GPS, depth, photos and voice notes, the review queue, and the national alert map on the landing page.
 
 39. [features/installable-app.md](features/installable-app.md): the PWA: install on phones and computers, offline use, and update prompts.
+44. [field-survey.md](field-survey.md): a responder walking the edge of a flood (or tracing it on the map) to get its area and what it reaches, and recording drains and their condition: the `flood_extents` and `drainage_features` tables, measuring in PostGIS, the GPS rules, and who can record.
 
 ## Notifications
 

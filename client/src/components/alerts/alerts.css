@@ -228,6 +228,19 @@
   stroke-width: 1.5;
 }
 
+/* A flood a responder recorded on the ground: magenta, as on the main map, and not the blue of water or of a report. */
+.alert-map__flood {
+  fill: #c026d3;
+  fill-opacity: 0.4;
+  stroke: #c026d3;
+  stroke-width: 1.6;
+}
+
+:root[data-theme="dark"] .alert-map__flood {
+  fill: #e879f9;
+  stroke: #e879f9;
+}
+
 .alert-map__report--waist,
 .alert-map__report--chest,
 .alert-map__report--impassable {
@@ -285,6 +298,18 @@
   background: var(--color-info);
 }
 
+.alert-map__swatch--flood {
+  width: 10px;
+  border: 1.5px solid #c026d3;
+  border-radius: 50%;
+  background: rgb(192 38 211 / 0.4);
+}
+
+:root[data-theme="dark"] .alert-map__swatch--flood {
+  border-color: #e879f9;
+  background: rgb(232 121 249 / 0.4);
+}
+
 @keyframes alert-map-shimmer {
   to {
     background-position: -200% 0, 0 0;
@@ -330,7 +355,7 @@
 
 .alert-strip__inner {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-2) var(--space-4);
   width: 100%;
@@ -351,6 +376,72 @@
   margin-left: auto;
   color: inherit;
   font-weight: 700;
+}
+
+/* The sentence has the room between the dot and the link. One that doesn't fit scrolls (useTicker); the link never moves. */
+.alert-strip__ticker {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.alert-strip__track {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+.alert-strip__copy {
+  flex: none;
+}
+
+/* Two copies side by side, moved left by exactly one of them (copy plus its gap), so the loop has no seam. */
+.alert-strip__ticker.is-scrolling {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+}
+
+.alert-strip__ticker.is-scrolling .alert-strip__copy {
+  padding-right: var(--space-7);
+}
+
+.alert-strip__ticker.is-scrolling .alert-strip__track {
+  /* The duration is set from the text's length (useTicker); this is the fallback. The pause lets you read the start first. */
+  animation: alert-strip-scroll 30s linear 2s infinite;
+}
+
+.alert-strip__ticker:hover .alert-strip__track {
+  animation-play-state: paused;
+}
+
+@keyframes alert-strip-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Asked for less motion: the plain line, wrapped, with no copy. */
+@media (prefers-reduced-motion: reduce) {
+  .alert-strip__inner {
+    flex-wrap: wrap;
+  }
+
+  .alert-strip__ticker {
+    flex-basis: 12rem;
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .alert-strip__track {
+    display: block;
+    white-space: normal;
+    transform: none;
+    animation: none !important;
+  }
+
+  .alert-strip__copy + .alert-strip__copy {
+    display: none;
+  }
 }
 
 @keyframes alert-strip-pulse {

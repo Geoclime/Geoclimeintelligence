@@ -592,3 +592,56 @@
   gap: var(--space-2);
   margin-top: var(--space-1);
 }
+
+/* ---------- Field survey layers: a flood, a recovered flood, and a drain by its condition ---------- */
+
+.layer-toggle__swatch--floodExtents,
+.map-legend__swatch--flood {
+  border: 1.5px solid #c026d3;
+  background: rgb(192 38 211 / 0.38);
+}
+
+.map-legend__swatch--flood-receded {
+  border: 1.5px dashed #667085;
+  background: rgb(102 112 133 / 0.14);
+}
+
+.layer-toggle__swatch--drainage,
+.map-legend__swatch--drain-clear,
+.map-legend__swatch--drain-partly,
+.map-legend__swatch--drain-bad {
+  height: 4px;
+  border-radius: 2px;
+}
+
+.layer-toggle__swatch--drainage,
+.map-legend__swatch--drain-clear {
+  background: #039855;
+}
+
+.map-legend__swatch--drain-partly {
+  background: #dc6803;
+}
+
+.map-legend__swatch--drain-bad {
+  background: #d92d20;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--floodExtents,
+:root[data-theme="dark"] .map-legend__swatch--flood {
+  border-color: #e879f9;
+  background: rgb(232 121 249 / 0.38);
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--drainage,
+:root[data-theme="dark"] .map-legend__swatch--drain-clear {
+  background: #32d583;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--drain-partly {
+  background: #fec84b;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--drain-bad {
+  background: #f97066;
+}

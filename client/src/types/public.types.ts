@@ -1,12 +1,30 @@
 import type { AdminUnitFeatureCollection, AdminUnitRef, BBox, LonLat } from "./admin-unit.types";
 import type { FloodAlert } from "./alert.types";
-import type { PublicReportPoint } from "./flood-report.types";
+import type { PublicReportPoint, WaterDepth } from "./flood-report.types";
 
-/** GET /api/v1/public/alert-map: the alerts in force now and the reports published in the last `reportDays` days. */
+/**
+ * A flood a responder recorded on the ground and has not marked receded: where it is (rounded to about
+ * 100 m), how big, how deep, and which LGA. Never its outline or note. Mirrors PublicFloodPoint on the server.
+ */
+export interface PublicFloodPoint {
+  id: string;
+  point: LonLat;
+  areaM2: number;
+  depth: WaterDepth | null;
+  lgaName: string | null;
+  observedAt: string;
+}
+
+/**
+ * GET /api/v1/public/alert-map: the alerts in force now, the reports published in the last `reportDays`
+ * days, and the floods recorded on the ground in the last `floodDays` days that have not receded.
+ */
 export interface PublicAlertMap {
   alerts: FloodAlert[];
   reports: PublicReportPoint[];
   reportDays: number;
+  floods: PublicFloodPoint[];
+  floodDays: number;
   generatedAt: string;
 }
 import type { RainfallSeries } from "./rainfall.types";

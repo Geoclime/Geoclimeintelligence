@@ -1,5 +1,7 @@
 import { Link, useParams } from "react-router";
+import { FloodHistoryCard } from "../../components/floods/FloodHistoryCard";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
+import { FloodExtentPopup } from "../../components/map/FloodExtentPopup";
 import { SourceBadge } from "../../components/map/SourceBadge";
 import { RainfallCard } from "../../components/rainfall/RainfallCard";
 import { Breadcrumbs } from "../../components/shared/Breadcrumbs/Breadcrumbs";
@@ -10,6 +12,7 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
 import { useAdminUnitChildren } from "../../hooks/useAdminUnitChildren";
 import { useAdminUnitLayer } from "../../hooks/useAdminUnitLayer";
+import { useAreaFloods } from "../../hooks/useAreaFloods";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useTheme } from "../../hooks/useTheme";
 import { formatCoordinates } from "../../utils/formatCoordinates";
@@ -17,7 +20,8 @@ import { MAP_PATH } from "../../utils/map-url";
 
 /**
  * One LGA: outlined on a small map with its wards, its code, parent and source, its monthly
- * rainfall, and its wards as a clickable list. A later phase adds flood history here.
+ * rainfall, its flood history (the floods responders recorded there, listed and drawn on its map, where a
+ * click opens one), and its wards as a clickable list.
  */
 export function LgaProfilePage() {
   const { id } = useParams();
@@ -25,6 +29,7 @@ export function LgaProfilePage() {
   const { unit, loading, error, notFound, refetch } = useAdminUnit(id);
   const { children: wards, loading: wardsLoading, error: wardsError } = useAdminUnitChildren(unit?.id);
   const wardShapes = useAdminUnitLayer(unit?.bbox ?? null, 3, { enabled: Boolean(unit), parentId: unit?.id, zoom: 11 });
+  const areaFloods = useAreaFloods(unit?.id, unit?.bbox ?? null);
   useDocumentTitle(unit?.unitName ?? "Place");
 
   if (loading && !unit) return <LoadingSpinner message="Loading the LGA…" />;
@@ -83,13 +88,7 @@ export function LgaProfilePage() {
           <section className="card card__body">
             <SourceBadge source={unit.source} variant="full" />
           </section>
-          <section className="card card__body">
-            <EmptyState
-              icon="layers"
-              title="Flood history"
-              message="This appears here once the disaster-event dataset is connected. Nothing is shown until real data exists."
-            />
-          </section>
+          <FloodHistoryCard areaId={unit.id} areaName={unit.unitName} />
         </div>
 
         <AreaOutlineMap
@@ -98,8 +97,12 @@ export function LgaProfilePage() {
           geometry={unit.geometry}
           bbox={unit.bbox}
           innerAreas={wardShapes.data}
+          floods={areaFloods.floods}
+          onSelectFlood={areaFloods.select}
           dataCy="lga-map"
-        />
+        >
+          {areaFloods.selected && <FloodExtentPopup key={areaFloods.selected.properties.id} flood={areaFloods.selected} canRecord={false} onClose={areaFloods.close} />}
+        </AreaOutlineMap>
       </div>
 
       <div className="section-gap">

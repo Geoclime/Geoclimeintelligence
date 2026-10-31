@@ -36,7 +36,7 @@ const report = {
 
 function stubMaps() {
   cy.interceptApi("GET", "/public/outline", { data: { bbox: STATE.bbox, areas: featureCollection([PORT_HARCOURT]) } });
-  cy.interceptApi("GET", "/public/alert-map", { data: { alerts: [alert], reports: [], reportDays: 7, generatedAt: "2026-10-30T09:00:00.000Z" } });
+  cy.interceptApi("GET", "/public/alert-map", { data: { alerts: [alert], reports: [], reportDays: 7, floods: [], floodDays: 3, generatedAt: "2026-10-30T09:00:00.000Z" } });
 }
 
 describe("Flood alerts", () => {

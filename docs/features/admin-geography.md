@@ -53,7 +53,7 @@ Reads are remembered in memory by TanStack Query ([client-data-caching.md](clien
 
 **5. Places.** `pages/places/`:
 - `PlacesPage.tsx`: the searchable directory. The search runs on the server, debounced 300 ms.
-- `LgaProfilePage.tsx`: the LGA on a small map with its wards, plus its code, centre, parent and source, and its wards as links. Its Rainfall card shows the LGA's monthly rainfall once a rainfall import is promoted ([data-import.md](../data-import.md), section 8); an empty card says flood history arrives later, rather than placeholder figures.
+- `LgaProfilePage.tsx`: the LGA on a small map with its wards, plus its code, centre, parent and source, and its wards as links. Its Rainfall card shows the LGA's monthly rainfall once a rainfall import is promoted ([data-import.md](../data-import.md), section 8); its Flood history card lists the floods responders recorded in the LGA (the ward page has the same card and map layer for its own floods) (see [field-survey.md](../field-survey.md), section 7), or says honestly that none have been, rather than showing placeholder figures.
 - `WardPage.tsx`: the ward inside its LGA's outline. A ward reached through the wrong LGA's address shows "not found" rather than the ward.
 
 **6. Admin countries.** `pages/admin/countries/`, with `components/countries/CountryForm.tsx` (react-hook-form + Zod; schema in `country-form.schema.ts`):

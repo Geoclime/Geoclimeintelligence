@@ -7,6 +7,8 @@ import { AdminUnit } from "../modules/admin-units/admin-unit.entity";
 import { Country } from "../modules/admin-units/country.entity";
 import { DataSourceRecord } from "../modules/data-sources/data-source.entity";
 import { ImportRun, ImportStagingRow } from "../modules/data-sources/imports/import-run.entity";
+import { DrainageFeature } from "../modules/field-survey/drainage-feature.entity";
+import { FloodExtent } from "../modules/field-survey/flood-extent.entity";
 import { Building } from "../modules/map-layers/building.entity";
 import { Infrastructure } from "../modules/map-layers/infrastructure.entity";
 import { Road } from "../modules/map-layers/road.entity";
@@ -39,7 +41,7 @@ export const AppDataSource = new DataSource({
         ...(env.DATABASE_SSL_CA ? { ca: readFileSync(env.DATABASE_SSL_CA, "utf8") } : {}),
       }
     : false,
-  entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow, Road, Waterway, SettlementPoint, Infrastructure, Building, RainfallObservation],
+  entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow, Road, Waterway, SettlementPoint, Infrastructure, Building, RainfallObservation, FloodExtent, DrainageFeature],
   migrations: [path.join(__dirname, "..", "migrations", "*.ts")],
   // Schema changes only ever happen through migrations -- never auto-sync.
   synchronize: false,

@@ -11,7 +11,7 @@ const rivers = makeUnit({ level: 1, levelName: "State", unitName: "Rivers" });
 
 function setup() {
   let time = Date.parse("2026-10-31T02:00:00.000Z");
-  const state = { alerts: [] as { id: string }[], reads: 0, gate: null as Promise<void> | null };
+  const state = { alerts: [] as { id: string }[], floods: [] as { id: string }[], reads: 0, gate: null as Promise<void> | null };
   const units = new InMemoryAdminUnitRepository([rivers]);
   const sources = new InMemoryDataSourceRepository([]);
   const service = new PublicService({
@@ -31,6 +31,7 @@ function setup() {
       },
     },
     floodReports: { publishedSince: async () => [] },
+      floodExtents: { publicActive: async () => [...state.floods] as never },
     now: () => time,
   });
   return { service, state, advance: (ms: number) => void (time += ms) };
@@ -63,6 +64,16 @@ describe("PublicService.alertMap", () => {
     state.alerts.length = 0;
     service.invalidateAlertMap();
     expect((await service.alertMap()).alerts).toHaveLength(0);
+  });
+
+  it("carries the floods recorded on the ground, and how many days of them it holds", async () => {
+    const { service, state } = setup();
+    expect(await service.alertMap()).toMatchObject({ floods: [], floodDays: 3 });
+
+    state.floods.push({ id: "flood-1" });
+    expect((await service.alertMap()).floods).toHaveLength(0);
+    service.invalidateAlertMap();
+    expect((await service.alertMap()).floods).toEqual([{ id: "flood-1" }]);
   });
 
   it("doesn't keep an answer that was being read when the change happened: it may be the old one", async () => {

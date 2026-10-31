@@ -34,6 +34,15 @@ describe("realtime signals", () => {
     expect(sent).toEqual(Array(4).fill(["drop the cached alert map", "everyone:alerts:changed"]).flat());
   });
 
+  it("tells everyone the public map changed when a flood is recorded, receded or deleted, dropping the server's copy first", async () => {
+    const sent = setup();
+    domainEvents.emit("flood.recorded", { floodId: "f1" });
+    domainEvents.emit("flood.receded", { floodId: "f1" });
+    domainEvents.emit("flood.deleted", { floodId: "f1" });
+    await settle();
+    expect(sent).toEqual(Array(3).fill(["drop the cached alert map", "everyone:alerts:changed"]).flat());
+  });
+
   it("tells the review queue and the sender about a new or edited report, and nobody else", async () => {
     const sent = setup();
     domainEvents.emit("report.submitted", { reportId: "r1", reporterId: "reporter-1" });

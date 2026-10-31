@@ -1,5 +1,6 @@
 import type { BBox, LonLat } from "../../common/geo/geo";
 import type { FloodAlertDto } from "../alerts/alert.types";
+import type { PublicFloodPoint } from "../field-survey/field-survey.types";
 import type { PublicReportPoint } from "../flood-reports/flood-report.types";
 import type { AdminUnitFeatureCollection, AdminUnitRef } from "../admin-units/admin-unit.types";
 import type { MapLayerId } from "../map-layers/layer-rules";
@@ -112,11 +113,15 @@ export interface ICommunitySearch {
   searchByName(q: string, limit: number): Promise<PublicCommunityHit[]>;
 }
 
-/** GET /api/v1/public/alert-map: the alerts in force now and recently published flood reports. */
+/** GET /api/v1/public/alert-map: the alerts in force now, recently published flood reports, and floods recorded on the ground. */
 export interface PublicAlertMapDto {
   alerts: FloodAlertDto[];
   reports: PublicReportPoint[];
   /** How many days of published reports are included. */
   reportDays: number;
+  /** Floods a responder recorded on the ground and has not marked receded, rounded to about 100 m. */
+  floods: PublicFloodPoint[];
+  /** How many days of recorded floods are included. */
+  floodDays: number;
   generatedAt: string;
 }
