@@ -76,6 +76,7 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 40. [notifications.md](notifications.md): in-app (Socket.IO), email and push (FCM) notifications: what triggers them, who receives them, per-person settings, and setting up push.
 41. [email.md](email.md): the email outbox and worker, SMTP or Google Apps Script, fallback, retries, and the Apps Script to deploy.
 42. [features/onboarding.md](features/onboarding.md): "Finish setting up": name, phone and home LGA before using the app.
+43. [features/client-data-caching.md](features/client-data-caching.md): how the app remembers what it has asked (TanStack Query): instant reopen, freshness windows, what clears it, and what is never cached.
 
 ## Accounts
 

@@ -5,6 +5,7 @@ import { FloodReport } from "./flood-report.entity";
 import type {
   FloodReportFilter,
   FloodReportMediaRow,
+  FloodReportPatch,
   FloodReportRow,
   IFloodReportRepository,
   NewFloodReport,
@@ -97,6 +98,44 @@ export class FloodReportRepository extends BaseRepository<FloodReport> implement
        )
        SELECT count(*)::int AS n FROM done`,
       [id, decision.status, decision.note, decision.reviewerId, decision.at],
+    );
+    return (rows[0]?.n ?? 0) > 0;
+  }
+
+  async update(id: string, patch: FloodReportPatch): Promise<boolean> {
+    // Column names below are fixed literals, never input; values are always parameters.
+    const params: unknown[] = [id];
+    const sets: string[] = [];
+    const set = (column: string, value: unknown) => {
+      params.push(value);
+      sets.push(`${column} = ${params.length}`);
+    };
+    if (patch.locationName !== undefined) set("location_name", patch.locationName);
+    if (patch.waterDepth !== undefined) set("water_depth", patch.waterDepth);
+    if (patch.description !== undefined) set("description", patch.description);
+    if (patch.point !== undefined) {
+      params.push(patch.point[0], patch.point[1]);
+      sets.push(`geom = ST_SetSRID(ST_MakePoint(${params.length - 1}, ${params.length}), 4326)`);
+      set("lga_id", patch.lgaId ?? null);
+      set("ward_id", patch.wardId ?? null);
+    }
+    // A rejected report goes back to the queue with its review cleared (the table requires a review
+    // date exactly when a report is not pending).
+    if (patch.resubmit) sets.push("status = 'pending'", "review_note = NULL", "reviewed_by = NULL", "reviewed_at = NULL");
+    sets.push("updated_at = now()");
+    // Never a published report: it may have been published since the editor opened it.
+    const rows: { n: number }[] = await this.repo.query(
+      `WITH changed AS (UPDATE flood_reports SET ${sets.join(", ")} WHERE id = $1 AND status <> 'published' RETURNING id) SELECT count(*)::int AS n FROM changed`,
+      params,
+    );
+    return (rows[0]?.n ?? 0) > 0;
+  }
+
+  /** The media rows go with it (ON DELETE CASCADE). */
+  async remove(id: string): Promise<boolean> {
+    const rows: { n: number }[] = await this.repo.query(
+      `WITH gone AS (DELETE FROM flood_reports WHERE id = $1 RETURNING id) SELECT count(*)::int AS n FROM gone`,
+      [id],
     );
     return (rows[0]?.n ?? 0) > 0;
   }

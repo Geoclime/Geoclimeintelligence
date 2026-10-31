@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { invalidateQueries, LIVE_POLICY, QUERY_KEYS } from "../cache/queryClient";
 import { fetchUsers } from "../endpoints/user.endpoints";
-import { errorMessage } from "../transport/api-error";
 import type { PaginationMeta } from "../types/api.types";
 import type { UserRole } from "../types/auth.types";
 import type { ManagedUser } from "../types/user.types";
 import { paginationDetails } from "../utils/pagination";
+import { useLoader } from "./useLoader";
 
 interface UseUsersOptions {
   page: number;
@@ -16,75 +17,40 @@ interface UseUsersOptions {
   pendingRequest?: boolean;
 }
 
-interface UsersResult {
-  /** Which request this result answers; `loading` is true until it matches the current one. */
-  requestKey: string;
+interface UsersPage {
   users: ManagedUser[];
   meta: PaginationMeta;
-  error: string | null;
 }
 
 /**
- * One page of platform accounts for the Administrator user list. Owns the whole data lifecycle:
- * request, loading, error, page metadata and refetch (standard section 7). There is no
+ * One page of platform accounts for the Administrator user list: the request, loading, error,
+ * page metadata and refetch (standard section 7), through the shared loader. There is no
  * owner/user filter: the backend decides who may call this (Administrators only).
  *
- * `loading` is derived (the stored result doesn't answer the current request yet) instead of
- * being set at the start of the effect, so state only ever changes when a response arrives.
- * While the next page loads, the previous rows stay on screen.
+ * Remembered for 30 seconds per page and filter, so going back to a page you just left is instant;
+ * changing an account clears the other pages, since it can move between filtered lists (out of
+ * "pending requests", say). While the next page loads, the previous rows stay on screen.
  */
 export function useUsers({ page, pageSize = 25, q, role, pendingRequest }: UseUsersOptions) {
-  const [reloadCount, setReloadCount] = useState(0);
-  const [result, setResult] = useState<UsersResult | null>(null);
-  const requestKey = `${page}:${pageSize}:${q ?? ""}:${role ?? ""}:${pendingRequest ? "requests" : ""}:${reloadCount}`;
-
-  useEffect(() => {
-    // Paging quickly overlaps requests; a response for a superseded request is dropped.
-    let superseded = false;
-    fetchUsers({ page, pageSize, q: q || undefined, role, pendingRequest: pendingRequest || undefined }).then(
-      (response) => {
-        if (!superseded) {
-          setResult({ requestKey, users: response.data ?? [], meta: response.meta ?? {}, error: null });
-        }
-      },
-      (error: unknown) => {
-        if (!superseded) {
-          setResult((previous) => ({
-            requestKey,
-            users: previous?.users ?? [],
-            meta: previous?.meta ?? {},
-            error: errorMessage(error),
-          }));
-        }
-      },
-    );
-    return () => {
-      superseded = true;
-    };
-  }, [page, pageSize, q, role, pendingRequest, requestKey]);
-
-  const refetch = useCallback(() => setReloadCount((count) => count + 1), []);
+  const key = useMemo(() => [...QUERY_KEYS.users, page, pageSize, q ?? "", role ?? "", pendingRequest ? "requests" : ""], [page, pageSize, q, role, pendingRequest]);
+  const { data, setData, loading, error, refetch } = useLoader<UsersPage>(
+    key,
+    async () => {
+      const response = await fetchUsers({ page, pageSize, q: q || undefined, role, pendingRequest: pendingRequest || undefined });
+      return { users: response.data ?? [], meta: response.meta ?? {} };
+    },
+    LIVE_POLICY,
+  );
 
   /** Swaps in a row the server just returned (e.g. after an access change) without a refetch. */
-  const replaceUser = useCallback((updated: ManagedUser) => {
-    setResult((previous) =>
-      previous && {
-        ...previous,
-        users: previous.users.map((user) => (user.id === updated.id ? updated : user)),
-      },
-    );
-  }, []);
+  const replaceUser = useCallback(
+    (updated: ManagedUser) => {
+      invalidateQueries(QUERY_KEYS.users, key);
+      setData((current) => current && { ...current, users: current.users.map((user) => (user.id === updated.id ? updated : user)) });
+    },
+    [key, setData],
+  );
 
-  const loading = result?.requestKey !== requestKey;
-  const meta = result?.meta ?? {};
-
-  return {
-    users: result?.users ?? [],
-    meta,
-    loading,
-    error: loading ? null : (result?.error ?? null),
-    ...paginationDetails(meta),
-    refetch,
-    replaceUser,
-  };
+  const meta = data?.meta ?? {};
+  return { users: data?.users ?? [], meta, loading, error, ...paginationDetails(meta), refetch, replaceUser };
 }

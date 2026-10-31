@@ -151,6 +151,24 @@ describe("Landing page", () => {
     cy.dataCy("landing-report-flooding").should("have.attr", "href", "/report").and("contain", "Sign in to report flooding");
   });
 
+  it("does not call it all-clear when community reports are published and no alert is in force", () => {
+    stubPublic({
+      ...noAlerts,
+      reports: [
+        { id: "r1", point: [7.0, 4.8], waterDepth: "waist", lgaName: "Emohua", createdAt: "2026-10-30T17:39:00.000Z" },
+        { id: "r2", point: [7.07, 4.83], waterDepth: "chest", lgaName: "Obio-Akpor", createdAt: "2026-10-30T23:54:00.000Z" },
+      ],
+    });
+    cy.visit("/");
+    cy.wait("@getAlertMap");
+    cy.dataCy("alert-strip")
+      .should("have.class", "alert-strip--reports")
+      .and("contain", "No official flood alerts in force")
+      .and("contain", "2 community flood reports")
+      .and("contain", "the deepest chest-deep");
+    cy.dataCy("alert-strip").should("not.contain", "No flood alerts in force right now");
+  });
+
   it("says plainly when no alerts are in force", () => {
     stubPublic();
     cy.visit("/");

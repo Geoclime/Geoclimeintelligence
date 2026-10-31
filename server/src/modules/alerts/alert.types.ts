@@ -53,6 +53,17 @@ export interface NewFloodAlert {
   createdBy: string;
 }
 
+/** What may be changed on an alert that is still in force or scheduled. Anything left out stays as it is. */
+export interface FloodAlertPatch {
+  severity?: AlertSeverity;
+  title?: string;
+  message?: string;
+  actions?: string[];
+  expiresAt?: Date;
+  /** Replaces the whole list of areas. */
+  areaIds?: string[];
+}
+
 export interface AlertListFilter {
   /** "active": in force now. "recent": active, scheduled, or ended/expired in the last 30 days. */
   view: "active" | "recent";
@@ -66,6 +77,10 @@ export interface IAlertRepository {
   findList(filter: AlertListFilter): Promise<FloodAlertRow[]>;
   /** Ends an alert early; false if it doesn't exist or has already ended. */
   end(id: string, at: Date): Promise<boolean>;
+  /** Changes an alert (and, with areaIds, its areas, together); false if it doesn't exist. */
+  update(id: string, patch: FloodAlertPatch): Promise<boolean>;
+  /** Deletes an alert and its areas; false if it doesn't exist. */
+  remove(id: string): Promise<boolean>;
 }
 
 export function alertStatus(row: Pick<FloodAlertRow, "startsAt" | "expiresAt" | "endedAt">, now: Date): AlertStatus {

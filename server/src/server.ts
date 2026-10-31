@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { createApp } from "./app";
 import { EmailOutbox } from "./common/email/email-outbox";
+import { registerRealtimeListeners } from "./common/realtime/realtime-events";
 import { RealtimeGateway } from "./common/realtime/realtime-gateway";
 import { AppDataSource } from "./config/data-source";
 import { env } from "./config/env";
@@ -18,6 +19,7 @@ async function main() {
 
   // Live updates (Socket.IO on the same port), notifications for what happens, and the email worker.
   RealtimeGateway.Instance.attach(server);
+  registerRealtimeListeners();
   registerNotificationListeners();
   EmailOutbox.Instance.start();
   logger.info({ email: env.EMAIL_PROVIDER, push: canSendPush ? "fcm" : "off" }, "Notification channels");

@@ -26,7 +26,7 @@ All paths are relative to `client/src/`. Each feature follows the standard's ord
 - **Locating:** `useLocatePoint` (asks the server "what's at this point?") and `useGeolocation` (the browser's location, only when "Where am I?" is pressed).
 - **Admin:** `useCountries`/`useCountry`/`useSaveCountry`, `useDataSources`, `useImportUpload`, `useImportRun`, `useImportRuns`, `useImportRunLayer` and `useTemplateDownload`.
 
-Stable reference data (countries, area lists, area details) goes through `cache/localCache.ts`, a 15-minute in-memory cache (standard section 14). It's cleared when a country is saved or an import is promoted.
+Reads are remembered in memory by TanStack Query ([client-data-caching.md](client-data-caching.md)): stable reference data (countries, area lists, area details) is fresh for 15 minutes, and it is cleared when a country is saved or an import is promoted.
 
 **3. The map.**
 - `components/map/ClimateMap.tsx` is the one map component: Mapbox GL JS through `react-map-gl/mapbox`, with the token read only from `VITE_MAPBOX_TOKEN`.

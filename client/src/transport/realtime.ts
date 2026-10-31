@@ -3,12 +3,14 @@ import { env, IS_E2E } from "../config/env";
 import { identity } from "./identity";
 
 /**
- * The live connection to the API (Socket.IO): new notifications and "alerts changed" arrive here
- * the moment they happen, instead of on the next page load. The only file that imports
- * socket.io-client.
+ * The live connection to the API (Socket.IO): new notifications, "alerts changed" and the like
+ * arrive here the moment they happen, instead of on the next page load. The only file that
+ * imports socket.io-client.
  *
- * It signs in with the same Firebase ID token as every HTTP request, asked for afresh on each
- * (re)connection, so an expired token never keeps it out. Off in Cypress runs (the API is stubbed).
+ * It presents the same Firebase ID token as every HTTP request, asked for afresh on each
+ * (re)connection, so an expired token never keeps it out. Someone who isn't signed in presents
+ * none and is connected anyway, to the public events only (the landing page's alert map). Off in
+ * Cypress runs (the API is stubbed).
  */
 
 type Listener = (payload: unknown) => void;
@@ -26,12 +28,19 @@ export function connectRealtime(): void {
   socket = io(env.VITE_API_URL, {
     transports: ["websocket", "polling"],
     auth: (send) => {
-      void identity.getIdToken().then((token) => send({ token }), () => send({}));
+      void identity.getIdToken().then((token) => send(token ? { token } : {}), () => send({}));
     },
     reconnectionDelay: 2_000,
     reconnectionDelayMax: 30_000,
   });
   for (const [event, set] of listeners) for (const listener of set) socket.on(event, listener);
+}
+
+/** Connects again, so the server sees the current sign-in (or none): after signing in or out, or a role change. */
+export function reconnectRealtime(): void {
+  if (!socket) return;
+  socket.disconnect();
+  socket.connect();
 }
 
 export function disconnectRealtime(): void {

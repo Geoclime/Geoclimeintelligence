@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { QUERY_KEYS, LIVE_POLICY, SETTINGS_POLICY } from "../cache/queryClient";
 import { fetchNotificationPreferences, fetchNotifications, registerPushToken, saveNotificationPreference, unregisterPushToken } from "../endpoints/notification.endpoints";
 import { currentPushToken, deletePushToken, pushAvailability, pushPermission, requestPushToken, type PushAvailability } from "../transport/push-messaging";
 import type { AppNotification, NotificationChannel, NotificationPreferences } from "../types/notification.types";
@@ -7,11 +8,15 @@ import { useLoader } from "./useLoader";
 
 /** Which channels the person wants for each category. Saving one switch updates it at once, and puts it back if the save fails. */
 export function useNotificationPreferences() {
-  const { data, setData, ...state } = useLoader<NotificationPreferences>("notification-preferences", async () => {
-    const response = await fetchNotificationPreferences();
-    if (!response.data) throw new Error(response.message || "The server returned no settings.");
-    return response.data;
-  });
+  const { data, setData, ...state } = useLoader<NotificationPreferences>(
+    [...QUERY_KEYS.settings, "notification-preferences"],
+    async () => {
+      const response = await fetchNotificationPreferences();
+      if (!response.data) throw new Error(response.message || "The server returned no settings.");
+      return response.data;
+    },
+    SETTINGS_POLICY,
+  );
 
   const setChannel = useCallback(
     async (category: string, channel: NotificationChannel, on: boolean) => {
@@ -37,10 +42,14 @@ export function useNotificationPreferences() {
 
 /** One page of the inbox, newest first, optionally only the unread ones. */
 export function useNotificationInbox(page: number, unreadOnly: boolean, pageSize = 20) {
-  const { data, ...state } = useLoader(`notifications:${page}:${pageSize}:${unreadOnly}`, async () => {
-    const response = await fetchNotifications({ page, pageSize, unread: unreadOnly });
-    return { items: response.data?.items ?? ([] as AppNotification[]), meta: response.meta ?? {} };
-  });
+  const { data, ...state } = useLoader(
+    [...QUERY_KEYS.notifications, page, pageSize, unreadOnly],
+    async () => {
+      const response = await fetchNotifications({ page, pageSize, unread: unreadOnly });
+      return { items: response.data?.items ?? ([] as AppNotification[]), meta: response.meta ?? {} };
+    },
+    LIVE_POLICY,
+  );
   return { items: data?.items ?? [], ...paginationDetails(data?.meta ?? {}), ...state };
 }
 

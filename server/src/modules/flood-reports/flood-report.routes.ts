@@ -12,11 +12,13 @@ import {
   reportIdSchema,
   reportMediaSchema,
   reviewReportSchema,
+  updateReportSchema,
 } from "./flood-report.validation";
 import { MAX_UPLOAD_BYTES, MEDIA_LIMITS } from "./media-check";
 
-// Mounted at /api/v1/flood-reports. Any signed-in user may send a report and see their own;
-// reviewing is for responders, officials and administrators (region scope checked in the service).
+// Mounted at /api/v1/flood-reports. Any signed-in user may send a report and see their own, and
+// edit or delete it until it is published; reviewing, and deleting anyone's report, is for
+// responders, officials and administrators (region scope checked in the service).
 
 const MAX_FILE_BYTES = MAX_UPLOAD_BYTES;
 const KINDS = Object.values(MEDIA_LIMITS);
@@ -49,6 +51,8 @@ floodReportsRouter.get("/mine", validate(myReportsSchema), FloodReportController
 floodReportsRouter.get("/", authorise("emergency_responder", "government_official"), validate(listReportsSchema), FloodReportController.list);
 floodReportsRouter.get("/:id", validate(reportIdSchema), FloodReportController.getById);
 floodReportsRouter.get("/:id/media/:mediaId", validate(reportMediaSchema), FloodReportController.media);
+floodReportsRouter.patch("/:id", requireCompleteProfile, validate(updateReportSchema), FloodReportController.update);
+floodReportsRouter.delete("/:id", validate(reportIdSchema), FloodReportController.remove);
 floodReportsRouter.post(
   "/:id/review",
   authorise("emergency_responder", "government_official"),

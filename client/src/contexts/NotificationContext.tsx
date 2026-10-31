@@ -1,4 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { QUERY_KEYS, invalidateQueries } from "../cache/queryClient";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead, registerPushToken } from "../endpoints/notification.endpoints";
 import { useToast } from "../hooks/useToast";
 import { currentPushToken } from "../transport/push-messaging";
@@ -55,6 +56,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     connectRealtime();
     const stop = onRealtime<AppNotification>("notification:new", (notification) => {
+      invalidateQueries(QUERY_KEYS.notifications);
       setRecent((list) => [notification, ...list.filter((n) => n.id !== notification.id)].slice(0, RECENT));
       setUnreadCount((n) => n + 1);
       showToast({ type: "info", message: notification.title });
@@ -82,6 +84,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (target?.readAt) return;
     setRecent((list) => list.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
     const response = await markNotificationRead(id);
+    invalidateQueries(QUERY_KEYS.notifications);
     if (response.data) setUnreadCount(response.data.unreadCount);
   }, [recent]);
 
@@ -89,6 +92,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setRecent((list) => list.map((n) => (n.readAt ? n : { ...n, readAt: new Date().toISOString() })));
     setUnreadCount(0);
     await markAllNotificationsRead();
+    invalidateQueries(QUERY_KEYS.notifications);
   }, []);
 
   const value = useMemo<NotificationContextValue>(

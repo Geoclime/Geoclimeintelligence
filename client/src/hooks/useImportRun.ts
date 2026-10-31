@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { CACHE_KEYS, invalidateCached } from "../cache/localCache";
+import { QUERY_KEYS, invalidateQueries } from "../cache/queryClient";
 import { fetchImportRun, promoteImportRun } from "../endpoints/import.endpoints";
 import type { PaginationMeta } from "../types/api.types";
 import type { ImportRun, ImportRunDetail, StagingRow } from "../types/import.types";
@@ -17,7 +17,7 @@ interface UseImportRunOptions {
  * errors, and the Promote action. Not cached: a run changes when it's promoted.
  */
 export function useImportRun(id: string | undefined, { page = 1, pageSize = 50, status }: UseImportRunOptions = {}) {
-  const key = id ? `import-run:${id}:${page}:${pageSize}:${status ?? "all"}` : null;
+  const key = id ? ["import-run", id, page, pageSize, status ?? "all"] : null;
   const [promoting, setPromoting] = useState(false);
 
   const { data, setData, ...state } = useLoader(key, async () => {
@@ -35,10 +35,10 @@ export function useImportRun(id: string | undefined, { page = 1, pageSize = 50, 
       if (!response.data) throw new Error(response.message || "The server returned no import run.");
       const run = response.data;
       // New areas or rainfall are live: every cached area list, map count and rainfall series is now out of date.
-      invalidateCached(CACHE_KEYS.adminUnits);
-      invalidateCached(CACHE_KEYS.countries);
-      invalidateCached(CACHE_KEYS.rainfall);
-      invalidateCached(CACHE_KEYS.public);
+      invalidateQueries(QUERY_KEYS.adminUnits);
+      invalidateQueries(QUERY_KEYS.countries);
+      invalidateQueries(QUERY_KEYS.rainfall);
+      invalidateQueries(QUERY_KEYS.public);
       setData((current) => current && { ...current, detail: { ...current.detail, run } });
       return run;
     } finally {

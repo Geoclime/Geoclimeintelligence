@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { CACHE_KEYS, invalidateCached } from "../cache/localCache";
+import { QUERY_KEYS, invalidateQueries } from "../cache/queryClient";
 import { previewImportFile, startImport, startRainfallImport } from "../endpoints/import.endpoints";
 import { clearMapLayers, uploadMapLayer } from "../endpoints/map-layer.endpoints";
 import type { ImportPreview, ImportRun, PreviewImportInput, StartImportInput, StartRainfallImportInput } from "../types/import.types";
@@ -36,8 +36,8 @@ export function useImportUpload() {
   const uploadLayer = useCallback(async (input: UploadMapLayerInput): Promise<MapLayerLoadReport> => {
     const response = await uploadMapLayer(input);
     if (!response.data) throw new Error(response.message || "The server returned no load report.");
-    invalidateCached(CACHE_KEYS.mapLayers);
-    invalidateCached(CACHE_KEYS.public);
+    invalidateQueries(QUERY_KEYS.mapLayers);
+    invalidateQueries(QUERY_KEYS.public);
     return response.data;
   }, []);
 
@@ -45,8 +45,8 @@ export function useImportUpload() {
   const clearLayer = useCallback(async (input: ClearMapLayerInput): Promise<MapLayerClearReport> => {
     const response = await clearMapLayers(input);
     if (!response.data) throw new Error(response.message || "The server returned no clear report.");
-    invalidateCached(CACHE_KEYS.mapLayers);
-    invalidateCached(CACHE_KEYS.public);
+    invalidateQueries(QUERY_KEYS.mapLayers);
+    invalidateQueries(QUERY_KEYS.public);
     return response.data;
   }, []);
 

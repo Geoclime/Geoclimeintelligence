@@ -25,7 +25,7 @@ When something happens that someone should know about, they hear about it on up 
 - Push is turned on per device ("Turn on push"): the browser asks for permission.
 - Signing out turns push off for that device.
 
-**Also live:** when an alert is issued or ended, every open Alerts page and alert map refreshes itself.
+**Also live, without a refresh:** open screens update themselves over the same connection. When an alert is issued, edited, ended or deleted, or a published report changes, every open landing page, Alerts page and alert map refreshes, signed in or not. A new, edited, reviewed or deleted report refreshes the review queue and its sender's own list. A role request or answer refreshes the administrators' user list, and the person whose role was answered gets their new access at once. See "Live updates" below.
 
 ## How it works
 
@@ -45,10 +45,21 @@ Each channel is isolated: one failing is logged and the others still go.
 - staff with no scope.
 
 **4. Socket.IO** (`common/realtime/realtime-gateway.ts`) shares the API's port.
-- A connection must present a Firebase ID token, checked exactly like the REST API. The socket then joins only `user:<id>`.
-- The client asks for a fresh token on every reconnect (`client/src/transport/realtime.ts`).
-- The live connection carries nothing the REST API wouldn't give the same person.
-- Checked live: a connection with no token, or a forged one, is refused.
+- Everyone connects, signed in or not. A visitor with no token joins only the `public` room and hears that the public alert map changed. A token that is present must be a valid Firebase ID token, checked exactly like the REST API, and the connection then also joins `user:<id>` and the rooms of its role (`reviewers`, `administrators`). A forged or expired token is refused.
+- The client asks for a fresh token on every reconnect (`client/src/transport/realtime.ts`) and reconnects after signing in or out or a role change, so the server always knows who is listening.
+- Every event is a small "this changed" signal with an id, never the data. The browser asks the REST API again, which applies the usual access rules, so the live connection carries nothing the REST API wouldn't give the same person.
+- Checked end to end: an anonymous visitor connects and hears only `alerts:changed`, never the review-queue or user signals; a forged token is refused.
+
+**4a. Live updates.** `common/realtime/realtime-events.ts` turns what happens into signals, and `client/src/components/layout/LiveUpdates.tsx` (one per app) turns each signal into a refresh of the matching data:
+
+| Signal | Sent to | When | The browser refreshes |
+|---|---|---|---|
+| `alerts:changed` | everyone | an alert is issued, edited, ended or deleted; a report is reviewed or deleted (published reports are on the public map) | the public alert map, the Alerts page, the landing page's status line |
+| `reports:changed` | the review queue (responders, officials, administrators) and the report's sender | a report is sent, edited, reviewed or deleted | the review queue, "your reports" |
+| `users:changed` | administrators | a role is requested or answered | the user list |
+| `account:changed` | the person concerned | their role request was answered | their profile and access |
+
+The server drops its own copy of the public alert map before the signal goes out, otherwise the refresh every browser is about to do would read the old answer back. Measured with the real landing page, an alert issued appeared in about 60 ms and a deleted one cleared in about 50 ms, with no refresh. This is one API instance: with several, the signals and the cache drop would need a shared adapter (the Socket.IO Redis adapter).
 
 **5. Push in the browser.**
 - `transport/push-messaging.ts` gets an FCM token using the app's own service worker. That worker (`public/sw.js`) shows the data-only messages, skips them while the app is focused (the in-app toast covers that), and opens the notification's page when tapped.

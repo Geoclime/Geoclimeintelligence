@@ -11,7 +11,7 @@ export const MIN_SEARCH_LENGTH = 2;
  * every search is different, and the server's reply may be reused by the browser for a minute.
  */
 export function usePublicSearch(q: string) {
-  const key = q.length >= MIN_SEARCH_LENGTH ? `public-search:${q.toLowerCase()}` : null;
+  const key = q.length >= MIN_SEARCH_LENGTH ? ["public-search", q.toLowerCase()] : null;
   const { data, ...state } = useLoader<PublicSearchResults>(key, async () => {
     const response = await searchPublicPlaces(q);
     if (!response.data) throw new Error(response.message || "The server returned no results.");

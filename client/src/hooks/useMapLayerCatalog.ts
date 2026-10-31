@@ -1,4 +1,4 @@
-import { CACHE_KEYS, cached } from "../cache/localCache";
+import { QUERY_KEYS, REFERENCE_POLICY } from "../cache/queryClient";
 import { fetchMapLayers } from "../endpoints/map-layer.endpoints";
 import type { MapLayerInfo } from "../types/map-layer.types";
 import { useLoader } from "./useLoader";
@@ -8,7 +8,7 @@ import { useLoader } from "./useLoader";
  * it only changes when an administrator runs the loader.
  */
 export function useMapLayerCatalog() {
-  const key = `${CACHE_KEYS.mapLayers}list`;
-  const { data, ...state } = useLoader(key, () => cached(key, async () => (await fetchMapLayers()).data ?? []));
+  const key = [...QUERY_KEYS.mapLayers, "list"];
+  const { data, ...state } = useLoader(key, async () => (await fetchMapLayers()).data ?? [], REFERENCE_POLICY);
   return { catalog: data ?? ([] as MapLayerInfo[]), ...state };
 }

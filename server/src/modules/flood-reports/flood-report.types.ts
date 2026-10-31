@@ -93,6 +93,21 @@ export interface NewFloodReport {
   media: NewMedia[];
 }
 
+/**
+ * What a reporter may change on a report that is not published. Anything left out stays as it is.
+ * A moved point comes with the LGA and ward found for it. `resubmit` puts a rejected report back in
+ * the review queue, clearing the old review.
+ */
+export interface FloodReportPatch {
+  point?: LonLat;
+  lgaId?: string | null;
+  wardId?: string | null;
+  locationName?: string;
+  waterDepth?: WaterDepth;
+  description?: string;
+  resubmit?: boolean;
+}
+
 export type FloodReportFilter = RegionScoped<{
   status?: ReportStatus;
   reporterId?: string;
@@ -123,6 +138,10 @@ export interface IFloodReportRepository {
   findReportPage(filter: FloodReportFilter): Promise<{ items: FloodReportRow[]; meta: PageMeta }>;
   /** Records a review; false unless the report was still pending. */
   review(id: string, decision: ReviewDecision): Promise<boolean>;
+  /** Changes a report that is not published; false if it doesn't exist or has been published. */
+  update(id: string, patch: FloodReportPatch): Promise<boolean>;
+  /** Deletes a report and its media rows; false if it doesn't exist. */
+  remove(id: string): Promise<boolean>;
   findMedia(reportId: string, mediaId: string): Promise<FloodReportMediaRow & { data: Buffer | null } | null>;
   countSince(reporterId: string, since: Date): Promise<number>;
   findPublishedSince(since: Date, limit: number): Promise<PublicReportPoint[]>;

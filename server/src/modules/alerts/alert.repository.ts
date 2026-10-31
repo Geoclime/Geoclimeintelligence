@@ -1,6 +1,6 @@
 import { AppDataSource } from "../../config/data-source";
 import { BaseRepository } from "../../common/repository/base.repository";
-import type { AlertListFilter, FloodAlertRow, IAlertRepository, NewFloodAlert } from "./alert.types";
+import type { AlertListFilter, FloodAlertPatch, FloodAlertRow, IAlertRepository, NewFloodAlert } from "./alert.types";
 import { FloodAlert } from "./flood-alert.entity";
 
 // One query reads an alert with its areas and every LGA it covers: an LGA itself, or a state's
@@ -59,6 +59,46 @@ export class AlertRepository extends BaseRepository<FloodAlert> implements IAler
         LIMIT $1`,
       [limit],
     );
+  }
+
+  /** Changed fields and the areas in one transaction: an alert never has half an edit, or no areas. */
+  update(id: string, patch: FloodAlertPatch): Promise<boolean> {
+    return AppDataSource.transaction(async (manager) => {
+      // Column names below are fixed literals, never input; values are always parameters.
+      const params: unknown[] = [id];
+      const sets: string[] = [];
+      const set = (column: string, value: unknown) => {
+        params.push(value);
+        sets.push(`${column} = ${params.length}`);
+      };
+      if (patch.severity !== undefined) set("severity", patch.severity);
+      if (patch.title !== undefined) set("title", patch.title);
+      if (patch.message !== undefined) set("message", patch.message);
+      if (patch.actions !== undefined) set("actions", patch.actions.join("\n"));
+      if (patch.expiresAt !== undefined) set("expires_at", patch.expiresAt);
+      sets.push("updated_at = now()");
+
+      const rows: { n: number }[] = await manager.query(
+        `WITH changed AS (UPDATE flood_alerts SET ${sets.join(", ")} WHERE id = $1 RETURNING id) SELECT count(*)::int AS n FROM changed`,
+        params,
+      );
+      if ((rows[0]?.n ?? 0) === 0) return false;
+
+      if (patch.areaIds !== undefined) {
+        await manager.query(`DELETE FROM flood_alert_areas WHERE alert_id = $1`, [id]);
+        await manager.query(`INSERT INTO flood_alert_areas (alert_id, admin_unit_id) SELECT $1, unnest($2::uuid[])`, [id, patch.areaIds]);
+      }
+      return true;
+    });
+  }
+
+  /** The areas go with it (ON DELETE CASCADE). */
+  async remove(id: string): Promise<boolean> {
+    const rows: { n: number }[] = await this.repo.query(
+      `WITH gone AS (DELETE FROM flood_alerts WHERE id = $1 RETURNING id) SELECT count(*)::int AS n FROM gone`,
+      [id],
+    );
+    return (rows[0]?.n ?? 0) > 0;
   }
 
   async end(id: string, at: Date): Promise<boolean> {

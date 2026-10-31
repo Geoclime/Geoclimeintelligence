@@ -1,4 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { clearQueries } from "../cache/queryClient";
 import { fetchCurrentUser, submitRoleRequest, updateCurrentUser, withdrawRoleRequest } from "../endpoints/auth.endpoints";
 import { unregisterPushToken } from "../endpoints/notification.endpoints";
 import { toApiError } from "../transport/api-error";
@@ -57,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resolveUser = useCallback(async (session: IdentitySession | null) => {
     const thisRequest = ++requestId.current;
     if (!session) {
+      // Whatever was remembered belonged to the last person to sign in here.
+      clearQueries();
       setState({ status: "signed-out", session: null, user: null, error: null });
       return;
     }

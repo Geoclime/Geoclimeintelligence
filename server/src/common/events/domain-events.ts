@@ -9,8 +9,15 @@ import { logger } from "../../config/logger";
 export interface DomainEvents {
   "alert.issued": { alertId: string; issuerId: string };
   "alert.ended": { alertId: string };
+  /** `notify`: the editor chose to tell everyone the alert covers. */
+  "alert.updated": { alertId: string; editorId: string; notify: boolean };
+  "alert.deleted": { alertId: string };
   "report.submitted": { reportId: string; reporterId: string };
   "report.reviewed": { reportId: string; reviewerId: string };
+  /** A sender changed their report (text, depth or position). */
+  "report.updated": { reportId: string; reporterId: string };
+  /** `byReviewer`: someone other than the sender deleted it, so the sender should be told. */
+  "report.deleted": { reportId: string; reporterId: string | null; locationName: string; byReviewer: boolean };
   "role.requested": { userId: string };
   "role.answered": { userId: string; role: string; approved: boolean };
 }

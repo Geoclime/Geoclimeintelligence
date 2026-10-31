@@ -61,6 +61,15 @@ describe("public routes", () => {
     expect(verifySpy).not.toHaveBeenCalled();
   });
 
+  it("never lets the alert map be reused without checking, so an alert can't be held back", async () => {
+    const res = await request(app).get("/api/v1/public/alert-map");
+    expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe("public, no-cache");
+    expect(res.headers["etag"]).toBeTruthy();
+    // Asking again with that ETag costs almost nothing when nothing changed.
+    expect((await request(app).get("/api/v1/public/alert-map").set("If-None-Match", String(res.headers["etag"]))).status).toBe(304);
+  });
+
   it("serves the outline, an area and a located point with no token", async () => {
     expect((await request(app).get("/api/v1/public/outline")).status).toBe(200);
 

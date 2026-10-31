@@ -27,8 +27,13 @@ import type { PublicLocateQuery, PublicSearchQuery } from "./public.validation";
 /** How long the overview and the outline are reused before they are read again. */
 export const PUBLIC_CACHE_TTL_MS = 5 * 60 * 1000;
 
-/** The alert map changes as alerts are issued, so it is reused for one minute only. */
-export const ALERT_MAP_TTL_MS = 60 * 1000;
+/**
+ * The alert map is reused for a few seconds, to spare the database when many visitors poll it. It is
+ * dropped the moment an alert or a published report changes (invalidateAlertMap, called from
+ * common/realtime/realtime-events.ts), so this is only the safety net. It was a minute, which held
+ * an issued or deleted alert back from the landing page for up to that long.
+ */
+export const ALERT_MAP_TTL_MS = 5 * 1000;
 /** Published reports on the alert map: the last week, at most this many. */
 const REPORT_DAYS = 7;
 const REPORT_LIMIT = 500;
@@ -84,6 +89,8 @@ export class PublicService {
   }
 
   private readonly cache = new Map<string, Cached<unknown>>();
+  /** Bumped when the alert map is invalidated, so a read that started before it is not cached. */
+  private generation = 0;
   private readonly now: () => number;
 
   // Public so tests can inject fakes; application code always uses .Instance.
@@ -131,7 +138,8 @@ export class PublicService {
 
   /**
    * The national alert map: every alert in force now, and the reports reviewers published in the
-   * last week (points rounded, no reporter, no text). Cached for a minute.
+   * last week (points rounded, no reporter, no text). Cached for a few seconds, and dropped at once
+   * when an alert or a published report changes.
    */
   alertMap(): Promise<PublicAlertMapDto> {
     return this.cached(
@@ -142,6 +150,13 @@ export class PublicService {
       },
       ALERT_MAP_TTL_MS,
     );
+  }
+
+  /** Forgets the cached alert map, so the next read asks the database. */
+  invalidateAlertMap(): void {
+    this.cache.delete("alert-map");
+    // A read already on its way began before this change and may carry the old answer: it must not be kept.
+    this.generation += 1;
   }
 
   /** Areas and communities whose names contain the search. */
@@ -207,8 +222,9 @@ export class PublicService {
   private async cached<T>(key: string, load: () => Promise<T>, ttlMs = PUBLIC_CACHE_TTL_MS): Promise<T> {
     const hit = this.cache.get(key) as Cached<T> | undefined;
     if (hit && hit.expiresAt > this.now()) return hit.value;
+    const generation = this.generation;
     const value = await load();
-    this.cache.set(key, { value, expiresAt: this.now() + ttlMs });
+    if (generation === this.generation) this.cache.set(key, { value, expiresAt: this.now() + ttlMs });
     return value;
   }
 }

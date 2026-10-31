@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { DeleteReportDialog } from "../../components/reports/DeleteReportDialog";
+import { EditReportDialog } from "../../components/reports/EditReportDialog";
 import { ReportCard } from "../../components/reports/ReportCard";
 import { ReportFloodForm } from "../../components/reports/ReportFloodForm";
 import { Callout } from "../../components/shared/Callout";
@@ -7,16 +9,23 @@ import { ErrorState } from "../../components/shared/ErrorState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { SITE } from "../../config/site";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import { useMyFloodReports, useSubmitFloodReport } from "../../hooks/useFloodReports";
+import { useFloodReportActions, useMyFloodReports, useSubmitFloodReport } from "../../hooks/useFloodReports";
 import { useToast } from "../../hooks/useToast";
+import type { FloodReport } from "../../types/flood-report.types";
 import "../../components/reports/reports.css";
 
-/** Report flooding, and follow what happened to your earlier reports. */
+/**
+ * Report flooding, and follow what happened to your earlier reports. A report that isn't published
+ * can still be edited or deleted; a published one can only be removed by a coordinator.
+ */
 export function ReportFloodPage() {
   useDocumentTitle("Report flooding");
   const { showToast } = useToast();
   const { submit } = useSubmitFloodReport();
   const mine = useMyFloodReports(1, 10);
+  const { update, remove } = useFloodReportActions();
+  const [editing, setEditing] = useState<FloodReport | null>(null);
+  const [deleting, setDeleting] = useState<FloodReport | null>(null);
   // A new key gives a fresh, empty form after each report.
   const [formKey, setFormKey] = useState(0);
 
@@ -64,7 +73,11 @@ export function ReportFloodPage() {
               <ul className="flood-page__list">
                 {mine.reports.map((report) => (
                   <li key={report.id}>
-                    <ReportCard report={report} />
+                    <ReportCard
+                      report={report}
+                      onEdit={report.status !== "published" ? () => setEditing(report) : undefined}
+                      onDelete={report.status !== "published" ? () => setDeleting(report) : undefined}
+                    />
                   </li>
                 ))}
               </ul>
@@ -72,6 +85,23 @@ export function ReportFloodPage() {
           </section>
         </div>
       </div>
+
+      {editing && (
+        <EditReportDialog
+          key={editing.id}
+          report={editing}
+          onClose={() => setEditing(null)}
+          onSave={update}
+          onSaved={() => {
+            setEditing(null);
+            showToast({
+              type: "success",
+              message: editing.status === "rejected" ? "Your changes were saved and the report is back with the coordinators." : "Your report was updated.",
+            });
+          }}
+        />
+      )}
+      <DeleteReportDialog report={deleting} onClose={() => setDeleting(null)} onConfirm={(report) => remove(report.id)} />
     </div>
   );
 }

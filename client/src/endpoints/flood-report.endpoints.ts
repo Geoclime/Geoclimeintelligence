@@ -1,9 +1,10 @@
 import { httpClient } from "../transport/http";
 import type { ApiResponse } from "../types/api.types";
-import type { FloodReport, NewFloodReport, ReportListParams, ReportMediaOptions } from "../types/flood-report.types";
+import type { FloodReport, NewFloodReport, ReportListParams, ReportMediaOptions, UpdateFloodReport } from "../types/flood-report.types";
 
-// server/src/modules/flood-reports/flood-report.routes.ts. Sending and "mine": any signed-in
-// user. The review list and review: responders, officials and administrators, inside their region.
+// server/src/modules/flood-reports/flood-report.routes.ts. Sending, "mine", and editing or deleting
+// your own report until it is published: any signed-in user. The review list, review, and deleting
+// anyone's report: responders, officials and administrators, inside their region.
 
 /** Sends a report as multipart form data: the fields, photos, a voice note, a video and documents. */
 export async function submitFloodReport(report: NewFloodReport): Promise<ApiResponse<FloodReport>> {
@@ -43,6 +44,20 @@ export async function reviewFloodReport(id: string, decision: "publish" | "rejec
     decision,
     ...(note ? { note } : {}),
   });
+  return data;
+}
+
+/** Changes a report that is not published. Only what is sent changes; the files stay as they were. */
+export async function updateFloodReport(id: string, input: UpdateFloodReport): Promise<ApiResponse<FloodReport>> {
+  const { point, ...text } = input;
+  const body = { ...text, ...(point ? { lon: point[0], lat: point[1] } : {}) };
+  const { data } = await httpClient.patch<ApiResponse<FloodReport>>(`/api/v1/flood-reports/${encodeURIComponent(id)}`, body);
+  return data;
+}
+
+/** Deletes a report and its files for good. */
+export async function deleteFloodReport(id: string): Promise<ApiResponse<null>> {
+  const { data } = await httpClient.delete<ApiResponse<null>>(`/api/v1/flood-reports/${encodeURIComponent(id)}`);
   return data;
 }
 

@@ -1,17 +1,19 @@
-import { CACHE_KEYS, cached } from "../cache/localCache";
+import { QUERY_KEYS, REFERENCE_POLICY } from "../cache/queryClient";
 import { fetchAdminUnit } from "../endpoints/admin-unit.endpoints";
 import type { AdminUnitDetail } from "../types/admin-unit.types";
 import { useLoader } from "./useLoader";
 
 /** One area in full: parent, source and shape. `id` undefined = nothing to load yet. */
 export function useAdminUnit(id: string | undefined) {
-  const key = id ? `${CACHE_KEYS.adminUnits}detail:${id}` : null;
-  const { data, ...state } = useLoader<AdminUnitDetail>(key, () =>
-    cached(key!, async () => {
+  const key = id ? [...QUERY_KEYS.adminUnits, "detail", id] : null;
+  const { data, ...state } = useLoader<AdminUnitDetail>(
+    key,
+    async () => {
       const response = await fetchAdminUnit(id!);
       if (!response.data) throw new Error(response.message || "The server returned no area.");
       return response.data;
-    }),
+    },
+    REFERENCE_POLICY,
   );
   // While a new id loads, don't show the previous area's details under the new URL.
   const unit = data && data.id === id ? data : null;

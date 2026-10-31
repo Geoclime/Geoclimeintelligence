@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useSearchParams } from "react-router";
+import { DeleteReportDialog } from "../../components/reports/DeleteReportDialog";
 import { ReportCard } from "../../components/reports/ReportCard";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { ErrorState } from "../../components/shared/ErrorState";
@@ -6,9 +8,9 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { Pagination } from "../../components/shared/Pagination";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import { useFloodReports } from "../../hooks/useFloodReports";
+import { useFloodReportActions, useFloodReports } from "../../hooks/useFloodReports";
 import { useToast } from "../../hooks/useToast";
-import type { ReportStatus } from "../../types/flood-report.types";
+import type { FloodReport, ReportStatus } from "../../types/flood-report.types";
 import { parsePageParam } from "../../utils/pagination";
 import "../../components/reports/reports.css";
 
@@ -21,7 +23,9 @@ const TABS: { status: ReportStatus; label: string }[] = [
 /**
  * The review queue for responders, officials and administrators: community reports inside their
  * region, oldest pending first. Publishing puts a report on the public alert map (its point
- * rounded, the reporter never named); rejecting needs a short reason, which the reporter sees.
+ * rounded, the reporter never named); rejecting needs a short reason, which the reporter sees. A
+ * coordinator can also delete a report in any state (spam, a duplicate, one published by mistake):
+ * the person who sent it is told.
  */
 export function ReviewReportsPage() {
   useDocumentTitle("Review reports");
@@ -31,6 +35,8 @@ export function ReviewReportsPage() {
   const status = (TABS.find((t) => t.status === searchParams.get("status"))?.status ?? "pending") as ReportStatus;
   const page = parsePageParam(searchParams.get("page"));
   const { reports, loading, error, refetch, review, total, pageSize, hasNext, hasPrev } = useFloodReports({ status, page, pageSize: 20 });
+  const { remove } = useFloodReportActions();
+  const [deleting, setDeleting] = useState<FloodReport | null>(null);
 
   const go = (next: { status?: ReportStatus; page?: number }) =>
     setSearchParams((params) => {
@@ -82,6 +88,7 @@ export function ReviewReportsPage() {
               <li key={report.id}>
                 <ReportCard
                   report={report}
+                  onDelete={() => setDeleting(report)}
                   onReview={async (decision, note) => {
                     await review(report.id, decision, note);
                     showToast({ type: "success", message: decision === "publish" ? "Report published to the alert map." : "Report rejected. The reporter can see your note." });
@@ -93,6 +100,8 @@ export function ReviewReportsPage() {
           <Pagination page={page} pageSize={pageSize} total={total} hasPrev={hasPrev} hasNext={hasNext} onPageChange={(next) => go({ page: next })} itemLabel="reports" disabled={loading} />
         </>
       )}
+
+      <DeleteReportDialog report={deleting} byReviewer onClose={() => setDeleting(null)} onConfirm={(report) => remove(report.id)} />
     </div>
   );
 }

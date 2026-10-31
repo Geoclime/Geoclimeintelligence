@@ -11,7 +11,7 @@ import { useLoader } from "./useLoader";
  */
 export function useImportRunLayer(id: string | undefined, bbox: BBox | null, version = 0) {
   const view = useDebounce(bbox, 300);
-  const key = id && view ? `import-layer:${id}:${view.join(",")}:${version}` : null;
+  const key = id && view ? ["import-layer", id, view, version] : null;
   const { data, loading, error } = useLoader<StagingFeatureCollection>(key, async () => {
     const response = await fetchImportRunGeoJson(id!, view!);
     return response.data ?? { type: "FeatureCollection", features: [] };

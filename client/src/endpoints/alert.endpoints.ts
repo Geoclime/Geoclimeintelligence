@@ -1,9 +1,9 @@
 import { httpClient } from "../transport/http";
-import type { FloodAlert, NewAlertBody } from "../types/alert.types";
+import type { FloodAlert, NewAlertBody, UpdateAlertBody } from "../types/alert.types";
 import type { ApiResponse } from "../types/api.types";
 
-// server/src/modules/alerts/alert.routes.ts. Reading: any signed-in user. Issuing and ending:
-// government officials and administrators, inside their region.
+// server/src/modules/alerts/alert.routes.ts. Reading: any signed-in user. Issuing, editing,
+// ending and deleting: government officials and administrators, inside their region.
 
 /** "active": in force now. "recent": also scheduled, and ended or expired in the last 30 days. */
 export async function fetchAlerts(view: "active" | "recent"): Promise<ApiResponse<FloodAlert[]>> {
@@ -13,6 +13,18 @@ export async function fetchAlerts(view: "active" | "recent"): Promise<ApiRespons
 
 export async function issueAlert(body: NewAlertBody): Promise<ApiResponse<FloodAlert>> {
   const { data } = await httpClient.post<ApiResponse<FloodAlert>>("/api/v1/alerts", body);
+  return data;
+}
+
+/** Changes an alert still in force or scheduled. Send only what changes. */
+export async function updateAlert(id: string, body: UpdateAlertBody): Promise<ApiResponse<FloodAlert>> {
+  const { data } = await httpClient.patch<ApiResponse<FloodAlert>>(`/api/v1/alerts/${encodeURIComponent(id)}`, body);
+  return data;
+}
+
+/** Deletes an alert for good, in any state. */
+export async function deleteAlert(id: string): Promise<ApiResponse<null>> {
+  const { data } = await httpClient.delete<ApiResponse<null>>(`/api/v1/alerts/${encodeURIComponent(id)}`);
   return data;
 }
 

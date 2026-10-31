@@ -51,7 +51,7 @@ After sign-in with no destination, `GuestOnly` sends people to `/map`.
 
 **2. Old links keep working.** Map links used to look like `/?lng=…&lat=…&z=…&lga=…`. `LandingPage` checks `isMapLink(params)` and forwards any such address to `/map` with the same parameters.
 
-**3. Data.** `endpoints/public.endpoints.ts` calls the five public routes. The hooks are `usePublicOverview`, `usePublicOutline`, `usePublicSearch` (only from 2 characters, debounced 250 ms) and `usePublicArea`. `useLocatePoint("public")` reuses the existing locate hook against the public route. The overview, outline and areas are cached under `CACHE_KEYS.public`, which imports clear.
+**3. Data.** `endpoints/public.endpoints.ts` calls the five public routes. The hooks are `usePublicOverview`, `usePublicOutline`, `usePublicSearch` (only from 2 characters, debounced 250 ms) and `usePublicArea`. `useLocatePoint("public")` reuses the existing locate hook against the public route. The overview, outline and areas are remembered for 15 minutes under `QUERY_KEYS.public`, which imports clear ([client-data-caching.md](client-data-caching.md)).
 
 **4. The outline** (`components/landing/StateOutline.tsx`) is plain SVG, not Mapbox, so the landing page costs no map load. `utils/outline-path.ts` fits the bbox to the drawing and scales longitude by the cosine of the middle latitude. Near the equator that is accurate to well under a pixel. Clicking an LGA is pointer-only; keyboard users get the same result from the search box, so the 23 shapes aren't 23 tab stops.
 

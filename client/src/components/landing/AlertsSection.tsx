@@ -19,7 +19,7 @@ interface AlertsSectionProps {
 
 /**
  * The landing page's national alert map: LGAs coloured by the alerts in force, recently published
- * flood reports, the alerts themselves, and a way to report flooding. Refreshed every two minutes
+ * flood reports, the alerts themselves, and a way to report flooding. Refreshed every 30 seconds
  * (usePublicAlertMap).
  */
 export function AlertsSection({ alertMap, error, outline, outlineLoading, signedIn }: AlertsSectionProps) {

@@ -42,7 +42,6 @@ export function registerNotificationListeners(): void {
   const realtime = RealtimeGateway.Instance;
 
   domainEvents.on("alert.issued", async ({ alertId, issuerId }) => {
-    realtime.emitToAll("alerts:changed", { alertId });
     const alert = await AlertRepository.Instance.findAlert(alertId);
     if (!alert) return;
     await notify.notify({
@@ -55,7 +54,21 @@ export function registerNotificationListeners(): void {
     });
   });
 
-  domainEvents.on("alert.ended", ({ alertId }) => realtime.emitToAll("alerts:changed", { alertId }));
+  // An edit is only sent to people when the editor says so: a corrected typo shouldn't buzz every
+  // phone in the state. (Open screens refresh either way: realtime-events.ts.)
+  domainEvents.on("alert.updated", async ({ alertId, editorId, notify: tellPeople }) => {
+    if (!tellPeople) return;
+    const alert = await AlertRepository.Instance.findAlert(alertId);
+    if (!alert) return;
+    await notify.notify({
+      userIds: await recipients.findAlertRecipients(alert.lgaIds, editorId),
+      category: "flood_alerts",
+      title: `Updated, ${SEVERITY_LABEL[alert.severity].toLowerCase()}: ${alert.title}`,
+      body: clip(`${placeList(alert.areas)}. ${alert.message}`, 400),
+      link: "/alerts",
+      urgent: alert.severity !== "watch",
+    });
+  });
 
   domainEvents.on("report.submitted", async ({ reportId, reporterId }) => {
     const report = await FloodReportRepository.Instance.findReport(reportId);
@@ -80,6 +93,18 @@ export function registerNotificationListeners(): void {
       body: published
         ? `Thank you. Your report of ${DEPTH_LABEL[report.waterDepth].toLowerCase()} flooding at ${report.locationName} is now on the public alert map.`
         : `A coordinator reviewed your report from ${report.locationName}${report.reviewNote ? `: "${clip(report.reviewNote, 300)}"` : "."}`,
+      link: "/report",
+    });
+  });
+
+  // A report deleted by a coordinator is no longer there to look up, so the event carries what the message needs.
+  domainEvents.on("report.deleted", async ({ reporterId, locationName, byReviewer }) => {
+    if (!reporterId || !byReviewer) return;
+    await notify.notify({
+      userIds: [reporterId],
+      category: "my_reports",
+      title: "Your flood report was removed",
+      body: `A coordinator removed your report from ${locationName}.`,
       link: "/report",
     });
   });

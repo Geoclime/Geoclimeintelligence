@@ -54,6 +54,14 @@ export interface NewFloodReport {
   files: File[];
 }
 
+/** What an edit sends (PATCH /api/v1/flood-reports/:id): the report's text fields and position. Files aren't changed. */
+export interface UpdateFloodReport {
+  point?: LonLat;
+  locationName?: string;
+  waterDepth?: WaterDepth;
+  description?: string;
+}
+
 /** A published report on the public alert map: rounded point, no person, no text. */
 export interface PublicReportPoint {
   id: string;

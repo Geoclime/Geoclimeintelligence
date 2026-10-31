@@ -321,6 +321,13 @@
   font-size: var(--text-sm);
 }
 
+/* Edit and Delete on a report's card. */
+.report-card__manage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
 .report-card__review {
   display: grid;
   gap: var(--space-2);

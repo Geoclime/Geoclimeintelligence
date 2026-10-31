@@ -28,6 +28,20 @@ export interface FloodAlert {
   createdAt: string;
 }
 
+/**
+ * Body for PATCH /api/v1/alerts/:id: send only what changes. `expiresAt` is the new end time.
+ * `notify` tells everyone the alert covers about the change; leave it off for a small correction.
+ */
+export interface UpdateAlertBody {
+  severity?: AlertSeverity;
+  title?: string;
+  message?: string;
+  actions?: string[];
+  areaIds?: string[];
+  expiresAt?: string;
+  notify?: boolean;
+}
+
 /** Body for POST /api/v1/alerts. Times are ISO strings; startsAt defaults to now. */
 export interface NewAlertBody {
   severity: AlertSeverity;

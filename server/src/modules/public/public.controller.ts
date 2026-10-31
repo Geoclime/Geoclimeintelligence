@@ -9,6 +9,12 @@ import type { PublicLocateQuery, PublicSearchQuery } from "./public.validation";
 const SHARED_CACHE = "public, max-age=300";
 /** Search and locate answers depend on the question, so they are reused for less time. */
 const SHORT_CACHE = "public, max-age=60";
+/**
+ * The alert map is the one public reply that can't be a minute old: a severe alert has to reach
+ * the landing page at once. "no-cache" lets browsers and proxies keep a copy but ask before using
+ * it, and the ETag makes that check a cheap 304 when nothing changed.
+ */
+const REVALIDATE = "public, no-cache";
 
 export class PublicController {
   static async overview(_req: Request, res: Response, next: NextFunction) {
@@ -32,7 +38,7 @@ export class PublicController {
   static async alertMap(_req: Request, res: Response, next: NextFunction) {
     try {
       const map = await PublicService.Instance.alertMap();
-      return res.set("Cache-Control", SHORT_CACHE).json(ok(map));
+      return res.set("Cache-Control", REVALIDATE).json(ok(map));
     } catch (err) {
       next(err);
     }

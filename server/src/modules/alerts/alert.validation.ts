@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { ALERT_SEVERITIES } from "./alert.types";
 
-const MAX_DURATION_DAYS = 30;
+/** A guard against a mistyped number of days, not a policy: any length up to a year is allowed. */
+export const MAX_DURATION_DAYS = 365;
 
 /** POST /api/v1/alerts. Times are ISO strings; startsAt defaults to now. */
 export const createAlertSchema = z.object({
@@ -26,6 +27,31 @@ export const createAlertSchema = z.object({
     }),
 });
 export type CreateAlertBody = z.infer<typeof createAlertSchema>["body"];
+
+/**
+ * PATCH /api/v1/alerts/:id. Send only what changes. `expiresAt` is the new end time (checked against
+ * the alert's own start in the service). `notify` sends the changed alert to everyone it covers, as
+ * a new notification; leave it off for a small correction, like a typo.
+ */
+export const updateAlertSchema = z.object({
+  params: z.object({ id: z.uuid("Not a valid alert id") }),
+  body: z
+    .object({
+      severity: z.enum(ALERT_SEVERITIES, { error: "Choose watch, warning or severe" }).optional(),
+      title: z.string().trim().min(5, "Give the alert a short title").max(160).optional(),
+      message: z.string().trim().min(10, "Say what is happening and where").max(2000).optional(),
+      actions: z.array(z.string().trim().min(1).max(300)).max(10, "Keep to 10 actions or fewer").optional(),
+      areaIds: z.array(z.uuid("Not a valid area id")).min(1, "Choose at least one area").max(100).optional(),
+      expiresAt: z.iso.datetime({ offset: true, error: "Set when the alert expires" }).optional(),
+      notify: z.boolean().default(false),
+    })
+    .strict()
+    .refine(
+      (body) => [body.severity, body.title, body.message, body.actions, body.areaIds, body.expiresAt].some((value) => value !== undefined),
+      { message: "Change at least one thing: the level, title, message, actions, areas or end time" },
+    ),
+});
+export type UpdateAlertBody = z.infer<typeof updateAlertSchema>["body"];
 
 export const listAlertsSchema = z.object({
   query: z.object({ view: z.enum(["active", "recent"]).default("recent") }),

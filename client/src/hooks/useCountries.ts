@@ -1,27 +1,27 @@
 import { useCallback, useState } from "react";
-import { CACHE_KEYS, cached, invalidateCached } from "../cache/localCache";
+import { QUERY_KEYS, REFERENCE_POLICY, invalidateQueries } from "../cache/queryClient";
 import { clearCountryLevel, createCountry, deleteCountry, fetchCountries, fetchCountry, updateCountry } from "../endpoints/country.endpoints";
 import type { Country, CountryPatch, NewCountryInput } from "../types/country.types";
 import { useLoader } from "./useLoader";
 
 /** Every country with its levels and per-level area counts. Cached; dropped on any country write. */
 export function useCountries() {
-  const key = `${CACHE_KEYS.countries}list`;
-  const { data, ...state } = useLoader(key, () =>
-    cached(key, async () => (await fetchCountries()).data ?? []),
-  );
+  const key = [...QUERY_KEYS.countries, "list"];
+  const { data, ...state } = useLoader(key, async () => (await fetchCountries()).data ?? [], REFERENCE_POLICY);
   return { countries: data ?? ([] as Country[]), ...state };
 }
 
 /** One country by ISO code. `code` undefined = nothing to load. */
 export function useCountry(code: string | undefined) {
-  const key = code ? `${CACHE_KEYS.countries}detail:${code.toUpperCase()}` : null;
-  const { data, ...state } = useLoader<Country>(key, () =>
-    cached(key!, async () => {
+  const key = code ? [...QUERY_KEYS.countries, "detail", code.toUpperCase()] : null;
+  const { data, ...state } = useLoader<Country>(
+    key,
+    async () => {
       const response = await fetchCountry(code!);
       if (!response.data) throw new Error(response.message || "The server returned no country.");
       return response.data;
-    }),
+    },
+    REFERENCE_POLICY,
   );
   return { country: data, ...state, notFound: state.errorStatus === 404 || state.errorStatus === 400 };
 }
@@ -34,8 +34,8 @@ export function useSaveCountry() {
   const save = useCallback(async (input: NewCountryInput | { code: string; patch: CountryPatch }): Promise<Country> => {
     const response = "code" in input ? await updateCountry(input.code, input.patch) : await createCountry(input);
     if (!response.data) throw new Error(response.message || "The server returned no country.");
-    invalidateCached(CACHE_KEYS.countries);
-    invalidateCached(CACHE_KEYS.adminUnits);
+    invalidateQueries(QUERY_KEYS.countries);
+    invalidateQueries(QUERY_KEYS.adminUnits);
     return response.data;
   }, []);
   return { save };
@@ -51,7 +51,7 @@ export function useDeleteCountry() {
     setDeleting(true);
     try {
       await deleteCountry(code);
-      invalidateCached(CACHE_KEYS.countries);
+      invalidateQueries(QUERY_KEYS.countries);
     } finally {
       setDeleting(false);
     }
@@ -72,8 +72,8 @@ export function useClearLevel() {
       const response = await clearCountryLevel(code, level);
       return response.data?.deleted ?? 0;
     } finally {
-      invalidateCached(CACHE_KEYS.countries);
-      invalidateCached(CACHE_KEYS.adminUnits);
+      invalidateQueries(QUERY_KEYS.countries);
+      invalidateQueries(QUERY_KEYS.adminUnits);
       setClearing(false);
     }
   }, []);

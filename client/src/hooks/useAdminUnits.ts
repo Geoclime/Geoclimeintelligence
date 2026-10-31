@@ -1,4 +1,4 @@
-import { CACHE_KEYS, cached } from "../cache/localCache";
+import { QUERY_KEYS, REFERENCE_POLICY } from "../cache/queryClient";
 import { fetchAdminUnits } from "../endpoints/admin-unit.endpoints";
 import type { PaginationMeta } from "../types/api.types";
 import type { AdminUnitListParams, AdminUnitSummary } from "../types/admin-unit.types";
@@ -23,13 +23,15 @@ interface UseAdminUnitsOptions {
  */
 export function useAdminUnits({ level, parentId, countryCode, q, page = 1, pageSize = 100, enabled = true }: UseAdminUnitsOptions) {
   const params: AdminUnitListParams = { level, parentId, countryCode, q: q || undefined, page, pageSize };
-  const key = `${CACHE_KEYS.adminUnits}list:${JSON.stringify(params)}`;
+  const key = [...QUERY_KEYS.adminUnits, "list", params];
 
-  const { data, ...state } = useLoader(enabled ? key : null, () =>
-    cached(key, async () => {
+  const { data, ...state } = useLoader(
+    enabled ? key : null,
+    async () => {
       const response = await fetchAdminUnits(params);
       return { items: response.data ?? [], meta: response.meta ?? {} };
-    }),
+    },
+    REFERENCE_POLICY,
   );
 
   const meta: PaginationMeta = data?.meta ?? {};

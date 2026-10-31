@@ -41,7 +41,7 @@ export function AlertCard({ alert, action }: { alert: FloodAlert; action?: React
           {alert.status === "scheduled" ? "From" : "Issued"} {formatDateTime(alert.startsAt)} ·{" "}
           {alert.endedAt ? `ended ${formatDateTime(alert.endedAt)}` : `${inForce ? "until" : "expired"} ${formatDateTime(alert.expiresAt)}`}
         </span>
-        {action}
+        {action && <div className="alert-card__buttons">{action}</div>}
       </footer>
     </article>
   );

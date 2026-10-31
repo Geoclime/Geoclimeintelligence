@@ -69,11 +69,15 @@ interface ReportCardProps {
   report: FloodReport;
   /** Reviewers get Publish and Reject on a pending report. Rejects with an ApiError. */
   onReview?: (decision: "publish" | "reject", note?: string) => Promise<unknown>;
+  /** Shows Edit: for a report its sender may still change (not published). */
+  onEdit?: () => void;
+  /** Shows Delete. */
+  onDelete?: () => void;
   footer?: ReactNode;
 }
 
 /** One flood report: depth, place, what was seen, media, and where it stands in review. */
-export function ReportCard({ report, onReview, footer }: ReportCardProps) {
+export function ReportCard({ report, onReview, onEdit, onDelete, footer }: ReportCardProps) {
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<"publish" | "reject" | null>(null);
@@ -151,6 +155,21 @@ export function ReportCard({ report, onReview, footer }: ReportCardProps) {
         {report.reviewedAt && ` · reviewed ${formatDateTime(report.reviewedAt)}`}
       </p>
       {report.reviewNote && <p className="report-card__note">Reviewer's note: {report.reviewNote}</p>}
+
+      {(onEdit || onDelete) && (
+        <div className="report-card__manage">
+          {onEdit && (
+            <Button variant="ghost" size="sm" icon={<Icon name="edit" size={14} />} onClick={onEdit} data-cy="edit-report">
+              Edit
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="ghost" size="sm" onClick={onDelete} data-cy="delete-report">
+              Delete
+            </Button>
+          )}
+        </div>
+      )}
 
       {onReview && report.status === "pending" && (
         <div className="report-card__review">

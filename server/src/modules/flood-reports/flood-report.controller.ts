@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { ok } from "../../common/response/api-response";
 import { FloodReportService, type ReportFiles } from "./flood-report.service";
-import type { CreateReportBody, ListReportsQuery, MyReportsQuery, ReviewReportBody } from "./flood-report.validation";
+import type { CreateReportBody, ListReportsQuery, MyReportsQuery, ReviewReportBody, UpdateReportBody } from "./flood-report.validation";
 
 // Casts of req.query / req.body are safe: validate() already replaced them with the parsed values.
 
@@ -13,6 +13,23 @@ export class FloodReportController {
       const files = (req.files ?? {}) as ReportFiles;
       const report = await FloodReportService.Instance.submit(req.user!, req.body as CreateReportBody, files);
       return res.status(201).json(ok(report, "Report received. A coordinator will review it before it is published."));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async update(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await FloodReportService.Instance.update(req.params.id, req.user!, req.body as UpdateReportBody), "Report updated"));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async remove(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      await FloodReportService.Instance.remove(req.params.id, req.user!);
+      return res.json(ok(null, "Report deleted"));
     } catch (err) {
       next(err);
     }
