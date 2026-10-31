@@ -160,6 +160,12 @@ describe("PublicService.search", () => {
     expect(searches).toEqual(["rumu"]);
   });
 
+  it("says where each area is and which area it sits in, so the map can be pointed at it", async () => {
+    const { areas } = await setup().service.search({ q: "rumu" });
+    // The fake gives every area this box.
+    expect(areas).toEqual([expect.objectContaining({ id: rumuola.id, parentId: obio.id, bbox: [7, 4.8, 7.01, 4.81] })]);
+  });
+
   it("gives a top-level area no parent name", async () => {
     const { areas } = await setup().service.search({ q: "rivers" });
     expect(areas).toEqual([expect.objectContaining({ unitName: "Rivers", parentName: null })]);

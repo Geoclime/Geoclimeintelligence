@@ -178,7 +178,12 @@ export class PublicService {
     const parentNames = new Map(parents.flatMap((p) => (p ? [[p.id, p.unitName] as const] : [])));
 
     return {
-      areas: items.map((unit) => ({ ...toRef(unit), parentName: unit.parentId ? (parentNames.get(unit.parentId) ?? null) : null })),
+      areas: items.map((unit) => ({
+        ...toRef(unit),
+        parentId: unit.parentId,
+        parentName: unit.parentId ? (parentNames.get(unit.parentId) ?? null) : null,
+        bbox: unit.bbox,
+      })),
       communities,
     };
   }

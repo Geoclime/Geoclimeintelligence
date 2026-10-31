@@ -79,3 +79,16 @@ describe("MapLayerService map layers", () => {
     expect((await service.roadsGeoJson(query)).truncated).toBe(false);
   });
 });
+
+describe("MapLayerService.searchFacilities", () => {
+  it("hands the infrastructure repository the search and a cap, and returns what it found", async () => {
+    const { service, infrastructure } = build();
+    infrastructure.facilityHits = [
+      { id: "f1", name: "General Hospital", facilityType: "health", osmClass: "hospital", origin: "import", point: [7.01, 4.78] },
+      { id: "f2", name: "Hope Clinic", facilityType: "health", osmClass: "clinic", origin: "manual", point: [7.02, 4.79] },
+    ];
+
+    await expect(service.searchFacilities({ q: "hos" })).resolves.toEqual(infrastructure.facilityHits);
+    expect(infrastructure.searches).toEqual([{ q: "hos", limit: 8 }]);
+  });
+});

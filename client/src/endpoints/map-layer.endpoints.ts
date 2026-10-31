@@ -2,6 +2,7 @@ import { httpClient } from "../transport/http";
 import type { ApiResponse } from "../types/api.types";
 import type {
   ClearMapLayerInput,
+  FacilityHit,
   MapLayerClearReport,
   MapLayerInfo,
   MapLayerLoadReport,
@@ -30,6 +31,12 @@ export async function fetchLayerGeoJson<L extends OverlayLayerId>(
   const { data } = await httpClient.get<ApiResponse<OverlayCollections[L]>>(`/api/v1/${layer}/geojson`, {
     params: { ...rest, bbox: bbox.join(",") },
   });
+  return data;
+}
+
+/** Facilities (hospitals, schools, places saved by hand...) whose name contains `q` (at least 2 characters). */
+export async function searchFacilities(q: string): Promise<ApiResponse<FacilityHit[]>> {
+  const { data } = await httpClient.get<ApiResponse<FacilityHit[]>>("/api/v1/infrastructure/search", { params: { q } });
   return data;
 }
 

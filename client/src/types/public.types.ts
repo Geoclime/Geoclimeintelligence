@@ -73,7 +73,10 @@ export interface PublicOutline {
 }
 
 export interface PublicAreaHit extends AdminUnitRef {
+  parentId: string | null;
   parentName: string | null;
+  /** Where to point the map at it. */
+  bbox: BBox;
 }
 
 export interface PublicCommunityHit {

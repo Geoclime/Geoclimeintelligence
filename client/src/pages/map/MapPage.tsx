@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { AdminBoundaryLayers } from "../../components/map/AdminBoundaryLayers";
 import { AdminUnitPopup } from "../../components/map/AdminUnitPopup";
 import { ClimateMap, type MapView } from "../../components/map/ClimateMap";
@@ -44,6 +44,7 @@ import { useTheme } from "../../hooks/useTheme";
 import type { BBox, LonLat } from "../../types/admin-unit.types";
 import type { ClickedFeature } from "../../types/map-layer.types";
 import { boundsAround } from "../../utils/geo-distance";
+import { readMapFocus } from "../../utils/map-focus";
 import { readLayers, readMapView, readPin, readPinLabel, writeLayers, writeMapView, writePin } from "../../utils/map-url";
 import { overlayHint } from "../../utils/overlay-layers";
 import { hasAnyRole } from "../../utils/roles";
@@ -95,6 +96,7 @@ export function MapPage() {
   const { resolved: theme } = useTheme();
   const palette = useMemo(() => mapPalette(theme), [theme]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   // Read once: whether the link carried its own view. If not, fit to the state when it loads.
   const [initialView] = useState(() => readMapView(searchParams));
   const [view, setView] = useState<MapView | null>(null);
@@ -207,9 +209,10 @@ export function MapPage() {
 
   // A link with a pinned place (a flood report's "Open on the full map") opens with it marked and
   // its LGA and ward looked up, as if it had been tapped. Read once, on arrival.
+  // A place chosen in the top bar's search brings its own request (below), which looks the pin up itself.
   const pinHandled = useRef(false);
   useEffect(() => {
-    if (pinHandled.current || !pin) return;
+    if (pinHandled.current || !pin || readMapFocus(location.state)) return;
     pinHandled.current = true;
     void handleMapClick(pin);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -227,6 +230,22 @@ export function MapPage() {
     setFocus(bounds);
     setFocusNonce((nonce) => nonce + 1);
   };
+
+  // A place chosen in the top bar's search (utils/map-focus.ts): bring it into view, and for a pinned
+  // community look up its LGA and ward. This runs on arrival and also when the map is already open,
+  // where a changed address alone would not move it. The map's own address updates replace this
+  // entry, so the request is gone by the time anyone reloads or goes back to it.
+  const handledFocus = useRef<string | null>(null);
+  useEffect(() => {
+    const request = readMapFocus(location.state);
+    if (!request || handledFocus.current === location.key) return;
+    handledFocus.current = location.key;
+    located.clear();
+    savedPlaces.closeSelected();
+    showBounds(request.bounds);
+    if (request.pin) void handleMapClick(request.pin.point);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   // With a pinned place on the map (a flood report's link), "Where am I?" brings you and it into view together.
   const whereAmI = async () => {

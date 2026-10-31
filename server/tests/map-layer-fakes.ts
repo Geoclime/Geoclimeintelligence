@@ -18,6 +18,7 @@ import type {
   BuildingFeatureCollection,
   FacilityChanges,
   FacilityDto,
+  FacilityHit,
   IBuildingRepository,
   IFacilityRepository,
   IInfrastructureRepository,
@@ -37,9 +38,11 @@ import type {
 // In-memory stand-ins for the map-layer repositories, so services run with no database. Shapes
 // and SQL are never computed here; the spatial SQL is verified against PostGIS, not faked.
 
-/** Remembers the query it was given and returns an empty, untruncated layer. */
+/** Remembers the query it was given and returns an empty, untruncated layer. A name search returns `facilityHits`, and is remembered too. */
 export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepository, ISettlementRepository, IInfrastructureRepository, IBuildingRepository {
   queries: LayerGeoJsonQuery[] = [];
+  facilityHits: FacilityHit[] = [];
+  searches: { q: string; limit: number }[] = [];
 
   constructor(private summary: LayerSummary = { featureCount: 0, sourceIds: [] }) {}
 
@@ -50,6 +53,11 @@ export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepos
       SettlementFeatureCollection &
       InfrastructureFeatureCollection &
       BuildingFeatureCollection;
+  }
+
+  async searchByName(q: string, limit: number) {
+    this.searches.push({ q, limit });
+    return this.facilityHits;
   }
 
   async summarise() {

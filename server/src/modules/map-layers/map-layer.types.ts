@@ -1,5 +1,5 @@
 import type { FeatureCollection, Geometry, MultiLineString, MultiPolygon, Point } from "geojson";
-import type { BBox } from "../../common/geo/geo";
+import type { BBox, LonLat } from "../../common/geo/geo";
 import type { DataSourceDto } from "../data-sources/data-source.types";
 import type { FacilityOrigin, FacilityType, MapLayerId, WaterClass } from "./layer-rules";
 
@@ -50,6 +50,16 @@ export interface InfrastructureFeatureProperties {
 }
 
 export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
+
+/** A named facility that matched a search: enough to list it and to point the map at it. */
+export interface FacilityHit {
+  id: string;
+  name: string;
+  facilityType: FacilityType;
+  osmClass: string;
+  origin: FacilityOrigin;
+  point: LonLat;
+}
 
 /** A place an administrator saved from the map, as the save, edit and delete routes return it. */
 export interface FacilityDto {
@@ -169,6 +179,8 @@ export interface ISettlementRepository {
 
 export interface IInfrastructureRepository {
   findGeoJson(query: LayerGeoJsonQuery): Promise<InfrastructureFeatureCollection>;
+  /** Facilities whose name contains `q` (case-insensitive); names starting with it first, then the more important kinds. */
+  searchByName(q: string, limit: number): Promise<FacilityHit[]>;
   summarise(): Promise<LayerSummary>;
 }
 

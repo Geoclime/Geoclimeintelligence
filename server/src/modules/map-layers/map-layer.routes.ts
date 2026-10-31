@@ -7,7 +7,7 @@ import { MAX_IMPORT_FILE_BYTES } from "../data-sources/imports/readers/reader-li
 import { FacilityController } from "./facility.controller";
 import { createFacilitySchema, facilityIdSchema, updateFacilitySchema } from "./facility.validation";
 import { MapLayerController } from "./map-layer.controller";
-import { clearMapLayerSchema, layerGeoJsonSchema, uploadMapLayerSchema } from "./map-layer.validation";
+import { clearMapLayerSchema, facilitySearchSchema, layerGeoJsonSchema, uploadMapLayerSchema } from "./map-layer.validation";
 
 // Mounted at /api/v1/map-layers, /api/v1/roads, /api/v1/waterways, /api/v1/settlements, /api/v1/infrastructure and /api/v1/buildings. Read
 // routes are open to any signed-in user; POST /api/v1/map-layers/upload and saving, changing or
@@ -50,11 +50,13 @@ export const settlementsRouter = Router();
 settlementsRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController.settlements);
 
 /**
- * GET /api/v1/infrastructure/geojson?bbox=...&zoom=... for any signed-in user. POST / saves a place
- * an import missed, and PATCH and DELETE /:id change or remove one saved that way: Administrator-only.
+ * GET /api/v1/infrastructure/geojson?bbox=...&zoom=... and GET /api/v1/infrastructure/search?q=... for
+ * any signed-in user. POST / saves a place an import missed, and PATCH and DELETE /:id change or
+ * remove one saved that way: Administrator-only.
  */
 export const infrastructureRouter = Router();
 infrastructureRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController.infrastructure);
+infrastructureRouter.get("/search", validate(facilitySearchSchema), MapLayerController.searchInfrastructure);
 infrastructureRouter.post("/", authorise("administrator"), validate(createFacilitySchema), FacilityController.create);
 infrastructureRouter.patch("/:id", authorise("administrator"), validate(updateFacilitySchema), FacilityController.update);
 infrastructureRouter.delete("/:id", authorise("administrator"), validate(facilityIdSchema), FacilityController.remove);

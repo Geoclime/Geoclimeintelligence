@@ -1,27 +1,25 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
-import { useAdminUnits } from "../../hooks/useAdminUnits";
+import { useLocation, useNavigate } from "react-router";
 import { useDebounce } from "../../hooks/useDebounce";
+import { useFacilitySearch } from "../../hooks/useFacilitySearch";
+import { MIN_SEARCH_LENGTH, usePublicSearch } from "../../hooks/usePublicSearch";
 import type { UserRole } from "../../types/auth.types";
-import type { AdminUnitSummary } from "../../types/admin-unit.types";
+import { describeKind } from "../../utils/facility-kinds";
+import { areaFocusLink, communityFocusLink, facilityFocusLink, type MapFocusLink } from "../../utils/map-focus";
+import { MAP_PATH } from "../../utils/map-url";
 import { hasAnyRole } from "../../utils/roles";
 import { Icon, type IconName } from "../shared/Icon";
 import { NAV_GROUPS } from "./nav-items";
 
 interface Result {
   key: string;
+  /** Where choosing it goes. A place goes to the map, which is told to bring it into view. */
   to: string;
+  state?: MapFocusLink["state"];
   icon: IconName;
   title: string;
   detail: string;
-  group: "Pages" | "Places";
-}
-
-/** Where an area's own page lives: the state goes to the directory, LGAs and wards to their profile. */
-function placeLink(unit: AdminUnitSummary): string {
-  if (unit.level >= 3 && unit.parentId) return `/places/${unit.parentId}/wards/${unit.id}`;
-  if (unit.level === 2) return `/places/${unit.id}`;
-  return "/places";
+  group: "Pages" | "Places" | "Communities" | "Facilities";
 }
 
 const EXTRA_PAGES = [
@@ -30,12 +28,15 @@ const EXTRA_PAGES = [
 ];
 
 /**
- * The top bar's search: jump to any page, LGA or ward by typing part of its name. Opens with
- * the button, "/" or Ctrl/Cmd+K; arrow keys move, Enter opens, Esc closes. Place names are
- * searched on the server (name contains, debounced 250 ms).
+ * The top bar's search: jump to any page, or to any LGA, ward, community or facility on the map, by
+ * typing part of its name. Opens with the button, "/" or Ctrl/Cmd+K; arrow keys move, Enter opens,
+ * Esc closes. Choosing a place takes you to the map, zoomed to it. Names are searched on the server
+ * (name contains, debounced 250 ms): areas and communities through the public search, facilities
+ * (which are behind sign-in, like the map's other layers) through their own route.
  */
 export function QuickSearch({ role }: { role: UserRole }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
@@ -44,7 +45,12 @@ export function QuickSearch({ role }: { role: UserRole }) {
   const [active, setActive] = useState(0);
   const q = useDebounce(query.trim(), 250);
 
-  const { units, loading } = useAdminUnits({ q, pageSize: 8, enabled: open && q.length >= 2 });
+  const searching = q.length >= MIN_SEARCH_LENGTH;
+  const places = usePublicSearch(open ? q : "");
+  const facilities = useFacilitySearch(open ? q : "");
+  const found = places.results;
+  const loading = places.loading || facilities.loading;
+  const problem = places.error ?? facilities.error;
 
   // Global shortcuts. "/" is ignored while typing in a field, so it never steals a keystroke.
   useEffect(() => {
@@ -77,6 +83,8 @@ export function QuickSearch({ role }: { role: UserRole }) {
     return [...items, ...EXTRA_PAGES.filter((extra) => !items.some((item) => item.to === extra.to))];
   }, [role]);
 
+  // On the map already, the layers the viewer switched on stay as they are when a place is chosen.
+  const mapParams = location.pathname === MAP_PATH ? new URLSearchParams(location.search) : undefined;
   const needle = query.trim().toLowerCase();
   const results: Result[] = [
     ...pages
@@ -89,14 +97,34 @@ export function QuickSearch({ role }: { role: UserRole }) {
         detail: page.description,
         group: "Pages" as const,
       })),
-    ...(q.length >= 2
-      ? units.map((unit) => ({
-          key: `unit:${unit.id}`,
-          to: placeLink(unit),
+    ...(searching
+      ? (found?.areas ?? []).map((area) => ({
+          key: `area:${area.id}`,
+          ...areaFocusLink(area, mapParams),
           icon: "pin" as IconName,
-          title: unit.unitName,
-          detail: [unit.levelName, unit.unitCode].filter(Boolean).join(" · "),
+          title: area.unitName,
+          detail: [area.levelName, area.parentName].filter(Boolean).join(" · "),
           group: "Places" as const,
+        }))
+      : []),
+    ...(searching
+      ? (found?.communities ?? []).map((community) => ({
+          key: `community:${community.id}`,
+          ...communityFocusLink(community, mapParams),
+          icon: "users" as IconName,
+          title: community.name,
+          detail: "Community",
+          group: "Communities" as const,
+        }))
+      : []),
+    ...(searching
+      ? facilities.facilities.map((facility) => ({
+          key: `facility:${facility.id}`,
+          ...facilityFocusLink(facility, mapParams),
+          icon: "map" as IconName,
+          title: facility.name,
+          detail: [describeKind(facility.osmClass), facility.origin === "manual" ? "Saved place" : null].filter(Boolean).join(" · "),
+          group: "Facilities" as const,
         }))
       : []),
   ];
@@ -111,7 +139,7 @@ export function QuickSearch({ role }: { role: UserRole }) {
   const go = (result: Result | undefined) => {
     if (!result) return;
     close();
-    navigate(result.to);
+    navigate(result.to, { state: result.state });
   };
 
   const onInputKey = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -126,6 +154,14 @@ export function QuickSearch({ role }: { role: UserRole }) {
       go(results[activeIndex]);
     }
   };
+
+  const count = `${results.length} result${results.length === 1 ? "" : "s"}`;
+  let status: string;
+  if (searching && loading) status = "Searching places…";
+  else if (searching && problem) status = results.length > 0 ? `${count}, but some places couldn't be searched.` : `Places couldn't be searched: ${problem}`;
+  else if (results.length === 0) status = `Nothing matches "${query.trim()}". Try part of the name, e.g. "Obio".`;
+  else if (!searching) status = "Type two or more letters to search LGAs, wards, communities and facilities.";
+  else status = `${count}. Use ↑ ↓ and Enter.`;
 
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
   let lastGroup: Result["group"] | null = null;
@@ -163,7 +199,7 @@ export function QuickSearch({ role }: { role: UserRole }) {
                 aria-controls={listId}
                 aria-activedescendant={results[activeIndex] ? `${listId}-${activeIndex}` : undefined}
                 aria-autocomplete="list"
-                placeholder="Type an LGA, ward or page name…"
+                placeholder="Type an LGA, ward, community, facility or page name…"
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);
@@ -208,13 +244,7 @@ export function QuickSearch({ role }: { role: UserRole }) {
             </ul>
 
             <p className="quick-search__status" aria-live="polite">
-              {q.length >= 2 && loading
-                ? "Searching places…"
-                : results.length === 0
-                  ? `Nothing matches "${query.trim()}". Try part of the name, e.g. "Obio".`
-                  : q.length < 2
-                    ? "Type two or more letters to search LGAs and wards."
-                    : `${results.length} result${results.length === 1 ? "" : "s"}. Use ↑ ↓ and Enter.`}
+              {status}
             </p>
           </div>
         )}

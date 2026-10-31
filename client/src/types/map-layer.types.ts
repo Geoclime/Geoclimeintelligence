@@ -1,5 +1,5 @@
 import type { FeatureCollection, Geometry, MultiLineString, MultiPolygon, Point } from "geojson";
-import type { BBox } from "./admin-unit.types";
+import type { BBox, LonLat } from "./admin-unit.types";
 import type { DataSource } from "./data-source.types";
 
 /** The feature layers drawn over the boundaries. Mirrors MapLayerId in server/src/modules/map-layers/layer-rules.ts. */
@@ -69,6 +69,16 @@ export interface InfrastructureFeatureProperties {
 }
 
 export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
+
+/** A named facility that matched a search. Mirrors FacilityHit in server/src/modules/map-layers/map-layer.types.ts. */
+export interface FacilityHit {
+  id: string;
+  name: string;
+  facilityType: FacilityType;
+  osmClass: string;
+  origin: FacilityOrigin;
+  point: LonLat;
+}
 
 /** A place an administrator saved from the map. Mirrors FacilityDto in server/src/modules/map-layers/map-layer.types.ts. */
 export interface SavedPlace {

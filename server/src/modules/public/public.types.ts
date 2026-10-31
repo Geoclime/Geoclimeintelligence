@@ -49,9 +49,14 @@ export interface PublicOverviewDto {
   generatedAt: string;
 }
 
-/** An area that matched a search, named with its parent so two "Rumuola" wards can be told apart. */
+/**
+ * An area that matched a search, named with its parent so two "Rumuola" wards can be told apart.
+ * `bbox` is where to point the map at it; `parentId` is the LGA to highlight for a ward.
+ */
 export interface PublicAreaHit extends AdminUnitRef {
+  parentId: string | null;
   parentName: string | null;
+  bbox: BBox;
 }
 
 /** A named community (an OpenStreetMap settlement) that matched a search. */

@@ -3,7 +3,7 @@ import { ValidationError } from "../../common/errors/app-error";
 import { ok } from "../../common/response/api-response";
 import { MapLayerLoaderService, type LoadRequest } from "./map-layer-loader.service";
 import { MapLayerService } from "./map-layer.service";
-import type { ClearMapLayerBody, LayerGeoJsonQueryInput, UploadMapLayerBody } from "./map-layer.validation";
+import type { ClearMapLayerBody, FacilitySearchQuery, LayerGeoJsonQueryInput, UploadMapLayerBody } from "./map-layer.validation";
 
 // Casts of req.query / req.body are safe: validate() already replaced them with the parsed, coerced values.
 
@@ -79,6 +79,14 @@ export class MapLayerController {
   static async buildings(req: Request, res: Response, next: NextFunction) {
     try {
       return res.json(ok(await MapLayerService.Instance.buildingsGeoJson(req.query as unknown as LayerGeoJsonQueryInput)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async searchInfrastructure(req: Request, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await MapLayerService.Instance.searchFacilities(req.query as unknown as FacilitySearchQuery)));
     } catch (err) {
       next(err);
     }

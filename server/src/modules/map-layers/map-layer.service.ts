@@ -5,6 +5,7 @@ import { InfrastructureRepository } from "./infrastructure.repository";
 import type { MapLayerId } from "./layer-rules";
 import type {
   BuildingFeatureCollection,
+  FacilityHit,
   IBuildingRepository,
   IInfrastructureRepository,
   InfrastructureFeatureCollection,
@@ -18,9 +19,13 @@ import type {
   SettlementFeatureCollection,
   WaterwayFeatureCollection,
 } from "./map-layer.types";
+import type { FacilitySearchQuery } from "./map-layer.validation";
 import { RoadRepository } from "./road.repository";
 import { SettlementPointRepository } from "./settlement-point.repository";
 import { WaterwayRepository } from "./waterway.repository";
+
+/** How many facilities one search lists. */
+const FACILITY_HITS = 8;
 
 const LAYER_LABELS: Readonly<Record<MapLayerId, string>> = {
   roads: "Roads",
@@ -94,6 +99,11 @@ export class MapLayerService {
 
   infrastructureGeoJson(query: LayerGeoJsonQuery): Promise<InfrastructureFeatureCollection> {
     return this.layers.infrastructure.findGeoJson(query);
+  }
+
+  /** Named facilities (hospitals, schools, places saved by hand...) whose name contains the search. */
+  searchFacilities({ q }: FacilitySearchQuery): Promise<FacilityHit[]> {
+    return this.layers.infrastructure.searchByName(q, FACILITY_HITS);
   }
 
   buildingsGeoJson(query: LayerGeoJsonQuery): Promise<BuildingFeatureCollection> {

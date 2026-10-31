@@ -149,6 +149,29 @@ describe("GET /api/v1/map-layers", () => {
   });
 });
 
+describe("GET /api/v1/infrastructure/search", () => {
+  const url = "/api/v1/infrastructure/search";
+
+  it("finds facilities by name for any signed-in user", async () => {
+    infrastructure.facilityHits = [{ id: "f1", name: "General Hospital", facilityType: "health", osmClass: "hospital", origin: "import", point: [7.01, 4.78] }];
+    const res = await request(app).get(url).query({ q: " hos " }).set(asMember);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(infrastructure.facilityHits);
+    expect(infrastructure.searches).toEqual([{ q: "hos", limit: 8 }]);
+  });
+
+  it("refuses a one-letter search (400)", async () => {
+    const res = await request(app).get(url).query({ q: "h" }).set(asMember);
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual([{ field: "q", message: "Type at least 2 characters" }]);
+    expect(infrastructure.searches).toEqual([]);
+  });
+
+  it("needs a signed-in user (401)", async () => {
+    expect((await request(app).get(url).query({ q: "hos" })).status).toBe(401);
+  });
+});
+
 describe.each([
   ["roads", () => roads],
   ["waterways", () => waterways],

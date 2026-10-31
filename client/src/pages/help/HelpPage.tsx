@@ -39,7 +39,9 @@ const TOPICS: Topic[] = [
         a: (
           <>
             Use the search box in the top bar, or press <kbd>Ctrl</kbd> + <kbd>K</kbd> (<kbd>⌘</kbd> + <kbd>K</kbd> on a
-            Mac) or <kbd>/</kbd> from anywhere. Type part of an LGA or ward name and press Enter.
+            Mac) or <kbd>/</kbd> from anywhere. Type part of the name of an LGA, ward, community or facility (a hospital or
+            school, say) and press Enter: the map zooms to it and, for a community or facility, marks it and says which LGA and
+            ward it is in.
           </>
         ),
       },
