@@ -15,9 +15,9 @@ const TONE = { good: "success", warn: "warning", bad: "danger" } as const;
 interface DrainagePopupProps {
   drain: Drain;
   canRecord: boolean;
-  /** An inspection: saves the condition found, and moves "last checked" to now. */
-  onInspect: (id: string, body: UpdateDrainageBody) => Promise<boolean>;
-  onDelete: () => void;
+  /** An inspection: saves the condition found, and moves "last checked" to now. Left out where the popup is only for reading (a place's page). */
+  onInspect?: (id: string, body: UpdateDrainageBody) => Promise<boolean>;
+  onDelete?: () => void;
   onClose: () => void;
 }
 
@@ -34,7 +34,7 @@ export function DrainagePopup({ drain, canRecord, onInspect, onDelete, onClose }
 
   const inspect = async () => {
     setBusy(true);
-    await onInspect(properties.id, { condition });
+    await onInspect?.(properties.id, { condition });
     setBusy(false);
   };
 
@@ -50,7 +50,7 @@ export function DrainagePopup({ drain, canRecord, onInspect, onDelete, onClose }
         {sizes.length > 0 && <p className="survey-popup__meta">{sizes.join(" · ")}</p>}
         {properties.note && <p className="saved-place__note">{properties.note}</p>}
         <p className="survey-popup__meta">Last checked {formatDateTime(properties.lastCheckedAt)}</p>
-        {canRecord && (
+        {canRecord && onInspect && onDelete && (
           <>
             <SelectField label="Condition now" value={condition} onChange={(event) => setCondition(event.target.value as DrainageCondition)} data-cy="inspect-condition">
               {DRAINAGE_CONDITIONS.map((value) => (

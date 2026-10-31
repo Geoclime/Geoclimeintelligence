@@ -1,33 +1,33 @@
-/* ---------- An LGA's flood history ---------- */
+/* ---------- A place's flood history and drainage ---------- */
 
-.flood-history {
+.place-survey {
   display: grid;
   gap: var(--space-3);
 }
 
-.flood-history .card__title,
-.flood-history .card__subtitle {
+.place-survey .card__title,
+.place-survey .card__subtitle {
   margin: 0;
 }
 
-.flood-history__none,
-.flood-history__note {
+.place-survey__none,
+.place-survey__note {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
 
-.flood-history__note {
+.place-survey__note {
   font-size: var(--text-xs);
 }
 
-.flood-history__figures {
+.place-survey__figures {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: var(--space-3);
   margin: 0;
 }
 
-.flood-history__figures dt {
+.place-survey__figures dt {
   color: var(--color-text-subtle);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -35,21 +35,21 @@
   text-transform: uppercase;
 }
 
-.flood-history__figures dd {
+.place-survey__figures dd {
   margin: 0;
   font-size: var(--text-lg);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.flood-history__list {
+.place-survey__list {
   display: grid;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.flood-history__item {
+.place-survey__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -58,7 +58,7 @@
   border-top: 1px solid var(--color-border);
 }
 
-.flood-history__title {
+.place-survey__title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -66,13 +66,18 @@
   font-weight: 700;
 }
 
-.flood-history__meta {
+.place-survey__meta {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
 }
 
-.flood-history__link {
+.place-survey__link {
   flex: none;
   font-size: var(--text-sm);
   font-weight: 600;
+}
+
+/* A figure that is a problem to look at, such as drains that need attention. */
+.place-survey__figure--alert dd {
+  color: var(--color-danger);
 }

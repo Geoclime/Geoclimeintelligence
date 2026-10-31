@@ -23,7 +23,8 @@ const defaults = (): RealtimeDeps => ({
  *
  *   alerts:changed   everyone, signed in or not: an alert was issued, edited, ended or deleted, or a
  *                    report on the public map was published or removed, or a flood was recorded,
- *                    receded or deleted (the landing page and the Alerts page refresh themselves)
+ *                    receded, reopened or deleted, or a drain was recorded, re-inspected or
+ *                    deleted (the landing page, the Alerts page and the places pages refresh themselves)
  *   reports:changed  the review queue (responders, officials, administrators) and the report's sender
  *   users:changed    administrators: a role was requested or answered
  *   account:changed  the person whose role was just answered, so their access updates at once
@@ -49,8 +50,13 @@ export function registerRealtimeListeners(deps: RealtimeDeps = defaults()): void
     domainEvents.on(name, ({ alertId }) => publicMapChanged(alertId));
   }
 
-  for (const name of ["flood.recorded", "flood.receded", "flood.deleted"] as const) {
+  for (const name of ["flood.recorded", "flood.receded", "flood.reopened", "flood.deleted"] as const) {
     domainEvents.on(name, ({ floodId }) => publicMapChanged(floodId));
+  }
+
+  // Drainage isn't on the public alert map, so the server's copy of it isn't dropped: only the open pages are told.
+  for (const name of ["drain.recorded", "drain.inspected", "drain.deleted"] as const) {
+    domainEvents.on(name, ({ drainId }) => realtime.emitToAll("alerts:changed", { id: drainId }));
   }
 
   domainEvents.on("report.submitted", ({ reportId, reporterId }) => reportsChanged(reportId, reporterId));

@@ -41,6 +41,8 @@ A service simply throws, for example `throw new NotFoundError("User")`, and does
 
 **Where to see it working:** the "error handling" tests in [`tests/integration/app.test.ts`](../server/tests/integration/app.test.ts) cover malformed JSON, a hidden 500 and an unknown route. The Postman collection has an example response for every status each endpoint can return.
 
+**A service that can't be reached is a 503, not a 500.** When the database host doesn't resolve (`ENOTFOUND`), the network drops (`ECONNRESET`, `ETIMEDOUT`), a connection can't be made, or Postgres says it is shutting down or full, the handler answers `503` with a `Retry-After: 5` header and a plain message ("The server can't reach a service it depends on, such as the database, right now..."), and logs a one-line **warning** (the reason and host, no stack) rather than an error: it isn't a bug to fix in the code. The web app already retries a failed read after 1 second and again after 3 on a `502`, `503` or `504` ([`client/src/transport/http.ts`](../client/src/transport/http.ts)), so a brief outage usually never reaches the person; a `500` is never retried. The test of what counts is [`tests/unit/database-unreachable.test.ts`](../server/tests/unit/database-unreachable.test.ts): a code or a connection message qualifies, a bad query (`23505`, `42601`) or a plain bug does not.
+
 ## Resources to read
 
 - Express error handling: https://expressjs.com/en/guide/error-handling.html

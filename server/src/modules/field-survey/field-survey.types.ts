@@ -136,6 +136,8 @@ export interface IFloodExtentRepository {
   findGeoJson(query: LayerGeoJsonQuery): Promise<FloodExtentFeatureCollection>;
   impactOf(id: string): Promise<FloodImpact | null>;
   markReceded(id: string): Promise<FloodExtentDto | null>;
+  /** Undoes markReceded: null when the flood isn't there or isn't receded. */
+  markActive(id: string): Promise<FloodExtentDto | null>;
   delete(id: string): Promise<boolean>;
   /** Floods recorded in the last `days` days that have not receded, newest first, for the public alert map. */
   findActive(days: number, limit: number): Promise<PublicFloodPoint[]>;
@@ -206,6 +208,37 @@ export interface DrainageFeatureProperties {
   lengthM: number | null;
   note: string | null;
   lastCheckedAt: string;
+  /** The LGA and ward it is filed under (at its start), so a place's page can draw only its own drains. */
+  lgaId: string | null;
+  wardId: string | null;
+}
+
+/** One drain in a place's list. No note or recorder: the same as the map layer shows. */
+export interface DrainageSummaryItem {
+  id: string;
+  kind: DrainageKind;
+  condition: DrainageCondition;
+  name: string | null;
+  widthM: number | null;
+  depthM: number | null;
+  lengthM: number | null;
+  lastCheckedAt: string;
+  wardName: string | null;
+  /** Where it starts (a line) or is (a spot), to open it on the map. */
+  longitude: number;
+  latitude: number;
+}
+
+/** The drainage recorded in an LGA or ward: how much of it needs attention, and the drains themselves, the worst first. */
+export interface DrainageSummary {
+  total: number;
+  /** Blocked, overflowing or damaged: water is not getting through. */
+  needAttention: number;
+  partlyBlocked: number;
+  clear: number;
+  /** When any of it was last looked at; null when there is none. */
+  lastCheckedAt: string | null;
+  items: DrainageSummaryItem[];
 }
 
 export type DrainageFeatureCollection = LayerFeatureCollection<Point | LineString, DrainageFeatureProperties>;
@@ -216,5 +249,7 @@ export interface IDrainageRepository {
   create(input: NewDrainage): Promise<DrainageDto | null>;
   update(id: string, changes: DrainageChanges): Promise<DrainageDto | null>;
   findGeoJson(query: LayerGeoJsonQuery): Promise<DrainageFeatureCollection>;
+  /** The drainage in an LGA or ward: totals over all of it, and the first `limit` drains, those needing attention first. */
+  findSummary(areaId: string, limit: number): Promise<DrainageSummary>;
   delete(id: string): Promise<boolean>;
 }

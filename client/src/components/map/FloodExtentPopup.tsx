@@ -17,18 +17,20 @@ interface FloodExtentPopupProps {
   canRecord: boolean;
   /** Left out where the popup is only for reading (a place's page): nothing is then offered to change. */
   onRecede?: (id: string) => Promise<boolean>;
+  /** Puts a receded flood back as still going. */
+  onReopen?: (id: string) => Promise<boolean>;
   onDelete?: () => void;
   onClose: () => void;
 }
 
 /** A recorded flood: how big, how deep, when, what it reaches and which drains are near, and (for staff) calling it over. */
-export function FloodExtentPopup({ flood, canRecord, onRecede, onDelete, onClose }: FloodExtentPopupProps) {
+export function FloodExtentPopup({ flood, canRecord, onRecede, onReopen, onDelete, onClose }: FloodExtentPopupProps) {
   const { properties, point, impact } = flood;
   const [busy, setBusy] = useState(false);
 
-  const recede = async () => {
+  const run = async (action?: (id: string) => Promise<boolean>) => {
     setBusy(true);
-    await onRecede?.(properties.id);
+    await action?.(properties.id);
     setBusy(false);
   };
 
@@ -48,8 +50,14 @@ export function FloodExtentPopup({ flood, canRecord, onRecede, onDelete, onClose
         <FloodImpactSummary id={properties.id} initial={impact} />
         {canRecord && onRecede && onDelete && (
           <div className="survey-popup__actions">
-            {!properties.receded && (
-              <Button variant="secondary" size="sm" icon={<Icon name="check" size={14} />} loading={busy} loadingLabel="Saving…" onClick={() => void recede()} data-cy="recede-flood">
+            {properties.receded ? (
+              onReopen && (
+                <Button variant="secondary" size="sm" icon={<Icon name="refresh" size={14} />} loading={busy} loadingLabel="Saving…" onClick={() => void run(onReopen)} data-cy="reopen-flood">
+                  Water is still there
+                </Button>
+              )
+            ) : (
+              <Button variant="secondary" size="sm" icon={<Icon name="check" size={14} />} loading={busy} loadingLabel="Saving…" onClick={() => void run(onRecede)} data-cy="recede-flood">
                 Water has gone down
               </Button>
             )}

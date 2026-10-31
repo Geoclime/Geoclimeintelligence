@@ -132,11 +132,6 @@ export function MapPage() {
   const country = countries.find((c) => c.countryCode === stateUnit?.countryCode) ?? countries[0] ?? null;
   const selectedLga = lgaList.find((lga) => lga.id === selectedLgaId) ?? null;
   const isAdmin = user ? hasAnyRole(user.role, ["administrator"]) : false;
-  // Responders, officials and administrators record floods and drains on the ground; everyone sees them.
-  const canRecord = user ? canRecordSurvey(user.role) : false;
-  const survey = useFieldSurvey(canRecord);
-  const surveyData = useSurveyLayers(view?.bbox ?? null, layers, survey.refresh);
-
   // Two updates can land in the same tick (a layer tick and the map's own "moved" event). The router
   // builds each from the params of the last render, so the second would overwrite the first; this
   // keeps the latest params so every update starts from the one before it.
@@ -172,6 +167,16 @@ export function MapPage() {
       }),
     [updateParams],
   );
+
+  // Responders, officials and administrators record floods and drains on the ground; everyone sees them. What was
+  // just saved is switched on to be seen, as a saved place is, and what just changed is drawn without waiting.
+  const canRecord = user ? canRecordSurvey(user.role) : false;
+  const revealLayer = useCallback(
+    (id: MapLayerId) => updateParams((params) => writeLayers(params, { ...readLayers(params), [id]: true })),
+    [updateParams],
+  );
+  const survey = useFieldSurvey(canRecord, revealLayer);
+  const surveyData = useSurveyLayers(view?.bbox ?? null, layers, survey.refresh, survey.patches);
 
   // A saved, edited or deleted place changes the facilities layer: fetch it again, and switch it on so
   // a place just saved can be seen. The spot's own popup has done its job.

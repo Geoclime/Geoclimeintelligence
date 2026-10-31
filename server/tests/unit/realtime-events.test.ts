@@ -34,13 +34,23 @@ describe("realtime signals", () => {
     expect(sent).toEqual(Array(4).fill(["drop the cached alert map", "everyone:alerts:changed"]).flat());
   });
 
-  it("tells everyone the public map changed when a flood is recorded, receded or deleted, dropping the server's copy first", async () => {
+  it("tells everyone the public map changed when a flood is recorded, receded, put back or deleted, dropping the server's copy first", async () => {
     const sent = setup();
     domainEvents.emit("flood.recorded", { floodId: "f1" });
     domainEvents.emit("flood.receded", { floodId: "f1" });
+    domainEvents.emit("flood.reopened", { floodId: "f1" });
     domainEvents.emit("flood.deleted", { floodId: "f1" });
     await settle();
-    expect(sent).toEqual(Array(3).fill(["drop the cached alert map", "everyone:alerts:changed"]).flat());
+    expect(sent).toEqual(Array(4).fill(["drop the cached alert map", "everyone:alerts:changed"]).flat());
+  });
+
+  it("tells open pages when a drain is recorded, re-inspected or deleted, without dropping the public map's copy (drains aren't on it)", async () => {
+    const sent = setup();
+    domainEvents.emit("drain.recorded", { drainId: "d1" });
+    domainEvents.emit("drain.inspected", { drainId: "d1" });
+    domainEvents.emit("drain.deleted", { drainId: "d1" });
+    await settle();
+    expect(sent).toEqual(Array(3).fill("everyone:alerts:changed"));
   });
 
   it("tells the review queue and the sender about a new or edited report, and nobody else", async () => {

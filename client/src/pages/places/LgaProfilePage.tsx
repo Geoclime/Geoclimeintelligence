@@ -1,7 +1,8 @@
 import { Link, useParams } from "react-router";
+import { DrainageCard } from "../../components/floods/DrainageCard";
 import { FloodHistoryCard } from "../../components/floods/FloodHistoryCard";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
-import { FloodExtentPopup } from "../../components/map/FloodExtentPopup";
+import { AreaSurveyPopup } from "../../components/map/AreaSurveyPopup";
 import { SourceBadge } from "../../components/map/SourceBadge";
 import { RainfallCard } from "../../components/rainfall/RainfallCard";
 import { Breadcrumbs } from "../../components/shared/Breadcrumbs/Breadcrumbs";
@@ -12,7 +13,7 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
 import { useAdminUnitChildren } from "../../hooks/useAdminUnitChildren";
 import { useAdminUnitLayer } from "../../hooks/useAdminUnitLayer";
-import { useAreaFloods } from "../../hooks/useAreaFloods";
+import { useAreaSurvey } from "../../hooks/useAreaSurvey";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useTheme } from "../../hooks/useTheme";
 import { formatCoordinates } from "../../utils/formatCoordinates";
@@ -29,7 +30,7 @@ export function LgaProfilePage() {
   const { unit, loading, error, notFound, refetch } = useAdminUnit(id);
   const { children: wards, loading: wardsLoading, error: wardsError } = useAdminUnitChildren(unit?.id);
   const wardShapes = useAdminUnitLayer(unit?.bbox ?? null, 3, { enabled: Boolean(unit), parentId: unit?.id, zoom: 11 });
-  const areaFloods = useAreaFloods(unit?.id, unit?.bbox ?? null);
+  const area = useAreaSurvey(unit?.id, unit?.bbox ?? null);
   useDocumentTitle(unit?.unitName ?? "Place");
 
   if (loading && !unit) return <LoadingSpinner message="Loading the LGA…" />;
@@ -89,6 +90,7 @@ export function LgaProfilePage() {
             <SourceBadge source={unit.source} variant="full" />
           </section>
           <FloodHistoryCard areaId={unit.id} areaName={unit.unitName} />
+          <DrainageCard areaId={unit.id} areaName={unit.unitName} />
         </div>
 
         <AreaOutlineMap
@@ -97,11 +99,12 @@ export function LgaProfilePage() {
           geometry={unit.geometry}
           bbox={unit.bbox}
           innerAreas={wardShapes.data}
-          floods={areaFloods.floods}
-          onSelectFlood={areaFloods.select}
+          floods={area.floods}
+          drains={area.drains}
+          onSelect={area.select}
           dataCy="lga-map"
         >
-          {areaFloods.selected && <FloodExtentPopup key={areaFloods.selected.properties.id} flood={areaFloods.selected} canRecord={false} onClose={areaFloods.close} />}
+          <AreaSurveyPopup selected={area.selected} onClose={area.close} />
         </AreaOutlineMap>
       </div>
 

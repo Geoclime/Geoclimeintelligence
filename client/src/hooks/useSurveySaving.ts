@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { saveDrainage, saveFloodExtent } from "../endpoints/field-survey.endpoints";
 import type { SelectedSurvey } from "../types/field-survey.types";
 import { formatArea } from "../utils/survey-geometry";
+import { drainAdded, floodAdded, type SurveyChange } from "../utils/survey-patches";
 import { selectedFlood, toDrainBody, toFloodBody, type DrainFormValues, type FloodFormValues } from "../components/map/survey-form.schema";
 import { useToast } from "./useToast";
 import type { useWalkRecorder } from "./useWalkRecorder";
@@ -12,7 +13,7 @@ import type { useWalkRecorder } from "./useWalkRecorder";
  * saved, a flood with what it reaches. A save that fails rejects, so the form can show why, and the
  * walk is kept: nothing is lost to a bad signal or a refused request.
  */
-export function useSurveySaving(recorder: ReturnType<typeof useWalkRecorder>, select: (selected: SelectedSurvey) => void, onChanged: () => void) {
+export function useSurveySaving(recorder: ReturnType<typeof useWalkRecorder>, select: (selected: SelectedSurvey) => void, onChanged: (change?: SurveyChange) => void) {
   const { showToast } = useToast();
   const [formOpen, setFormOpen] = useState(false);
   // A new key each time the form opens, so it starts from empty values instead of the last ones.
@@ -25,10 +26,10 @@ export function useSurveySaving(recorder: ReturnType<typeof useWalkRecorder>, se
   const closeForm = useCallback(() => setFormOpen(false), []);
 
   const saved = useCallback(
-    (selected: SelectedSurvey, message: string) => {
+    (selected: SelectedSurvey, message: string, change: SurveyChange) => {
       recorder.reset();
       setFormOpen(false);
-      onChanged();
+      onChanged(change);
       select(selected);
       showToast({ type: "success", message });
     },
@@ -37,18 +38,24 @@ export function useSurveySaving(recorder: ReturnType<typeof useWalkRecorder>, se
 
   const saveFlood = useCallback(
     async (values: FloodFormValues) => {
-      const { data } = await saveFloodExtent(toFloodBody(values, { points: recorder.points }, { method: recorder.method, accuracyM: recorder.accuracyM }));
-      if (data) saved({ ...selectedFlood(data.extent), impact: data.impact }, `Flood saved: ${formatArea(data.extent.areaM2)}.`);
+      const body = toFloodBody(values, { points: recorder.points }, { method: recorder.method, accuracyM: recorder.accuracyM });
+      const { data } = await saveFloodExtent(body);
+      if (data) saved({ ...selectedFlood(data.extent), impact: data.impact }, `Flood saved: ${formatArea(data.extent.areaM2)}.`, floodAdded(data.extent, body.points));
     },
     [recorder.accuracyM, recorder.method, recorder.points, saved],
   );
 
   const saveDrain = useCallback(
     async (values: DrainFormValues) => {
-      const { data } = await saveDrainage(toDrainBody(values, { points: recorder.points }, recorder.method));
+      const body = toDrainBody(values, { points: recorder.points }, recorder.method);
+      const { data } = await saveDrainage(body);
       if (!data) return;
-      const { id, kind, condition, name, widthM, depthM, lengthM, note, lastCheckedAt, longitude, latitude } = data;
-      saved({ type: "drain", point: [longitude, latitude], properties: { id, kind, condition, name, widthM, depthM, lengthM, note, lastCheckedAt } }, "Drainage saved.");
+      const { id, kind, condition, name, widthM, depthM, lengthM, note, lastCheckedAt, lgaId, wardId, longitude, latitude } = data;
+      saved(
+        { type: "drain", point: [longitude, latitude], properties: { id, kind, condition, name, widthM, depthM, lengthM, note, lastCheckedAt, lgaId, wardId } },
+        "Drainage saved.",
+        drainAdded(data, body.points),
+      );
     },
     [recorder.method, recorder.points, saved],
   );

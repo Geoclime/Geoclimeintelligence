@@ -64,6 +64,24 @@
   padding-top: 1px;
 }
 
+.toast__action {
+  align-self: center;
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toast__action:hover {
+  background: var(--color-surface-muted);
+}
+
 .toast__dismiss {
   display: grid;
   place-items: center;

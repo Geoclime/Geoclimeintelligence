@@ -49,6 +49,14 @@ export class FloodExtentController {
     }
   }
 
+  static async reopen(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await FloodExtentService.Instance.reopen(req.params.id, req.user!), "Marked as active again"));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async remove(req: Request<{ id: string }>, res: Response, next: NextFunction) {
     try {
       await FloodExtentService.Instance.remove(req.params.id, req.user!);
@@ -63,6 +71,15 @@ export class DrainageController {
   static async list(req: Request, res: Response, next: NextFunction) {
     try {
       return res.json(ok(await DrainageService.Instance.list(req.query as unknown as LayerGeoJsonQueryInput)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async summary(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { areaId, limit } = req.query as unknown as FloodHistoryQuery;
+      return res.json(ok(await DrainageService.Instance.summary(areaId, limit)));
     } catch (err) {
       next(err);
     }

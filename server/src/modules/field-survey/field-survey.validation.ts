@@ -20,6 +20,14 @@ const size = (what: string) =>
 const idParams = z.object({ id: z.uuid("Not a valid id") });
 export const surveyIdSchema = z.object({ params: idParams });
 
+/** GET /api/v1/drainage/summary?areaId=&limit=: the drainage recorded in an LGA or ward, the worst first. */
+export const drainageSummarySchema = z.object({
+  query: z.object({
+    areaId: z.uuid("Choose an LGA or ward"),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  }),
+});
+
 /** GET /api/v1/flood-extents/history?areaId=&limit=: the floods recorded in an LGA or ward, newest first. */
 export const floodHistorySchema = z.object({
   query: z.object({

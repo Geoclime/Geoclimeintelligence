@@ -17,7 +17,10 @@ import { SURVEY_LIMITS } from "./survey-rules";
 // Every spatial operation runs in PostGIS, never in JS (section 8): the ring is built, repaired and
 // measured in the database, on the spheroid, so an area is never taken on the browser's word.
 
-/** What every write hands back, with a point inside the shape to open it on the map. */
+// An UPDATE or DELETE run through TypeORM's query() comes back as [rows, rowCount], not as the rows, so
+// each one is wrapped in a CTE and read back with a SELECT, as the other repositories do (INSERT is fine).
+
+/** What every write hands back (as the select list of the row it wrote), with a point inside the shape to open it on the map. */
 const RETURNING = `
   id, area_m2 AS "areaM2", perimeter_m AS "perimeterM", depth, note, method, point_count AS "pointCount",
   accuracy_m AS "accuracyM", ward_id AS "wardId", lga_id AS "lgaId", receded_at AS "recededAt",
@@ -79,17 +82,33 @@ export class FloodExtentRepository extends BaseRepository<FloodExtent> implement
 
   async markReceded(id: string): Promise<FloodExtentDto | null> {
     const rows: FloodExtentRow[] = await this.repo.query(
-      `UPDATE flood_extents SET receded_at = now(), updated_at = now()
-        WHERE id = $1 AND receded_at IS NULL
-        RETURNING ${RETURNING}`,
+      `WITH changed AS (
+         UPDATE flood_extents SET receded_at = now(), updated_at = now()
+          WHERE id = $1 AND receded_at IS NULL
+          RETURNING *)
+       SELECT ${RETURNING} FROM changed`,
+      [id],
+    );
+    return rows[0] ? toDto(rows[0]) : null;
+  }
+
+  async markActive(id: string): Promise<FloodExtentDto | null> {
+    // Only receded_at is cleared: observed_at stays, so the flood returns to exactly the state it had before it was
+    // marked receded, including whether the public alert map still shows it (that looks at how recently it was recorded).
+    const rows: FloodExtentRow[] = await this.repo.query(
+      `WITH changed AS (
+         UPDATE flood_extents SET receded_at = NULL, updated_at = now()
+          WHERE id = $1 AND receded_at IS NOT NULL
+          RETURNING *)
+       SELECT ${RETURNING} FROM changed`,
       [id],
     );
     return rows[0] ? toDto(rows[0]) : null;
   }
 
   async delete(id: string): Promise<boolean> {
-    const rows: unknown[] = await this.repo.query(`DELETE FROM flood_extents WHERE id = $1 RETURNING 1`, [id]);
-    return rows.length > 0;
+    const [row]: { n: number }[] = await this.repo.query(`WITH gone AS (DELETE FROM flood_extents WHERE id = $1 RETURNING 1) SELECT count(*)::int AS n FROM gone`, [id]);
+    return (row?.n ?? 0) > 0;
   }
 
   async findGeoJson(query: LayerGeoJsonQuery): Promise<FloodExtentFeatureCollection> {

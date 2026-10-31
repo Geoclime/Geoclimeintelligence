@@ -3,6 +3,7 @@ import type { ApiResponse } from "../types/api.types";
 import type {
   Drainage,
   DrainageFeatureCollection,
+  DrainageSummary,
   FloodExtent,
   FloodExtentFeatureCollection,
   FloodExtentWithImpact,
@@ -40,6 +41,12 @@ export async function recedeFloodExtent(id: string): Promise<ApiResponse<FloodEx
   return data;
 }
 
+/** Undoes "the water has gone down": the flood is shown as still going again. */
+export async function reopenFloodExtent(id: string): Promise<ApiResponse<FloodExtent>> {
+  const { data } = await httpClient.post<ApiResponse<FloodExtent>>(`/api/v1/flood-extents/${encodeURIComponent(id)}/reopen`);
+  return data;
+}
+
 export async function deleteFloodExtent(id: string): Promise<ApiResponse<null>> {
   const { data } = await httpClient.delete<ApiResponse<null>>(`/api/v1/flood-extents/${encodeURIComponent(id)}`);
   return data;
@@ -47,6 +54,12 @@ export async function deleteFloodExtent(id: string): Promise<ApiResponse<null>> 
 
 export async function saveDrainage(body: NewDrainageBody): Promise<ApiResponse<Drainage>> {
   const { data } = await httpClient.post<ApiResponse<Drainage>>("/api/v1/drainage", body);
+  return data;
+}
+
+/** The drainage recorded in an LGA or ward: totals by condition, and the first `limit` drains, those needing attention first. */
+export async function fetchDrainageSummary(areaId: string, limit = 20): Promise<ApiResponse<DrainageSummary>> {
+  const { data } = await httpClient.get<ApiResponse<DrainageSummary>>("/api/v1/drainage/summary", { params: { areaId, limit } });
   return data;
 }
 

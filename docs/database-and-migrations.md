@@ -52,6 +52,18 @@ npm run migration:revert   # undo the most recent one
 
 **Coming next (Phase 2):** the first migration that needs geometry will enable the PostGIS extension. It will also add the `users.scope_admin_unit_id → admin_units.id` foreign key. Every geometry column will get a GiST spatial index (standard section 8).
 
+**A raw-SQL gotcha: `UPDATE` and `DELETE` don't return their rows.** When a repository runs SQL itself (`this.repo.query(...)`), TypeORM hands back the rows of a `SELECT` or an `INSERT ... RETURNING` as they are, but for a bare `UPDATE` or `DELETE` it returns `[rows, rowCount]`. Reading `rows[0]` of that gets the whole array (the "Water has gone down" button crashed with *Cannot read properties of undefined (reading 'toISOString')*), and `rows.length > 0` is always true, so a delete "succeeds" on nothing. So an `UPDATE` or `DELETE` is wrapped in a CTE and read back with a `SELECT`:
+
+```sql
+WITH changed AS (UPDATE flood_extents SET receded_at = now() WHERE id = $1 RETURNING *)
+SELECT id, area_m2 AS "areaM2" FROM changed            -- the changed row(s)
+
+WITH gone AS (DELETE FROM drainage_features WHERE id = $1 RETURNING 1)
+SELECT count(*)::int AS n FROM gone                    -- how many were deleted
+```
+
+The in-memory fakes in the tests never run SQL, so they can't catch this; [`tests/unit/typeorm-command-results.test.ts`](../server/tests/unit/typeorm-command-results.test.ts) answers the way TypeORM does and fails a repository that runs a bare `UPDATE` or `DELETE`. Add new repositories that change or delete rows to it.
+
 ## Resources to read
 
 - TypeORM documentation (entities, repositories, migrations, DataSource): https://typeorm.io

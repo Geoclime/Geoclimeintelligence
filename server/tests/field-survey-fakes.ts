@@ -2,6 +2,7 @@ import type {
   DrainageChanges,
   DrainageDto,
   DrainageRecord,
+  DrainageSummary,
   FloodExtentDto,
   FloodExtentRecord,
   FloodHistory,
@@ -136,6 +137,13 @@ export class InMemoryFloodExtentRepository implements IFloodExtentRepository {
     return row;
   }
 
+  async markActive(id: string) {
+    const row = this.rows.get(id);
+    if (!row || !row.receded) return null;
+    Object.assign(row, { receded: false, recededAt: null });
+    return row;
+  }
+
   async delete(id: string) {
     return this.rows.delete(id);
   }
@@ -208,6 +216,34 @@ export class InMemoryDrainageRepository implements IDrainageRepository {
 
   async findGeoJson() {
     return { type: "FeatureCollection" as const, features: [], truncated: false };
+  }
+
+  async findSummary(areaId: string, limit: number): Promise<DrainageSummary> {
+    const rank = (row: StoredDrain) => (["blocked", "overflowing", "damaged"].includes(row.condition) ? 0 : row.condition === "partly_blocked" ? 1 : 2);
+    const inArea = [...this.rows.values()]
+      .filter((row) => row.lgaId === areaId || row.wardId === areaId)
+      .sort((a, b) => rank(a) - rank(b) || a.lastCheckedAt.localeCompare(b.lastCheckedAt));
+    const latest = inArea.map((row) => row.lastCheckedAt).sort().at(-1) ?? null;
+    return {
+      total: inArea.length,
+      needAttention: inArea.filter((row) => rank(row) === 0).length,
+      partlyBlocked: inArea.filter((row) => row.condition === "partly_blocked").length,
+      clear: inArea.filter((row) => row.condition === "clear").length,
+      lastCheckedAt: latest,
+      items: inArea.slice(0, limit).map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        condition: row.condition,
+        name: row.name,
+        widthM: row.widthM,
+        depthM: row.depthM,
+        lengthM: row.lengthM,
+        lastCheckedAt: row.lastCheckedAt,
+        wardName: null,
+        longitude: row.longitude,
+        latitude: row.latitude,
+      })),
+    };
   }
 
   async delete(id: string) {

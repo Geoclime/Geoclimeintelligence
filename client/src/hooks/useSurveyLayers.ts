@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchSurveyGeoJson, type SurveyCollections, type SurveyLayerPath } from "../endpoints/field-survey.endpoints";
 import { errorMessage } from "../transport/api-error";
 import type { BBox } from "../types/admin-unit.types";
+import { patchDrains, patchFloods, type SurveyPatch } from "../utils/survey-patches";
 import { useDebounce } from "./useDebounce";
 
 interface SurveyLayerOptions {
@@ -14,11 +15,13 @@ interface SurveyLayerOptions {
 /**
  * One survey layer (recorded floods, or drains) for the visible area. Same lifecycle as useMapLayer: it
  * waits 300 ms after the map stops moving, fetches that bbox, and drops replies for an older view. Never
- * cached: a bbox key would almost never repeat, and a flood is exactly what must not be stale.
+ * cached: a bbox key would almost never repeat, and a flood is exactly what must not be stale. `startedAt`
+ * is when the request behind the data in hand began, so a change made since can be drawn on top of it.
  */
 function useSurveyLayer<L extends SurveyLayerPath>(layer: L, bbox: BBox | null, { enabled, refreshKey }: SurveyLayerOptions) {
   const view = useDebounce(enabled && bbox ? { bbox } : null, 300);
   const [data, setData] = useState<SurveyCollections[L] | null>(null);
+  const [startedAt, setStartedAt] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
@@ -27,6 +30,7 @@ function useSurveyLayer<L extends SurveyLayerPath>(layer: L, bbox: BBox | null, 
   useEffect(() => {
     if (!view) return;
     const thisRequest = ++requestId.current;
+    const began = Date.now();
     // Starting a request is the one synchronous state change here; the rest happen on reply.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
@@ -35,6 +39,7 @@ function useSurveyLayer<L extends SurveyLayerPath>(layer: L, bbox: BBox | null, 
         (response) => {
           if (thisRequest !== requestId.current) return;
           setData(response.data);
+          setStartedAt(began);
           setError(null);
         },
         (err: unknown) => {
@@ -48,12 +53,18 @@ function useSurveyLayer<L extends SurveyLayerPath>(layer: L, bbox: BBox | null, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey, layer, refreshKey]);
 
-  return { data: enabled ? data : null, loading: enabled && loading, error: enabled ? error : null };
+  return { data: enabled ? data : null, startedAt, loading: enabled && loading, error: enabled ? error : null };
 }
 
-/** The recorded floods and drains for the visible area, each only while its switch is on. */
-export function useSurveyLayers(bbox: BBox | null, on: { floodExtents: boolean; drainage: boolean }, refreshKey: number) {
-  const floodExtents = useSurveyLayer("flood-extents", bbox, { enabled: on.floodExtents, refreshKey });
-  const drainage = useSurveyLayer("drainage", bbox, { enabled: on.drainage, refreshKey });
-  return { floodExtents, drainage };
+/**
+ * The recorded floods and drains for the visible area, each only while its switch is on. `patches` are the
+ * changes made on this screen since (a flood marked receded, a drain cleared...): they are drawn at once, on
+ * top of the data in hand, so a colour never waits on the layer being fetched again.
+ */
+export function useSurveyLayers(bbox: BBox | null, on: { floodExtents: boolean; drainage: boolean }, refreshKey: number, patches: readonly SurveyPatch[] = []) {
+  const floods = useSurveyLayer("flood-extents", bbox, { enabled: on.floodExtents, refreshKey });
+  const drains = useSurveyLayer("drainage", bbox, { enabled: on.drainage, refreshKey });
+  const floodData = useMemo(() => patchFloods(floods.data, floods.startedAt, patches), [floods.data, floods.startedAt, patches]);
+  const drainData = useMemo(() => patchDrains(drains.data, drains.startedAt, patches), [drains.data, drains.startedAt, patches]);
+  return { floodExtents: { ...floods, data: floodData }, drainage: { ...drains, data: drainData } };
 }

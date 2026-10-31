@@ -43,6 +43,12 @@ export const AppDataSource = new DataSource({
     : false,
   entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow, Road, Waterway, SettlementPoint, Infrastructure, Building, RainfallObservation, FloodExtent, DrainageFeature],
   migrations: [path.join(__dirname, "..", "migrations", "*.ts")],
+  // Passed to node-postgres' pool. Its defaults close a connection after 10 seconds idle, so a pause in use
+  // means the next burst (the map asks for eight layers at once) opens a fresh connection for each, every one
+  // with its own DNS lookup and TLS handshake to a host on the internet, and any lookup that fails shows as an
+  // error. Keeping connections for five minutes, with keep-alive so a network that drops idle ones is noticed,
+  // avoids most of that; and a connection that can't be made fails in 15 seconds instead of never.
+  extra: { idleTimeoutMillis: 5 * 60_000, connectionTimeoutMillis: 15_000, keepAlive: true, keepAliveInitialDelayMillis: 10_000 },
   // Schema changes only ever happen through migrations -- never auto-sync.
   synchronize: false,
   logging: env.NODE_ENV === "development" ? ["error", "warn", "migration"] : ["error"],

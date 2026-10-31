@@ -118,10 +118,20 @@ describe("error handling", () => {
   });
 
   it("hides internals behind a generic 500", async () => {
-    vi.spyOn(repo, "findPage").mockRejectedValue(new Error("connection terminated: secret-host:5432"));
+    vi.spyOn(repo, "findPage").mockRejectedValue(new Error("unexpected failure at secret-host:5432"));
     const res = await request(app).get("/api/v1/users").set(bearer("admin-uid"));
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ success: false, data: null, message: "Something went wrong" });
+  });
+
+  it("answers 503, which the web app retries, when the database can't be reached, and still hides where it is", async () => {
+    const failure = Object.assign(new Error("getaddrinfo ENOTFOUND secret-host.example.com"), { code: "ENOTFOUND", hostname: "secret-host.example.com" });
+    vi.spyOn(repo, "findPage").mockRejectedValue(failure);
+    const res = await request(app).get("/api/v1/users").set(bearer("admin-uid"));
+    expect(res.status).toBe(503);
+    expect(res.headers["retry-after"]).toBe("5");
+    expect(res.body.success).toBe(false);
+    expect(JSON.stringify(res.body)).not.toMatch(/secret-host|getaddrinfo/);
   });
 
   it("returns a 404 envelope for unknown routes", async () => {

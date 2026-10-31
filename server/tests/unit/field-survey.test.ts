@@ -149,6 +149,26 @@ describe("FloodExtentService", () => {
     await expect(service.recede("70000000-0000-4000-8000-0000000000ff", responder)).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  it("puts a flood marked receded back as still going, and says 409 if it was never receded", async () => {
+    const { service, extents } = floodService();
+    const flood = extents.seed();
+    await expect(service.reopen(flood.id, responder)).rejects.toBeInstanceOf(ConflictError);
+
+    await service.recede(flood.id, responder);
+    expect(await service.reopen(flood.id, responder)).toMatchObject({ receded: false, recededAt: null });
+    expect(extents.rows.get(flood.id)).toMatchObject({ receded: false });
+
+    await expect(service.reopen(flood.id, responder)).rejects.toBeInstanceOf(ConflictError);
+    await expect(service.reopen("70000000-0000-4000-8000-0000000000ff", responder)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("keeps a region-scoped responder from reopening a flood outside their region", async () => {
+    const { service, extents } = floodService([state, lga, ward], regions(new Set([ward.id])));
+    const flood = extents.seed({ wardId: ward.id, receded: true, recededAt: "2026-10-31T18:00:00.000Z" });
+    await expect(service.reopen(flood.id, responder)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(extents.rows.get(flood.id)).toMatchObject({ receded: true });
+  });
+
   it("lets only the recorder or an administrator delete a flood", async () => {
     const { service, extents } = floodService();
     const flood = extents.seed({ recordedBy: responder.id });
@@ -216,6 +236,57 @@ describe("FloodExtentService.history: a place's flood history", () => {
   });
 });
 
+describe("DrainageService.summary: a place's drainage", () => {
+  const elsewhere = makeUnit({ level: 2, levelName: "LGA", unitName: "Eleme", parentId: state.id });
+
+  it("counts the drainage in the LGA by condition, and lists the worst first, the longest-unchecked first within each", async () => {
+    const { service, drains } = drainService();
+    drains.seed({ lgaId: lga.id, name: "Fine, old", condition: "clear", lastCheckedAt: "2026-08-01T09:00:00.000Z" });
+    drains.seed({ lgaId: lga.id, name: "Fine, new", condition: "clear", lastCheckedAt: "2026-10-30T09:00:00.000Z" });
+    drains.seed({ lgaId: lga.id, name: "Slow", condition: "partly_blocked", lastCheckedAt: "2026-10-01T09:00:00.000Z" });
+    drains.seed({ lgaId: lga.id, name: "Blocked recently", condition: "blocked", lastCheckedAt: "2026-10-29T09:00:00.000Z" });
+    drains.seed({ lgaId: lga.id, name: "Overflowing long ago", condition: "overflowing", lastCheckedAt: "2026-09-01T09:00:00.000Z" });
+    drains.seed({ lgaId: elsewhere.id, name: "Next door", condition: "blocked" });
+
+    const summary = await service.summary(lga.id, 20);
+
+    expect(summary).toMatchObject({ total: 5, needAttention: 2, partlyBlocked: 1, clear: 2, lastCheckedAt: "2026-10-30T09:00:00.000Z" });
+    expect(summary.items.map((item) => item.name)).toEqual(["Overflowing long ago", "Blocked recently", "Slow", "Fine, old", "Fine, new"]);
+  });
+
+  it("also answers for a ward, caps the list but not the totals, and says nothing about who recorded a drain or what they wrote", async () => {
+    const { service, drains } = drainService();
+    for (let n = 0; n < 4; n++) drains.seed({ lgaId: lga.id, wardId: n < 3 ? ward.id : null, note: "Silted", recordedBy: "someone-secret" });
+
+    expect((await service.summary(ward.id, 20)).total).toBe(3);
+    const capped = await service.summary(lga.id, 2);
+    expect(capped.items).toHaveLength(2);
+    expect(capped.total).toBe(4);
+    expect(Object.keys(capped.items[0]!).sort()).toEqual(["condition", "depthM", "id", "kind", "lastCheckedAt", "latitude", "lengthM", "longitude", "name", "wardName", "widthM"]);
+  });
+
+  it("is empty for a place with no drainage, and 404 for an area that does not exist", async () => {
+    const { service } = drainService();
+    expect(await service.summary(lga.id, 20)).toEqual({ total: 0, needAttention: 0, partlyBlocked: 0, clear: 0, lastCheckedAt: null, items: [] });
+    await expect(service.summary("10000000-0000-4000-8000-0000000000ff", 20)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("announces a drain recorded, re-inspected or deleted, so open place pages refresh", async () => {
+    const { service, drains } = drainService();
+    const heard: string[] = [];
+    for (const name of ["drain.recorded", "drain.inspected", "drain.deleted"] as const) domainEvents.on(name, () => void heard.push(name));
+
+    const saved = await service.create({ kind: "culvert", condition: "blocked", method: "drawn", points: [[7.0012, 4.8003]] }, responder);
+    await service.update(saved.id, { condition: "clear" }, responder);
+    await service.remove(saved.id, admin);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    domainEvents.clear();
+
+    expect(heard).toEqual(["drain.recorded", "drain.inspected", "drain.deleted"]);
+    expect(drains.rows.has(saved.id)).toBe(false);
+  });
+});
+
 describe("FloodExtentService and the public alert map", () => {
   const outline = { points: RING, method: "walked" as const };
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -253,6 +324,18 @@ describe("FloodExtentService and the public alert map", () => {
 
     expect(heard).toEqual([`flood.recorded:${extent.id}`, `flood.receded:${extent.id}`, `flood.deleted:${extent.id}`]);
     expect(extents.rows.has(extent.id)).toBe(false);
+  });
+
+  it("announces a flood put back as still going, so the public map shows it again", async () => {
+    const { service, extents } = floodService();
+    const flood = extents.seed({ receded: true, recededAt: "2026-10-31T18:00:00.000Z" });
+    const heard: string[] = [];
+    domainEvents.on("flood.reopened", ({ floodId }) => void heard.push(floodId));
+
+    await service.reopen(flood.id, responder);
+    await settle();
+
+    expect(heard).toEqual([flood.id]);
   });
 
   it("announces nothing when a flood is refused", async () => {

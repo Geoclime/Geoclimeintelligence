@@ -57,6 +57,13 @@ For a local PostgreSQL without SSL, set `DATABASE_SSL=false` and leave `DATABASE
 - In staging and production, the CA certificate has to reach the server by some other route, such as a secret mounted as a file. That's the Cloud Engineer's call (section 18 of the Architecture doc).
 - If Aiven ever rotates the project CA, everyone must download the new certificate.
 
+**When it fails now and then: `getaddrinfo ENOTFOUND <your-host>.aivencloud.com`.** That is the computer running the API being unable to look up the database's address: a DNS lookup that failed, not the database refusing anything and not a bug. It comes and goes with the machine's own network: a Wi-Fi or phone-hotspot drop, a VPN switching on or off, a laptop waking from sleep, or a flaky DNS server from the internet provider. What the app does about it:
+
+- **Connections are kept.** The pool ([`data-source.ts`](../server/src/config/data-source.ts), `extra`) holds a connection for five minutes when idle, with TCP keep-alive, instead of node-postgres' default of ten seconds. Every new connection needs its own DNS lookup and TLS handshake, and the map asks for about eight layers at once, so after a short pause it used to open that many fresh connections together, and any failed lookup showed as an error. A connection that can't be made now gives up after 15 seconds instead of waiting for ever.
+- **A failed lookup is a 503, and the web app retries it** after 1 and 3 seconds (see [errors-and-responses.md](errors-and-responses.md)), so a brief blip usually goes unnoticed.
+
+If it keeps happening: check what the machine resolves (`nslookup <host>` or `Resolve-DnsName <host>`) at the moment it fails; try a different DNS server (1.1.1.1 or 8.8.8.8) or another network; and check in the Aiven console that the service is **Running**. A service that has been powered off (free plans can be after a period of inactivity) fails *every* time, not occasionally.
+
 ## Resources to read
 
 - node-postgres SSL options (the `ssl` object we pass): https://node-postgres.com/features/ssl

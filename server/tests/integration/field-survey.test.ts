@@ -116,6 +116,19 @@ describe("/api/v1/flood-extents", () => {
     expect((await request(app).post(`/api/v1/flood-extents/${flood.id}/recede`).set(asResponder)).status).toBe(409);
   });
 
+  it("lets a responder put a receded flood back as still going, once, and not the public", async () => {
+    const flood = extents.seed();
+    expect((await request(app).post(`/api/v1/flood-extents/${flood.id}/reopen`).set(asResponder)).status).toBe(409);
+
+    await request(app).post(`/api/v1/flood-extents/${flood.id}/recede`).set(asResponder);
+    expect((await request(app).post(`/api/v1/flood-extents/${flood.id}/reopen`).set(asMember)).status).toBe(403);
+    const reopened = await request(app).post(`/api/v1/flood-extents/${flood.id}/reopen`).set(asOtherResponder);
+    expect(reopened.status).toBe(200);
+    expect(reopened.body.data).toMatchObject({ receded: false, recededAt: null });
+    expect((await request(app).post(`/api/v1/flood-extents/${flood.id}/reopen`).set(asResponder)).status).toBe(409);
+    expect((await request(app).post("/api/v1/flood-extents/70000000-0000-4000-8000-0000000000ff/reopen").set(asResponder)).status).toBe(404);
+  });
+
   it("lets only the recorder or an administrator delete a flood", async () => {
     const flood = extents.seed({ recordedBy: responder.id });
     expect((await request(app).delete(`/api/v1/flood-extents/${flood.id}`).set(asOtherResponder)).status).toBe(403);
@@ -155,6 +168,18 @@ describe("/api/v1/drainage", () => {
 
     const drain = drains.seed();
     expect((await request(app).patch(`/api/v1/drainage/${drain.id}`).set(asResponder).send({})).status).toBe(400);
+  });
+
+  it("shows a place's drainage to any signed-in user, and checks the question", async () => {
+    drains.seed({ lgaId: ward.id, condition: "blocked" });
+    const res = await request(app).get("/api/v1/drainage/summary").query({ areaId: ward.id, limit: "5" }).set(asMember);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ total: 1, needAttention: 1 });
+
+    expect((await request(app).get("/api/v1/drainage/summary").set(asMember)).status).toBe(400);
+    expect((await request(app).get("/api/v1/drainage/summary").query({ areaId: ward.id, limit: "500" }).set(asMember)).status).toBe(400);
+    expect((await request(app).get("/api/v1/drainage/summary").query({ areaId: "80000000-0000-4000-8000-0000000000ff" }).set(asMember)).status).toBe(404);
+    expect((await request(app).get("/api/v1/drainage/summary").query({ areaId: ward.id })).status).toBe(401);
   });
 
   it("shows the map layer to any signed-in user", async () => {

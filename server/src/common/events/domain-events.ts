@@ -22,6 +22,12 @@ export interface DomainEvents {
   "flood.recorded": { floodId: string };
   "flood.receded": { floodId: string };
   "flood.deleted": { floodId: string };
+  /** A flood marked receded was put back as still going (the water hadn't gone down after all, or it was a slip). */
+  "flood.reopened": { floodId: string };
+  /** A drain was recorded, looked at again (its condition changed) or deleted: the drainage on a place's page is out of date. */
+  "drain.recorded": { drainId: string };
+  "drain.inspected": { drainId: string };
+  "drain.deleted": { drainId: string };
   "role.requested": { userId: string };
   "role.answered": { userId: string; role: string; approved: boolean };
 }

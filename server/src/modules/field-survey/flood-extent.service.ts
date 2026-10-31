@@ -97,6 +97,20 @@ export class FloodExtentService {
     return updated;
   }
 
+  /** Puts a flood marked receded back as still going: for a slip of the finger, or water that came back. Same who-may-act rules as receding it. */
+  async reopen(id: string, actor: AuthUser): Promise<FloodExtentDto> {
+    const record = await this.extents.findById(id);
+    if (!record) throw new NotFoundError("Flood extent");
+    await assertRecordInRegion(this.regions, actor, record);
+    if (!record.recededAt) throw new ConflictError("This flood isn't marked as receded");
+
+    const updated = await this.extents.markActive(id);
+    // Someone else reopened it between the read and the write.
+    if (!updated) throw new ConflictError("This flood isn't marked as receded");
+    domainEvents.emit("flood.reopened", { floodId: id });
+    return updated;
+  }
+
   async remove(id: string, actor: AuthUser): Promise<void> {
     const record = await this.extents.findById(id);
     if (!record) throw new NotFoundError("Flood extent");

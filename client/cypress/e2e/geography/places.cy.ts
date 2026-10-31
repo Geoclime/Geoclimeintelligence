@@ -28,6 +28,21 @@ function rainfallSeries() {
   };
 }
 
+const drain = (id: string, overrides: Record<string, unknown> = {}) => ({
+  id,
+  kind: "open_drain",
+  condition: "blocked",
+  name: "Aba Road drain",
+  widthM: 1.2,
+  depthM: null,
+  lengthM: 120,
+  lastCheckedAt: "2026-10-30T09:00:00.000Z",
+  wardName: "Phward 2",
+  longitude: 7.0134,
+  latitude: 4.7774,
+  ...overrides,
+});
+
 describe("Places", () => {
   beforeEach(() => {
     cy.login("general_public");
@@ -70,6 +85,8 @@ describe("Places", () => {
       cy.interceptApi("GET", "/rainfall?*", { data: rainfallSeries() }).as("getRainfall");
       cy.interceptApi("GET", "/flood-extents/history*", { data: { total: 0, active: 0, largestAreaM2: 0, latestAt: null, items: [] } }).as("getFloodHistory");
       cy.interceptApi("GET", "/flood-extents/geojson*", { data: { type: "FeatureCollection", features: [], truncated: false } }).as("floodLayer");
+      cy.interceptApi("GET", "/drainage/summary*", { data: { total: 0, needAttention: 0, partlyBlocked: 0, clear: 0, lastCheckedAt: null, items: [] } }).as("getDrainage");
+      cy.interceptApi("GET", "/drainage/geojson*", { data: { type: "FeatureCollection", features: [], truncated: false } }).as("drainageLayer");
     });
 
     it("shows the latest month and the last 12 months against their averages, with a table view", () => {
@@ -135,6 +152,34 @@ describe("Places", () => {
       cy.dataCy("flood-history-item").should("not.exist");
     });
 
+    it("shows the drainage recorded in the LGA, the ones needing attention first, with a link to each on the map", () => {
+      cy.interceptApi("GET", "/drainage/summary*", {
+        data: {
+          total: 2,
+          needAttention: 1,
+          partlyBlocked: 0,
+          clear: 1,
+          lastCheckedAt: "2026-10-30T09:00:00.000Z",
+          items: [drain("d1"), drain("d2", { name: "Mission Road culvert", kind: "culvert", condition: "clear", lengthM: null, widthM: null })],
+        },
+      }).as("getDrainage");
+
+      cy.visit(`/places/${PORT_HARCOURT.id}`);
+      cy.wait("@getDrainage").its("request.query").should("include", { areaId: PORT_HARCOURT.id });
+      cy.dataCy("drainage-figures").should("contain", "Need attention").and("contain", "Clear");
+      cy.dataCy("drainage-item").should("have.length", 2).first().should("contain", "Aba Road drain").and("contain", "Blocked").and("contain", "Phward 2");
+      cy.dataCy("drainage-item").last().should("contain", "Mission Road culvert").and("contain", "Clear");
+      cy.dataCy("drainage-map-link").first().should("have.attr", "href").and("match", /^\/map\?.*lng=7\.0134.*lat=4\.7774/);
+      // The drains are drawn on the LGA's own map too, asked for over the LGA's box.
+      cy.wait("@drainageLayer").its("request.query.bbox").should("match", /^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/);
+    });
+
+    it("says honestly when no drainage has been recorded in the LGA", () => {
+      cy.visit(`/places/${PORT_HARCOURT.id}`);
+      cy.dataCy("drainage-empty").should("contain", "No drainage has been recorded in Port Harcourt yet");
+      cy.dataCy("drainage-item").should("not.exist");
+    });
+
     it("says so when no rainfall is loaded for the LGA", () => {
       cy.interceptApi("GET", "/rainfall?*", { data: { ...rainfallSeries(), months: [], dataTypes: [], sources: [] } });
       cy.visit(`/places/${PORT_HARCOURT.id}`);
@@ -167,6 +212,8 @@ describe("Places", () => {
     beforeEach(() => {
       cy.interceptApi("GET", "/flood-extents/history*", { data: { total: 0, active: 0, largestAreaM2: 0, latestAt: null, items: [] } }).as("getFloodHistory");
       cy.interceptApi("GET", "/flood-extents/geojson*", { data: { type: "FeatureCollection", features: [], truncated: false } }).as("floodLayer");
+      cy.interceptApi("GET", "/drainage/summary*", { data: { total: 0, needAttention: 0, partlyBlocked: 0, clear: 0, lastCheckedAt: null, items: [] } }).as("getDrainage");
+      cy.interceptApi("GET", "/drainage/geojson*", { data: { type: "FeatureCollection", features: [], truncated: false } }).as("drainageLayer");
     });
 
     it("shows the floods recorded in the ward, without repeating the ward on every row", () => {
@@ -199,6 +246,18 @@ describe("Places", () => {
       cy.wait("@getFloodHistory").its("request.query").should("include", { areaId: WARD.id });
       cy.dataCy("flood-history-item").should("have.length", 1).first().should("contain", "10.3 ha").and("contain", "Knee-deep").and("not.contain", "Phward 17");
       cy.wait("@floodLayer").its("request.query.bbox").should("match", /^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/);
+    });
+
+    it("shows the drainage recorded in the ward, without repeating the ward on every row", () => {
+      cy.interceptApi("GET", `/admin-units/${WARD.id}`, { data: detail(WARD, PORT_HARCOURT) });
+      cy.interceptApi("GET", `/admin-units/${PORT_HARCOURT.id}`, { data: detail(PORT_HARCOURT, STATE) });
+      cy.interceptApi("GET", "/drainage/summary*", {
+        data: { total: 1, needAttention: 1, partlyBlocked: 0, clear: 0, lastCheckedAt: "2026-10-30T09:00:00.000Z", items: [drain("d1", { wardName: "Phward 17" })] },
+      }).as("getDrainage");
+
+      cy.visit(`/places/${PORT_HARCOURT.id}/wards/${WARD.id}`);
+      cy.wait("@getDrainage").its("request.query").should("include", { areaId: WARD.id });
+      cy.dataCy("drainage-item").should("have.length", 1).first().should("contain", "Aba Road drain").and("not.contain", "Phward 17");
     });
 
     it("says honestly when no flood has been recorded in the ward", () => {

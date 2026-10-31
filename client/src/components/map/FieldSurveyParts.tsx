@@ -30,6 +30,7 @@ export function SurveyOnMap({ survey, palette, canRecord, layerKey }: SurveyOnMa
           flood={selected}
           canRecord={canRecord}
           onRecede={selection.recede}
+          onReopen={selection.reopen}
           onDelete={() => selection.askRemove(selected)}
           onClose={selection.closeSelected}
         />

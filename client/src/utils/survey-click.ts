@@ -35,6 +35,8 @@ export function surveyFeatureIn(features: readonly ClickedFeature[], clicked: Lo
         lengthM: num(p.lengthM),
         note: text(p.note),
         lastCheckedAt: text(p.lastCheckedAt) ?? "",
+        lgaId: text(p.lgaId),
+        wardId: text(p.wardId),
       },
     };
   }

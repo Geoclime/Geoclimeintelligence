@@ -1,11 +1,12 @@
 import type { AuthUser } from "../../common/access/auth-user";
 import { RegionAccess } from "../../common/access/region-access";
 import { NotFoundError, ValidationError } from "../../common/errors/app-error";
+import { domainEvents } from "../../common/events/domain-events";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
 import type { LayerGeoJsonQuery } from "../map-layers/map-layer.types";
 import { DrainageRepository } from "./drainage.repository";
-import type { DrainageDto, DrainageFeatureCollection, IDrainageRepository } from "./field-survey.types";
+import type { DrainageDto, DrainageFeatureCollection, DrainageSummary, IDrainageRepository } from "./field-survey.types";
 import type { CreateDrainageBody, UpdateDrainageBody } from "./field-survey.validation";
 import { assertMayDelete, assertRecordInRegion, locateSurvey } from "./survey-location";
 import { SURVEY_LIMITS } from "./survey-rules";
@@ -28,7 +29,7 @@ export class DrainageService {
   // Public so tests can inject fakes; application code always uses .Instance.
   constructor(
     private readonly drains: IDrainageRepository,
-    private readonly units: Pick<IAdminUnitRepository, "findContaining">,
+    private readonly units: Pick<IAdminUnitRepository, "findContaining" | "findSummaryById">,
     private readonly regions: Pick<RegionAccess, "assert">,
   ) {}
 
@@ -54,11 +55,18 @@ export class DrainageService {
     if (!drain) {
       throw new ValidationError([{ field: "points", message: `The drain is shorter than ${min} m or longer than ${max / 1000} km. Check the points and try again.` }]);
     }
+    domainEvents.emit("drain.recorded", { drainId: drain.id });
     return drain;
   }
 
   list(query: LayerGeoJsonQuery): Promise<DrainageFeatureCollection> {
     return this.drains.findGeoJson(query);
+  }
+
+  /** The drainage recorded in an LGA or ward, for that place's page: for anyone signed in, like the map. */
+  async summary(areaId: string, limit: number): Promise<DrainageSummary> {
+    if (!(await this.units.findSummaryById(areaId))) throw new NotFoundError("Area");
+    return this.drains.findSummary(areaId, limit);
   }
 
   /** An inspection: changes what was sent, keeps the rest, and moves "last checked" to now. */
@@ -75,6 +83,7 @@ export class DrainageService {
       note: input.note === undefined ? record.note : input.note || null,
     });
     if (!updated) throw new NotFoundError("Drainage");
+    domainEvents.emit("drain.inspected", { drainId: id });
     return updated;
   }
 
@@ -83,5 +92,6 @@ export class DrainageService {
     if (!record) throw new NotFoundError("Drainage");
     assertMayDelete(actor, record.recordedBy);
     if (!(await this.drains.delete(id))) throw new NotFoundError("Drainage");
+    domainEvents.emit("drain.deleted", { drainId: id });
   }
 }

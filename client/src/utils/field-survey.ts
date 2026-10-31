@@ -41,6 +41,9 @@ export const CONDITION_INFO: Record<DrainageCondition, { label: string; meaning:
   damaged: { label: "Damaged", meaning: "Broken, collapsed or washed out", tone: "bad" },
 };
 
+/** The badge colour for a condition's tone (the shared Badge's own names). */
+export const CONDITION_BADGE_TONE: Record<ConditionTone, "success" | "warning" | "danger"> = { good: "success", warn: "warning", bad: "danger" };
+
 /** The conditions that mean water is not getting through. Mirrors needsAttention on the server. */
 export function needsAttention(condition: DrainageCondition): boolean {
   return CONDITION_INFO[condition].tone === "bad";

@@ -299,37 +299,36 @@ class PostgresLayerLoadTx implements LayerLoadTx {
     return toResult(result[0], rows.length);
   }
 
-  async deleteRoads(countryCode: string): Promise<number> {
-    const rows: unknown[] = await this.manager.query(`DELETE FROM roads WHERE country_code = $1 RETURNING 1`, [countryCode]);
-    return rows.length;
-  }
-
-  async deleteWaterways(countryCode: string): Promise<number> {
-    const rows: unknown[] = await this.manager.query(`DELETE FROM waterways WHERE country_code = $1 RETURNING 1`, [countryCode]);
-    return rows.length;
-  }
-
-  async deleteSettlements(): Promise<number> {
-    const rows: unknown[] = await this.manager.query(`DELETE FROM settlement_points RETURNING 1`);
-    return rows.length;
-  }
-
-  async deleteInfrastructure(countryCode: string): Promise<number> {
-    // Only what an import put there: a place an administrator saved by hand from the map stays.
-    const rows: unknown[] = await this.manager.query(
-      `DELETE FROM infrastructure WHERE country_code = $1 AND origin = 'import' RETURNING 1`,
-      [countryCode],
-    );
-    return rows.length;
-  }
-
-  async deleteBuildings(countryCode: string): Promise<number> {
-    // A count rather than RETURNING: 400,000 returned rows would all come back to Node.
-    const [row]: { deleted: number }[] = await this.manager.query(
-      `WITH gone AS (DELETE FROM buildings WHERE country_code = $1 RETURNING 1) SELECT count(*)::int AS deleted FROM gone`,
-      [countryCode],
-    );
+  /**
+   * Runs a DELETE and says how many rows it removed. A bare `DELETE ... RETURNING` comes back from TypeORM as
+   * [rows, rowCount], whose length is always 2, so the count is read from a SELECT over the deleted rows. It is
+   * also a count rather than the rows themselves: 400,000 returned buildings would all come back to Node.
+   * `statement` is fixed text in this file, never from a request.
+   */
+  private async deleteCount(statement: string, params: unknown[] = []): Promise<number> {
+    const [row]: { deleted: number }[] = await this.manager.query(`WITH gone AS (${statement} RETURNING 1) SELECT count(*)::int AS deleted FROM gone`, params);
     return row?.deleted ?? 0;
+  }
+
+  deleteRoads(countryCode: string): Promise<number> {
+    return this.deleteCount(`DELETE FROM roads WHERE country_code = $1`, [countryCode]);
+  }
+
+  deleteWaterways(countryCode: string): Promise<number> {
+    return this.deleteCount(`DELETE FROM waterways WHERE country_code = $1`, [countryCode]);
+  }
+
+  deleteSettlements(): Promise<number> {
+    return this.deleteCount(`DELETE FROM settlement_points`);
+  }
+
+  deleteInfrastructure(countryCode: string): Promise<number> {
+    // Only what an import put there: a place an administrator saved by hand from the map stays.
+    return this.deleteCount(`DELETE FROM infrastructure WHERE country_code = $1 AND origin = 'import'`, [countryCode]);
+  }
+
+  deleteBuildings(countryCode: string): Promise<number> {
+    return this.deleteCount(`DELETE FROM buildings WHERE country_code = $1`, [countryCode]);
   }
 }
 

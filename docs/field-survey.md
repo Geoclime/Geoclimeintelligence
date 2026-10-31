@@ -25,6 +25,7 @@ Three things make it work in the field:
 3. Press **Finish** (it needs three points). Say how deep the water is and add a note, then **Save flood**.
 4. The flood appears in magenta (not blue, which is water and would read as the river beside it) and its popup opens with what it reaches: *"Reaches 142 buildings, 2 facilities and 320 m of road"*, the facilities and settlements by name, the wards it touches, and the drains within 150 m, those **needing attention first**: *"3 drains within 150 m, 2 need attention"*.
 5. When the water goes down, open the flood and press **Water has gone down**. It turns grey and dashed, and leaves the map after 7 days. The record stays.
+   - **Pressed it by mistake?** The confirmation that appears has an **Undo** button (it stays for 10 seconds). Later, click the grey flood and press **Water is still there**. Either puts it back exactly as it was, still going, and back on the public alert map if it was recorded in the last 3 days.
 
 For drainage, **Record a drain** or **Mark a culvert, outfall or inlet**. The form asks what it is, **what shape it is in** (clear, partly blocked, blocked, overflowing, damaged) and its size. Opening a drain later shows **I checked it**: pick the condition now and save, which moves *last checked* to today. A drain that was blocked in March and cleared in April reads as cleared, and the map shows it.
 
@@ -69,6 +70,7 @@ A layer that isn't loaded counts zero, and the popup says so ("No buildings, fac
 | `GET /api/v1/flood-extents/:id/impact` | Signed in | What the flood reaches |
 | `POST /api/v1/flood-extents` | Responder, official, administrator | Saves a flood; returns it **with its impact** |
 | `POST /api/v1/flood-extents/:id/recede` | Same | Marks it receded (409 if already) |
+| `POST /api/v1/flood-extents/:id/reopen` | Same | Undoes that: back to still going (409 if it isn't receded). Only `receded_at` is cleared, so nothing else about the flood changes |
 | `POST /api/v1/drainage`, `PATCH /api/v1/drainage/:id` | Same | Records a drain; re-inspects one (always moves `last_checked_at`) |
 | `DELETE /api/v1/flood-extents/:id`, `DELETE /api/v1/drainage/:id` | The recorder, or an administrator | Deletes it |
 
@@ -79,6 +81,7 @@ Recording and re-inspecting respect **region scope** (a responder limited to one
 - [`useWalkRecorder.ts`](../client/src/hooks/useWalkRecorder.ts): the GPS watch, the points, the draft. The rules it follows are plain functions with tests: [`survey-geometry.ts`](../client/src/utils/survey-geometry.ts) (`judgeFix`: keep a fix only if accuracy ≤ 30 m and you moved at least `max(6 m, accuracy ÷ 2)`; distance and the on-screen area estimate) and [`walk-state.ts`](../client/src/utils/walk-state.ts).
 - [`survey-draft.ts`](../client/src/utils/survey-draft.ts): the unfinished walk in `localStorage`, validated on the way back in. [`useScreenAwake.ts`](../client/src/hooks/useScreenAwake.ts): the Screen Wake Lock.
 - [`useFieldSurvey.ts`](../client/src/hooks/useFieldSurvey.ts) ties the recorder to [`useSurveySaving.ts`](../client/src/hooks/useSurveySaving.ts) and [`useSurveySelection.ts`](../client/src/hooks/useSurveySelection.ts). While a walk is open, the map belongs to it: a tap adds a point (if tapping is on) and otherwise does nothing, so a stray tap never opens a popup.
+- **Changes are drawn at once.** When the server accepts a save, "water has gone down", an undo, a re-inspection or a delete, the map doesn't wait to fetch the layer again before it recolours: the change is drawn straight away on top of the data in hand ([`survey-patches.ts`](../client/src/utils/survey-patches.ts), `useSurveyLayers.ts`), and the fetch that follows confirms it. A saved flood or drain is drawn from the points it was recorded with, and its layer is switched on if it was off. A change is only drawn over data that was requested *before* it, so it can never override something newer that arrived from the server. With a slow connection or database the picture is therefore right immediately, and any correction by the server (it repairs a walk that crossed itself) follows.
 - On the map: [`SurveyLayers.tsx`](../client/src/components/map/SurveyLayers.tsx) and [`survey-style.ts`](../client/src/components/map/survey-style.ts) (floods magenta, receded grey and dashed; drains green, amber or red by condition, with a wide invisible strip so a thin drain can be tapped). **Floods** and **Drainage** are two new switches in the layer list and the address (`layers=…,floodExtents,drainage`).
 - The recorder is [`FieldSurveyDock.tsx`](../client/src/components/map/FieldSurveyDock.tsx); the popups are `FloodExtentPopup.tsx` and `DrainagePopup.tsx`.
 
@@ -90,9 +93,9 @@ A flood a responder records is also shown to everyone, signed in or not, on the 
 - Only floods **recorded in the last 3 days that haven't been marked receded** are included (`SURVEY_LIMITS.publicFloodDays`, at most 200). A flood nobody went back to must not sit on a page that people read as "now": press **Water has gone down** when it is over, or it drops off by itself.
 - On the SVG map each flood is a magenta marker (5 to 12 px, sized by area on a log scale, drawn under the report dots), with a legend entry, a tooltip such as "Flood recorded on the ground: 3.2 ha, knee-deep, in Obio/Akpor", and a mention in the caption and the screen-reader description.
 - **The status line counts them.** With no official alert, a recorded flood makes the line amber ("No official flood alerts in force. 1 flood recorded on the ground in the last 3 days, the largest 3.2 ha."), never the green all-clear.
-- **It updates live.** Recording, receding or deleting a flood announces `flood.recorded`, `flood.receded` or `flood.deleted`; the server drops its cached copy of the map and tells every open page, so a flood appears on the landing page within a moment.
+- **It updates live.** Recording, receding, reopening or deleting a flood announces `flood.recorded`, `flood.receded`, `flood.reopened` or `flood.deleted`; the server drops its cached copy of the map and tells every open page, so a flood appears on the landing page within a moment.
 
-### 7. On an LGA's and a ward's page: flood history
+### 7. On an LGA's and a ward's page: flood history and drainage
 
 The **Flood history** card on an LGA's profile (Places, then the LGA), and on each of its wards' pages, lists the floods responders recorded there. Everything below applies to both; on a ward's page the list drops the ward name from each row, since every flood in it is in that ward, and the map is zoomed to the ward's own outline. It replaces the placeholder that said history would appear "once the disaster-event dataset is connected"; the card still says honestly when nothing has been recorded ("No floods have been recorded in Obio-Akpor yet"), and shows no made-up figures.
 
@@ -103,13 +106,19 @@ The **Flood history** card on an LGA's profile (Places, then the LGA), and on ea
 - `GET /api/v1/flood-extents/history?areaId=&limit=` (any signed-in user; `limit` 1 to 50, default 20; `404` for an area that doesn't exist). It works for a ward id as well as an LGA id. Like the map layer it carries no outline, note or recorder.
 - It updates live: recording, receding or deleting a flood marks the page's data stale, so an open LGA or ward page refreshes itself. Code: [`flood-extent.repository.ts`](../server/src/modules/field-survey/flood-extent.repository.ts) `findHistory`, [`FloodHistoryCard.tsx`](../client/src/components/floods/FloodHistoryCard.tsx) (used by `LgaProfilePage.tsx` and `WardPage.tsx`), [`useFloodHistory.ts`](../client/src/hooks/useFloodHistory.ts), and the migration [`1792500000000-IndexFloodExtentAreas.ts`](../server/src/migrations/1792500000000-IndexFloodExtentAreas.ts), which indexes the LGA and ward columns so it stays quick as floods accumulate.
 
+**Drainage on the same pages.** An LGA's page and each ward's page also show the drains recorded there, in the same two ways:
+
+- **A Drainage card**, under the flood history. Its figures are how many drains were recorded and how many **need attention** (blocked, overflowing or damaged, in red), partly blocked, and clear. The list puts the worst first, then partly blocked, then clear, and within each the one **looked at longest ago** first, so a drain nobody has checked in months comes before one checked yesterday. Each row has its kind, size, ward, condition, when it was last checked and **Show on map**. With none recorded it says so.
+- **On the place's own map**, a drain is a line (or a dot, for a culvert, outfall, inlet or pond) in green, amber or red by condition, as on the main map, and clicking one opens its details read-only (condition, size, note, last checked). Re-inspecting or deleting a drain stays on the main map, for staff. Only drains filed under this place are drawn ([`useAreaSurvey.ts`](../client/src/hooks/useAreaSurvey.ts) draws floods and drains together).
+- `GET /api/v1/drainage/summary?areaId=&limit=` (any signed-in user; `limit` 1 to 50, default 20; `404` for an area that doesn't exist; works for a ward id too). A drain is filed under the LGA and ward where it **starts**. Like the map layer it carries no recorder; unlike it, no note. Totals count everything, only the list is capped. Recording, re-inspecting or deleting a drain tells open pages (`drain.recorded`, `drain.inspected`, `drain.deleted`, over the same live signal as floods), so an open place page refreshes itself. Code: `findSummary` in [`drainage.repository.ts`](../server/src/modules/field-survey/drainage.repository.ts), [`DrainageCard.tsx`](../client/src/components/floods/DrainageCard.tsx), and the migration [`1792600000000-IndexDrainageAreas.ts`](../server/src/migrations/1792600000000-IndexDrainageAreas.ts).
+
 ### 8. Tests
 
 | File | Covers |
 |---|---|
 | [`tests/unit/field-survey.test.ts`](../server/tests/unit/field-survey.test.ts) | The rules, the validation, both services against fakes: where a flood is placed, a shape outside the map or outside what a flood can be, region scope, receding once, who may delete |
 | [`tests/integration/field-survey.test.ts`](../server/tests/integration/field-survey.test.ts) | The routes: roles (403 for the public), bodies, the bbox, 409 and 404 |
-| `tests/unit/field-survey.test.ts` (history), `client/src/utils/flood-history.test.ts`, `cypress/e2e/geography/places.cy.ts` | A place's history: its floods in order, totals beyond the cap, a ward as well as an LGA, nothing identifying, the empty card, the map links |
+| `tests/unit/field-survey.test.ts` (history, drainage summary), `client/src/utils/flood-history.test.ts`, `drainage-summary.test.ts`, `cypress/e2e/geography/places.cy.ts` | A place's history: its floods in order, totals beyond the cap, a ward as well as an LGA, nothing identifying, the empty card, the map links |
 | `tests/unit/public-alert-map.test.ts`, `realtime-events.test.ts` | The public map carries the floods and shows a new one at once; a flood event refreshes everyone's map |
 | `client/src/utils/*.test.ts`, `survey-form.schema.test.ts` | The marker size and wording on the alert map, the status line with recorded floods, the GPS rules, area and distance, the kept draft, the point-keeping state, what a click opens, the impact sentences |
 

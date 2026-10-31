@@ -7,6 +7,9 @@ import type { FacilityChanges, FacilityDto, IFacilityRepository, ManualFacilityS
 // with origin = 'manual' are ever changed or deleted here, so an OpenStreetMap row can't be edited
 // through this route even with its id in hand. The point is built in PostGIS (section 8).
 
+// An UPDATE or DELETE run through TypeORM's query() comes back as [rows, rowCount], not as the rows, so
+// each one is wrapped in a CTE and read back with a SELECT, as the other repositories do (INSERT is fine).
+
 /** What every write hands back: the row as the client needs it, with the point as plain numbers. */
 const RETURNING = `
   id, name, facility_type AS "facilityType", osm_class AS "osmClass", note, origin,
@@ -61,17 +64,22 @@ export class FacilityRepository extends BaseRepository<Infrastructure> implement
 
   async update(id: string, changes: FacilityChanges): Promise<FacilityDto | null> {
     const rows: FacilityRow[] = await this.repo.query(
-      `UPDATE infrastructure
-          SET name = $2, facility_type = $3, osm_class = $4, note = $5, updated_at = now()
-        WHERE id = $1 AND origin = 'manual'
-        RETURNING ${RETURNING}`,
+      `WITH changed AS (
+         UPDATE infrastructure
+            SET name = $2, facility_type = $3, osm_class = $4, note = $5, updated_at = now()
+          WHERE id = $1 AND origin = 'manual'
+          RETURNING *)
+       SELECT ${RETURNING} FROM changed`,
       [id, changes.name, changes.facilityType, changes.osmClass, changes.note],
     );
     return rows[0] ? toDto(rows[0]) : null;
   }
 
   async delete(id: string): Promise<boolean> {
-    const rows: unknown[] = await this.repo.query(`DELETE FROM infrastructure WHERE id = $1 AND origin = 'manual' RETURNING 1`, [id]);
-    return rows.length > 0;
+    const [row]: { n: number }[] = await this.repo.query(
+      `WITH gone AS (DELETE FROM infrastructure WHERE id = $1 AND origin = 'manual' RETURNING 1) SELECT count(*)::int AS n FROM gone`,
+      [id],
+    );
+    return (row?.n ?? 0) > 0;
   }
 }

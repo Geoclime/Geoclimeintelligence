@@ -124,6 +124,35 @@ export interface DrainageFeatureProperties {
   lengthM: number | null;
   note: string | null;
   lastCheckedAt: string;
+  /** The LGA and ward it is filed under, so a place's page can draw only its own drains. */
+  lgaId: string | null;
+  wardId: string | null;
+}
+
+/** One drain in a place's list. Mirrors DrainageSummaryItem in server/src/modules/field-survey/field-survey.types.ts. */
+export interface DrainageSummaryItem {
+  id: string;
+  kind: DrainageKind;
+  condition: DrainageCondition;
+  name: string | null;
+  widthM: number | null;
+  depthM: number | null;
+  lengthM: number | null;
+  lastCheckedAt: string;
+  wardName: string | null;
+  longitude: number;
+  latitude: number;
+}
+
+/** GET /api/v1/drainage/summary?areaId=: the drainage recorded in an LGA or ward, totals over all of it and the first drains, the worst first. */
+export interface DrainageSummary {
+  total: number;
+  /** Blocked, overflowing or damaged. */
+  needAttention: number;
+  partlyBlocked: number;
+  clear: number;
+  lastCheckedAt: string | null;
+  items: DrainageSummaryItem[];
 }
 
 export type FloodExtentFeatureCollection = LayerFeatureCollection<MultiPolygon, FloodExtentFeatureProperties>;
