@@ -1,3 +1,4 @@
+import compression from "compression";
 import cors from "cors";
 import express, { type Express } from "express";
 import helmet from "helmet";
@@ -26,6 +27,9 @@ export function createApp(): Express {
   if (env.TRUST_PROXY_HOPS > 0) app.set("trust proxy", env.TRUST_PROXY_HOPS);
 
   app.use(helmet());
+  // Map shapes are the largest replies (a whole-state view is over a megabyte of GeoJSON) and
+  // compress about five-fold, which is most of the wait on a phone. Replies under 1 KB are left alone.
+  app.use(compression());
   // Content-Disposition is exposed so the browser can read a template download's file name.
   app.use(cors({ origin: env.CORS_ORIGINS.length > 0 ? env.CORS_ORIGINS : false, exposedHeaders: ["Content-Disposition"] }));
   app.use(express.json({ limit: "1mb" }));

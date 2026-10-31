@@ -159,3 +159,17 @@ export const LAYER_FEATURE_LIMIT: Readonly<Record<MapLayerId, number>> = {
 export function simplifyTolerance(zoom?: number): number {
   return zoom === undefined ? 0 : 180 / (512 * 2 ** zoom);
 }
+
+/**
+ * Where a waterways reply takes each shape from. Wide rivers are outlines of hundreds of thousands
+ * of vertices, and simplifying them live for a zoomed-out view took over a second per request, so
+ * the table keeps two simplified copies (migration AddSimplifiedWaterways): `geom_z8` for zoom 8
+ * and below, `geom_z10` for 10 and 11. From zoom 12 the view is small, so the full `geom` is
+ * simplified live. A copy is read as it is, never simplified again.
+ */
+export type WaterwayGeometryColumn = "geom" | "geom_z8" | "geom_z10";
+
+export function waterwayGeometryColumn(zoom?: number): WaterwayGeometryColumn {
+  if (zoom === undefined || zoom >= 12) return "geom";
+  return zoom >= 10 ? "geom_z10" : "geom_z8";
+}

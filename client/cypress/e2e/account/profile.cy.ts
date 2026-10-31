@@ -34,7 +34,7 @@ describe("Your profile", () => {
     });
     cy.visit("/account");
     // Passes the client check, so the server's answer is what shows.
-    cy.dataCy("profile-phone").type("+234 000000");
+    cy.dataCy("profile-phone").type("803 123 4567");
     cy.dataCy("profile-save").click();
     cy.dataCy("field-error").should("contain", "Enter a phone number using digits");
   });

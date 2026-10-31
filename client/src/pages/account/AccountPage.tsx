@@ -7,6 +7,7 @@ import { ThemeToggle } from "../../components/layout/ThemeToggle";
 import { Button } from "../../components/shared/Button";
 import { Callout } from "../../components/shared/Callout";
 import { Icon, type IconName } from "../../components/shared/Icon";
+import { PhoneField } from "../../components/shared/PhoneField";
 import { TextField } from "../../components/shared/TextField";
 import { AccessSummary } from "../../components/users/AccessSummary";
 import { HomeAreaFields } from "../../components/users/HomeAreaFields";
@@ -21,6 +22,7 @@ import type { AuthUser } from "../../types/auth.types";
 import { applySubmitError } from "../../utils/form-errors";
 import { formatDate } from "../../utils/formatDate";
 import { MAP_PATH } from "../../utils/map-url";
+import { normalisePhone } from "../../utils/phone";
 import { initials, profileChecklist } from "../../utils/profile";
 import { hasAnyRole } from "../../utils/roles";
 import { SetupChecklist } from "./SetupChecklist";
@@ -129,7 +131,7 @@ export function AccountPage() {
 function toFormValues(user: AuthUser): ProfileInput {
   return {
     displayName: user.displayName ?? "",
-    phone: user.phone ?? "",
+    phone: normalisePhone(user.phone ?? ""),
     homeAdminUnitId: user.homeAdminUnitId ?? "",
     organisation: user.organisation ?? "",
     jobTitle: user.jobTitle ?? "",
@@ -188,16 +190,21 @@ function ProfileForm({ user }: { user: AuthUser }) {
             {...register("displayName")}
           />
           <TextField label="Email" value={user.email ?? "Not available"} disabled readOnly hint="Used to sign in." />
-          <TextField
-            label="Phone number"
-            type="tel"
-            autoComplete="tel"
-            inputMode="tel"
-            placeholder="+234 803 123 4567"
-            hint="So responders and administrators can reach you."
-            error={errors.phone?.message}
-            data-cy="profile-phone"
-            {...register("phone")}
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field, fieldState }) => (
+              <PhoneField
+                label="Phone number"
+                hint="So responders and administrators can reach you."
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                error={fieldState.error?.message}
+                data-cy="profile-phone"
+              />
+            )}
           />
           <Controller
             control={control}

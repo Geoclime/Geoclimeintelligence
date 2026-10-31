@@ -228,6 +228,17 @@
   border: 0;
 }
 
+/* In a wide auth card (Create an account) the options sit two to a row instead of in a tall stack. */
+@container (min-width: 520px) {
+  .role-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .role-picker > .field__error {
+    grid-column: 1 / -1;
+  }
+}
+
 .role-picker__legend {
   margin-bottom: var(--space-2);
   padding: 0;

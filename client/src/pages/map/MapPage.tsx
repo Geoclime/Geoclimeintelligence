@@ -4,12 +4,15 @@ import { AdminBoundaryLayers } from "../../components/map/AdminBoundaryLayers";
 import { AdminUnitPopup } from "../../components/map/AdminUnitPopup";
 import { ClimateMap, type MapView } from "../../components/map/ClimateMap";
 import { LayerToggle, type LayerOption } from "../../components/map/LayerToggle";
+import { LocationTrace } from "../../components/map/LocationTrace";
 import { MapLayerSources } from "../../components/map/MapLayerSources";
 import { MapLegend } from "../../components/map/MapLegend";
 import { MapOverlayLayers } from "../../components/map/MapOverlayLayers";
+import { MyLocationLayer } from "../../components/map/MyLocationLayer";
 import { MapOverviewPanel } from "../../components/map/MapOverviewPanel";
+import { PinLayer } from "../../components/map/PinLayer";
+import { TraceLineLayer } from "../../components/map/TraceLineLayer";
 import {
-  BUILDING_MIN_ZOOM,
   INTERACTIVE_LAYERS,
   mapPalette,
   OVERLAY_LAYER_IDS,
@@ -19,18 +22,18 @@ import {
 import { Button, buttonClassName } from "../../components/shared/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { Icon } from "../../components/shared/Icon";
-import { useAdminUnitLayer } from "../../hooks/useAdminUnitLayer";
 import { useAdminUnits } from "../../hooks/useAdminUnits";
 import { useAuth } from "../../hooks/useAuth";
 import { useCountries } from "../../hooks/useCountries";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useLocatePoint } from "../../hooks/useLocatePoint";
-import { useMapLayer } from "../../hooks/useMapLayer";
 import { useMapLayerCatalog } from "../../hooks/useMapLayerCatalog";
+import { useMapLayers } from "../../hooks/useMapLayers";
 import { useTheme } from "../../hooks/useTheme";
 import type { BBox, LonLat } from "../../types/admin-unit.types";
-import { readLayers, readMapView, writeLayers, writeMapView } from "../../utils/map-url";
+import { boundsAround } from "../../utils/geo-distance";
+import { readLayers, readMapView, readPin, readPinLabel, writeLayers, writeMapView, writePin } from "../../utils/map-url";
 import { overlayHint } from "../../utils/overlay-layers";
 import { hasAnyRole } from "../../utils/roles";
 import "./MapPage.css";
@@ -56,6 +59,8 @@ const OVERLAY_LEGEND = [
   { key: "facility-other", label: "Markets, transport, water, telecom", swatch: "facility-other", layer: "infrastructure" },
 ] as const;
 
+const sameSpot = (a: LonLat | null | undefined, b: LonLat | null | undefined) => Boolean(a && b && a[0] === b[0] && a[1] === b[1]);
+
 /**
  * The home screen: a full-screen map of Rivers State with its LGAs (named on the map) and, zoomed
  * in, its wards, with roads, waterways, settlements, facilities and (at street level) buildings over them. Each layer is fetched only for
@@ -73,22 +78,28 @@ export function MapPage() {
   const [view, setView] = useState<MapView | null>(null);
   const [panelsOpen, setPanelsOpen] = useState(false);
   const [focus, setFocus] = useState<BBox | null>(null);
+  const [focusNonce, setFocusNonce] = useState(0);
 
   const layers = readLayers(searchParams);
   const selectedLgaId = searchParams.get("lga");
+  const pin = readPin(searchParams);
+  const pinLabel = readPinLabel(searchParams) ?? "Pinned place";
   const zoom = view?.zoom ?? initialView?.zoom ?? 8;
 
   const { countries, loading: countriesLoading } = useCountries();
   const { units: states } = useAdminUnits({ level: 1, pageSize: 10 });
   const { units: lgaList } = useAdminUnits({ level: 2, pageSize: 100 });
-  const stateLayer = useAdminUnitLayer(view?.bbox ?? null, 1, { enabled: layers.state, zoom });
-  const lgaLayer = useAdminUnitLayer(view?.bbox ?? null, 2, { enabled: layers.lga, zoom });
-  const wardLayer = useAdminUnitLayer(view?.bbox ?? null, 3, { enabled: layers.ward && zoom >= WARD_MIN_ZOOM, zoom });
-  const roadLayer = useMapLayer("roads", view?.bbox ?? null, { enabled: layers.roads, zoom });
-  const waterwayLayer = useMapLayer("waterways", view?.bbox ?? null, { enabled: layers.waterways, zoom });
-  const settlementLayer = useMapLayer("settlements", view?.bbox ?? null, { enabled: layers.settlements, zoom });
-  const infrastructureLayer = useMapLayer("infrastructure", view?.bbox ?? null, { enabled: layers.infrastructure, zoom });
-  const buildingLayer = useMapLayer("buildings", view?.bbox ?? null, { enabled: layers.buildings && zoom >= BUILDING_MIN_ZOOM, zoom });
+  const {
+    state: stateLayer,
+    lga: lgaLayer,
+    ward: wardLayer,
+    roads: roadLayer,
+    waterways: waterwayLayer,
+    settlements: settlementLayer,
+    infrastructure: infrastructureLayer,
+    buildings: buildingLayer,
+    error: layerError,
+  } = useMapLayers(view?.bbox ?? null, zoom, layers);
   const { catalog } = useMapLayerCatalog();
   const located = useLocatePoint();
   const geolocation = useGeolocation();
@@ -143,10 +154,34 @@ export function MapPage() {
     [located, selectLga],
   );
 
+  // A link with a pinned place (a flood report's "Open on the full map") opens with it marked and
+  // its LGA and ward looked up, as if it had been tapped. Read once, on arrival.
+  const pinHandled = useRef(false);
+  useEffect(() => {
+    if (pinHandled.current || !pin) return;
+    pinHandled.current = true;
+    void handleMapClick(pin);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Closing the popup of the pinned place takes the pin away with it.
+  const closePopup = () => {
+    const closing = located.point;
+    located.clear();
+    if (pin && closing && closing[0] === pin[0] && closing[1] === pin[1]) updateParams((params) => writePin(params, null));
+  };
+
+  /** Fits the map to a box, again even if it is the same box as last time. */
+  const showBounds = (bounds: BBox) => {
+    setFocus(bounds);
+    setFocusNonce((nonce) => nonce + 1);
+  };
+
+  // With a pinned place on the map (a flood report's link), "Where am I?" brings you and it into view together.
   const whereAmI = async () => {
     const point = await geolocation.request();
     if (!point) return;
-    setFocus([point[0] - 0.02, point[1] - 0.02, point[0] + 0.02, point[1] + 0.02]);
+    showBounds(pin ? boundsAround([point, pin]) : [point[0] - 0.02, point[1] - 0.02, point[0] + 0.02, point[1] + 0.02]);
     await handleMapClick(point);
   };
 
@@ -204,19 +239,26 @@ export function MapPage() {
       hint: hintFor("buildings", buildingLayer.data?.truncated),
     },
   ];
-  const legendItems = [...LEGEND, ...OVERLAY_LEGEND.filter((item) => layers[item.layer])];
+  const fix = geolocation.fix;
+  const legendItems = [
+    ...LEGEND,
+    ...(pin ? [{ key: "pin", label: "Pinned place", swatch: "pin" }] : []),
+    ...(fix ? [{ key: "you", label: "Your location", swatch: "you" }] : []),
+    ...OVERLAY_LEGEND.filter((item) => layers[item.layer]),
+  ];
+  // Mapbox stacks layers in the order they were added, and a boundary layer is added when its data
+  // arrives. Remounting the markers whenever one appears or goes puts them back on top of the tint.
+  const markerKey = [stateLayer.data, lgaLayer.data, wardLayer.data].map(Boolean).join();
+  // The cards and panels float over the map, so a fit to a chosen box keeps clear of them.
+  const fitPadding = focus
+    ? window.innerWidth >= 900
+      ? { top: 230, right: 340, bottom: 70, left: 380 }
+      : { top: 420, right: 24, bottom: 110, left: 24 }
+    : undefined;
+  const popupTitle = sameSpot(located.point, fix?.point) ? "You are here" : sameSpot(located.point, pin) ? pinLabel : undefined;
   const visibleOverlays = OVERLAY_LAYER_IDS.filter((id) => layers[id]);
 
   const noCountry = !countriesLoading && countries.length === 0;
-  const layerError =
-    stateLayer.error ??
-    lgaLayer.error ??
-    wardLayer.error ??
-    roadLayer.error ??
-    waterwayLayer.error ??
-    settlementLayer.error ??
-    infrastructureLayer.error ??
-    buildingLayer.error;
 
   return (
     <div className="map-page" data-cy="map-page">
@@ -225,6 +267,8 @@ export function MapPage() {
         theme={theme}
         initialView={initialView ?? undefined}
         fitTo={focus ?? (initialView ? null : (stateUnit?.bbox ?? null))}
+        fitNonce={focusNonce}
+        fitPadding={fitPadding}
         onViewChange={handleViewChange}
         onMapClick={(point) => void handleMapClick(point)}
         interactiveLayerIds={INTERACTIVE_LAYERS}
@@ -247,13 +291,17 @@ export function MapPage() {
           lgaLabels={layers.lga ? lgaList : []}
           selectedLgaId={selectedLgaId}
         />
+        {pin && fix && <TraceLineLayer key={`line-${markerKey}`} from={fix.point} to={pin} palette={palette} />}
+        {pin && <PinLayer key={`pin-${markerKey}`} point={pin} palette={palette} label={pinLabel} />}
+        {fix && <MyLocationLayer key={`me-${markerKey}`} fix={fix} palette={palette} />}
         {located.point && (
           <AdminUnitPopup
             point={located.point}
             result={located.result}
             loading={located.loading}
             error={located.error}
-            onClose={located.clear}
+            onClose={closePopup}
+            title={popupTitle}
           />
         )}
       </ClimateMap>
@@ -268,6 +316,15 @@ export function MapPage() {
           locating={geolocation.locating || located.loading}
           geoError={geolocation.error}
         />
+        {pin && (
+          <LocationTrace
+            pin={pin}
+            label={pinLabel}
+            me={fix?.point ?? null}
+            onShow={showBounds}
+            onClear={() => updateParams((params) => writePin(params, null))}
+          />
+        )}
         {layerError && (
           <p className="map-panel map-page__error" role="alert" data-cy="layer-error">
             Some map layers couldn't load: {layerError}

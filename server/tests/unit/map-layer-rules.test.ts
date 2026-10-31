@@ -3,6 +3,7 @@ import {
   LAYER_FEATURE_LIMIT,
   MINOR_ROAD_RANK,
   isWaterClass,
+  waterwayGeometryColumn,
   maxRoadRank,
   roadClassRank,
   simplifyTolerance,
@@ -47,6 +48,17 @@ describe("what the waterways layer shows at each zoom", () => {
     expect(waterClassesAtZoom(9)).toEqual(["river", "creek"]);
     expect(waterClassesAtZoom(11)).toEqual(["river", "creek", "other"]);
     expect(waterClassesAtZoom(undefined)).toEqual(["river", "creek", "other"]);
+  });
+
+  it("reads a pre-simplified shape when zoomed out, and the full one up close", () => {
+    expect(waterwayGeometryColumn(5)).toBe("geom_z8");
+    expect(waterwayGeometryColumn(8)).toBe("geom_z8");
+    expect(waterwayGeometryColumn(9)).toBe("geom_z8");
+    expect(waterwayGeometryColumn(10)).toBe("geom_z10");
+    expect(waterwayGeometryColumn(11)).toBe("geom_z10");
+    expect(waterwayGeometryColumn(12)).toBe("geom");
+    expect(waterwayGeometryColumn(16)).toBe("geom");
+    expect(waterwayGeometryColumn(undefined)).toBe("geom");
   });
 
   it("knows the three classes the database accepts", () => {

@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "cloudinary": "2.11.0",
+    "compression": "^1.8.2",
     "cors": "^2.8.6",
     "csv-parse": "^7.0.3",
     "dotenv": "^18.0.4",
@@ -43,6 +44,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/geojson": "^7946.0.16",

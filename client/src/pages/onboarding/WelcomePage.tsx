@@ -6,11 +6,13 @@ import { PushDeviceControl } from "../../components/notifications/NotificationSe
 import type { RedirectState } from "../../components/routing/RequireAuth";
 import { Button } from "../../components/shared/Button";
 import { Callout } from "../../components/shared/Callout";
+import { PhoneField } from "../../components/shared/PhoneField";
 import { TextField } from "../../components/shared/TextField";
 import { HomeAreaFields } from "../../components/users/HomeAreaFields";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { applySubmitError } from "../../utils/form-errors";
+import { normalisePhone } from "../../utils/phone";
 import { MAP_PATH } from "../../utils/map-url";
 import { PROFILE_FIELDS, profileSchema, type ProfileInput } from "../account/profile.schema";
 import "../../components/notifications/notifications.css";
@@ -47,7 +49,7 @@ export function WelcomePage() {
     mode: "onTouched",
     defaultValues: {
       displayName: user?.displayName ?? "",
-      phone: user?.phone ?? "",
+      phone: normalisePhone(user?.phone ?? ""),
       homeAdminUnitId: user?.homeAdminUnitId ?? "",
       organisation: user?.organisation ?? "",
       jobTitle: user?.jobTitle ?? "",
@@ -94,30 +96,37 @@ export function WelcomePage() {
   }
 
   return (
-    <section className="auth-card" data-cy="welcome-page">
+    <section className="auth-card auth-card--wide" data-cy="welcome-page">
       <header className="auth-card__header">
         <p className="auth-card__step">Step 1 of 2</p>
         <h1 className="auth-card__title">Finish setting up your account</h1>
         <p className="auth-card__lead">A few details so coordinators can reach you, and so flood alerts for where you live or work reach you.</p>
       </header>
 
-      <form className="auth-form" onSubmit={onSubmit} noValidate>
+      <form className="auth-form auth-form--grid" onSubmit={onSubmit} noValidate>
         {errors.root?.server && (
-          <Callout tone="danger" dataCy="form-error">
-            {errors.root.server.message}
-          </Callout>
+          <div className="auth-form__full">
+            <Callout tone="danger" dataCy="form-error">
+              {errors.root.server.message}
+            </Callout>
+          </div>
         )}
         <TextField label="Full name" autoComplete="name" error={errors.displayName?.message} data-cy="welcome-name" {...register("displayName")} />
-        <TextField
-          label="Phone number"
-          type="tel"
-          autoComplete="tel"
-          inputMode="tel"
-          placeholder="+234 803 123 4567"
-          hint="Only coordinators and administrators see it."
-          error={errors.phone?.message}
-          data-cy="welcome-phone"
-          {...register("phone")}
+        <Controller
+          control={control}
+          name="phone"
+          render={({ field, fieldState }) => (
+            <PhoneField
+              label="Phone number"
+              hint="Only coordinators and administrators see it."
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+              error={fieldState.error?.message}
+              data-cy="welcome-phone"
+            />
+          )}
         />
         <Controller
           control={control}
@@ -126,9 +135,11 @@ export function WelcomePage() {
         />
         <TextField label="Organisation (optional)" autoComplete="organization" error={errors.organisation?.message} data-cy="welcome-organisation" {...register("organisation")} />
         <TextField label="Job title (optional)" autoComplete="organization-title" error={errors.jobTitle?.message} data-cy="welcome-job-title" {...register("jobTitle")} />
-        <Button type="submit" size="lg" fullWidth loading={isSubmitting} loadingLabel="Saving…" data-cy="welcome-save">
-          Save and continue
-        </Button>
+        <div className="auth-form__full">
+          <Button type="submit" size="lg" fullWidth loading={isSubmitting} loadingLabel="Saving…" data-cy="welcome-save">
+            Save and continue
+          </Button>
+        </div>
       </form>
 
       <p className="auth-card__footer">

@@ -41,6 +41,7 @@ Tests don't use `.env`. [`vitest.config.mts`](../server/vitest.config.mts) sets 
 **5. HTTP security basics.** These are set in [`src/app.ts`](../server/src/app.ts), before any route:
 - **helmet** adds standard security headers to every response, for example telling browsers not to guess content types.
 - **CORS** controls which websites' JavaScript may call this API from a browser. Only the origins in `CORS_ORIGINS` are allowed. If it's empty, no CORS headers are sent, so browsers block all cross-site calls. Postman and server-to-server calls aren't affected, because CORS is a browser rule.
+- **compression** gzips every reply over 1 KB. The map's shapes are by far the largest replies (a whole-state view is over a megabyte of GeoJSON) and compress about five-fold, which is most of the wait on a phone. Browsers ask for it automatically and unpack it themselves, so nothing else changes.
 - **JSON body limit**: request bodies over 1 MB are rejected with `413 Request body too large`. That stops someone from tying up the server with a huge upload.
 
 **Flagged for the team (NEEDS VERIFICATION):**

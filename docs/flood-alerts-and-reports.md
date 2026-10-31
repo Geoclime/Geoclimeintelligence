@@ -21,6 +21,14 @@ An alert covers LGAs and/or whole states (never a single ward). It has a title, 
 
 Every report starts *Waiting for review*. Emergency responders, government officials and administrators review the reports in their region, then publish or reject them (rejecting needs a reason, which the reporter sees). Reporters follow their reports' status on the same page. A cap of 10 reports per person per hour guards against spam.
 
+**Checking the location before publishing.** Each report card has a *View on map* button. It opens a map under the report, without leaving the queue, with the exact spot pinned at street level.
+- The map draws what the platform's own map draws: boundaries (the report's LGA is outlined, so you can see the pin is inside it), waterways, roads, buildings, facilities and settlements. Each has a switch under the map, which also works as the legend. Both maps load their layers through the same code (`hooks/useMapLayers.ts`), so they can't drift apart.
+- *Map* and *Satellite* switch between the street map and aerial imagery, which shows the ground itself. Satellite puts the building shapes away, since the photograph already shows them; the switch brings them back.
+- *Open on the full map* shows the same spot on the platform's own map, with wards, waterways and buildings, in a new tab.
+- *Google Maps* opens the spot there, also in a new tab.
+- The map is only downloaded when it is opened, so the queue stays quick on a slow connection. If it can't load, the rest of the card still works.
+- Reviewers see the exact position. The public alert map still shows it rounded to about 100 m, and never names the reporter.
+
 **The national alert map.** It colours each LGA by its most severe alert in force, with published reports from the last 7 days as dots.
 - **Landing page:** a live status strip under the header ("No flood alerts in force" in green, or the count in the colour of the most severe alert), and a *National alert map* section with the alerts and a *Report flooding* button.
 - **Signed-in app:** `/alerts` has the same map, past alerts, and *Issue an alert* for officials.

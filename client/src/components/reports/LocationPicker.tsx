@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { Layer, Source } from "react-map-gl/mapbox";
 import { useTheme } from "../../hooks/useTheme";
 import type { BBox, LonLat } from "../../types/admin-unit.types";
 import { formatCoordinates } from "../../utils/formatCoordinates";
 import { ClimateMap } from "../map/ClimateMap";
 import { mapPalette } from "../map/map-style";
+import { PinLayer } from "../map/PinLayer";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import "./reports.css";
@@ -27,10 +27,6 @@ interface LocationPickerProps {
 export function LocationPicker({ point, focus, onPick, onLocate, locating, error }: LocationPickerProps) {
   const { resolved: theme } = useTheme();
   const palette = useMemo(() => mapPalette(theme), [theme]);
-  const pin = useMemo(
-    () => (point ? { type: "FeatureCollection" as const, features: [{ type: "Feature" as const, geometry: { type: "Point" as const, coordinates: point }, properties: {} }] } : null),
-    [point],
-  );
 
   return (
     <div className="location-picker" data-cy="location-picker">
@@ -42,16 +38,7 @@ export function LocationPicker({ point, focus, onPick, onLocate, locating, error
         onMapClick={onPick}
         className="location-picker__map"
       >
-        {pin && (
-          <Source id="report-pin" type="geojson" data={pin}>
-            <Layer id="report-pin-halo" type="circle" paint={{ "circle-radius": 16, "circle-color": palette.selected, "circle-opacity": 0.2 }} />
-            <Layer
-              id="report-pin-dot"
-              type="circle"
-              paint={{ "circle-radius": 7, "circle-color": palette.selected, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2.5 }}
-            />
-          </Source>
-        )}
+        {point && <PinLayer point={point} palette={palette} />}
       </ClimateMap>
       <div className="location-picker__bar">
         <span className="location-picker__coords mono" aria-live="polite">

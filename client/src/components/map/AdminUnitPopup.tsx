@@ -8,10 +8,11 @@ interface AdminUnitPopupProps {
   loading: boolean;
   error: string | null;
   onClose: () => void;
+  title?: string;
 }
 
 /** "Click anywhere": the state, LGA and ward at the clicked spot, in a popup on the map. */
-export function AdminUnitPopup({ point, result, loading, error, onClose }: AdminUnitPopupProps) {
+export function AdminUnitPopup({ point, result, loading, error, onClose, title }: AdminUnitPopupProps) {
   return (
     <Popup
       longitude={point[0]}
@@ -23,7 +24,7 @@ export function AdminUnitPopup({ point, result, loading, error, onClose }: Admin
       onClose={onClose}
       className="admin-unit-popup"
     >
-      <LocationSummary point={point} result={result} loading={loading} error={error} />
+      <LocationSummary point={point} result={result} loading={loading} error={error} title={title} />
     </Popup>
   );
 }

@@ -20,22 +20,51 @@ describe("Finish setting up", () => {
 
   it("asks for the phone number and LGA, saves them, then goes where the person was heading", () => {
     cy.login("general_public", { user: incomplete });
-    const complete = buildUser({ n: 9000, displayName: "Ada Obi", phone: "+234 803 123 4567", homeAdminUnitId: PORT_HARCOURT.id, profileComplete: true });
+    const complete = buildUser({ n: 9000, displayName: "Ada Obi", phone: "+2348031234567", homeAdminUnitId: PORT_HARCOURT.id, profileComplete: true });
     cy.interceptApi("PATCH", "/auth/me", { data: complete }).as("save");
     cy.visit("/report");
 
     cy.dataCy("welcome-save").click();
     cy.dataCy("field-error").should("contain", "phone number").and("contain", "LGA");
 
-    cy.dataCy("welcome-phone").type("+234 803 123 4567");
-    cy.dataCy("home-state").find("select").should("have.value", STATE.id);
-    cy.dataCy("home-lga").find("select").select(PORT_HARCOURT.id);
+    // Nigeria is chosen already, so the number is typed the way it is dialled at home.
+    cy.dataCy("welcome-phone-country").should("have.value", "NG");
+    cy.dataCy("welcome-phone").type("0803 123 4567");
+    cy.dataCy("home-state").should("have.value", STATE.id);
+    cy.dataCy("home-lga").select(PORT_HARCOURT.id);
     cy.dataCy("welcome-save").click();
-    cy.wait("@save").its("request.body").should("deep.include", { phone: "+234 803 123 4567", homeAdminUnitId: PORT_HARCOURT.id });
+    cy.wait("@save").its("request.body").should("deep.include", { phone: "+2348031234567", homeAdminUnitId: PORT_HARCOURT.id });
 
     cy.dataCy("welcome-notifications").should("contain", "Stay informed");
     cy.dataCy("welcome-finish").click();
     cy.location("pathname").should("eq", "/report");
+  });
+
+  it("sends the number in international format, with the country chosen from the dropdown", () => {
+    cy.login("general_public", { user: incomplete });
+    cy.interceptApi("PATCH", "/auth/me", { data: buildUser({ n: 9000, profileComplete: true }) }).as("save");
+    cy.visit("/welcome");
+    cy.dataCy("home-lga").select(PORT_HARCOURT.id);
+
+    cy.dataCy("welcome-phone-country").select("GH");
+    cy.dataCy("welcome-phone").type("24 123 4567");
+    cy.dataCy("welcome-save").click();
+    cy.wait("@save").its("request.body").should("deep.include", { phone: "+233241234567" });
+  });
+
+  it("picks the country itself when a full international number is pasted", () => {
+    cy.login("general_public", { user: incomplete });
+    cy.visit("/welcome");
+    cy.dataCy("welcome-phone").type("+44 7700 900123");
+    cy.dataCy("welcome-phone-country").should("have.value", "GB");
+    cy.dataCy("welcome-phone").should("have.value", "770 090 0123");
+  });
+
+  it("asks for the whole number when only a few digits are typed", () => {
+    cy.login("general_public", { user: incomplete });
+    cy.visit("/welcome");
+    cy.dataCy("welcome-phone").type("803{enter}");
+    cy.dataCy("field-error").should("contain", "full number");
   });
 
   it("lets a complete profile straight through", () => {

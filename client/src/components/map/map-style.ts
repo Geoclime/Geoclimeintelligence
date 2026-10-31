@@ -52,6 +52,8 @@ export interface MapPalette {
   lgaFill: string;
   ward: string;
   selected: string;
+  /** The viewer's own position: the blue every map app uses for "you are here". */
+  you: string;
   label: string;
   labelHalo: string;
   passed: string;
@@ -77,6 +79,7 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         lgaFill: brand.tealBright,
         ward: "#a3b8b9",
         selected: "#fdb022",
+        you: "#3b9cff",
         label: "#e6f0f0",
         labelHalo: "#061819",
         passed: brand.tealBright,
@@ -99,6 +102,7 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
         lgaFill: brand.teal,
         ward: "#4a5e60",
         selected: "#b54708",
+        you: "#1570ef",
         label: brand.tealDeep,
         labelHalo: "#ffffff",
         passed: brand.teal,
@@ -117,7 +121,11 @@ export function mapPalette(theme: ResolvedTheme): MapPalette {
       };
 }
 
-export function mapStyleUrl(theme: ResolvedTheme): string {
+/** Aerial imagery with roads and place names on top, for checking what is really on the ground. */
+const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
+
+export function mapStyleUrl(theme: ResolvedTheme, satellite = false): string {
+  if (satellite) return SATELLITE_STYLE;
   return theme === "dark" ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/light-v11";
 }
 

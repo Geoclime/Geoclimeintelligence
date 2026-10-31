@@ -24,6 +24,28 @@ export interface MapView {
   latitude: number;
 }
 
+/** Room to leave round a fitted box, in pixels: for the cards and panels that float over the map. */
+export interface FitPadding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+const DEFAULT_FIT_PADDING: FitPadding = { top: 24, right: 24, bottom: 24, left: 24 };
+
+/** Never asks for more room than the map has: Mapbox gives up on a fit whose padding leaves nothing to draw in. */
+function clampPadding(padding: FitPadding | undefined, container: HTMLElement): FitPadding {
+  const wanted = padding ?? DEFAULT_FIT_PADDING;
+  const squeeze = (a: number, b: number, size: number): [number, number] => {
+    const room = size * 0.7;
+    return a + b > room ? [(a * room) / (a + b), (b * room) / (a + b)] : [a, b];
+  };
+  const [left, right] = squeeze(wanted.left, wanted.right, container.clientWidth);
+  const [top, bottom] = squeeze(wanted.top, wanted.bottom, container.clientHeight);
+  return { top, right, bottom, left };
+}
+
 export interface InitialView {
   longitude: number;
   latitude: number;
@@ -34,9 +56,15 @@ interface ClimateMapProps {
   /** Describes the map for screen readers, e.g. "Map of Rivers State and its LGAs". */
   label: string;
   theme: ResolvedTheme;
+  /** Aerial imagery instead of the themed street map. */
+  satellite?: boolean;
   initialView?: InitialView;
   /** Fit the map to this box whenever it changes (e.g. once an area's extent is known). */
   fitTo?: BBox | null;
+  /** Bump to fit again to the same box, e.g. "Show both" pressed after the map was moved. */
+  fitNonce?: number;
+  /** How much room to leave round the box when fitting; 24 px all round if left out. */
+  fitPadding?: FitPadding;
   /** Called once the map has loaded and after every pan or zoom. */
   onViewChange?: (view: MapView) => void;
   onMapClick?: (point: LonLat) => void;
@@ -88,8 +116,11 @@ export function ClimateMap(props: ClimateMapProps) {
 function MapCanvas({
   label,
   theme,
+  satellite = false,
   initialView = DEFAULT_VIEW,
   fitTo,
+  fitNonce = 0,
+  fitPadding,
   onViewChange,
   onMapClick,
   interactiveLayerIds,
@@ -104,11 +135,12 @@ function MapCanvas({
   const [loaded, setLoaded] = useState(false);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [cursor, setCursor] = useState<string>("");
-  const fitKey = fitTo ? fitTo.join(",") : "";
+  const fitKey = `${fitTo ? fitTo.join(",") : ""}|${fitNonce}`;
 
   useEffect(() => {
     if (!loaded || !fitTo) return;
-    mapRef.current?.fitBounds(padBBox(fitTo), { padding: 24, duration: 0 });
+    const map = mapRef.current;
+    if (map) map.fitBounds(padBBox(fitTo), { padding: clampPadding(fitPadding, map.getContainer()), duration: 0 });
     // fitKey stands in for fitTo, whose identity changes on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, fitKey]);
@@ -152,7 +184,7 @@ function MapCanvas({
         ref={mapRef}
         mapboxAccessToken={token}
         initialViewState={initialView}
-        mapStyle={mapStyleUrl(theme)}
+        mapStyle={mapStyleUrl(theme, satellite)}
         attributionControl={false}
         interactiveLayerIds={interactiveLayerIds}
         cursor={cursor || (onMapClick ? "crosshair" : "")}

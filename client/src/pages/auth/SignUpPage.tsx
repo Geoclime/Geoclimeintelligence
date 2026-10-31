@@ -88,7 +88,7 @@ export function SignUpPage() {
   }
 
   return (
-    <section className="auth-card" data-cy="sign-up-page">
+    <section className="auth-card auth-card--wide" data-cy="sign-up-page">
       <header className="auth-card__header">
         <h1 className="auth-card__title">Create an account</h1>
         <p className="auth-card__lead">
@@ -97,17 +97,18 @@ export function SignUpPage() {
         </p>
       </header>
 
-      <form className="auth-form" onSubmit={onSubmit} noValidate>
+      <form className="auth-form auth-form--grid" onSubmit={onSubmit} noValidate>
         {errors.root?.server && (
-          <Callout tone="danger" dataCy="form-error">
-            {errors.root.server.message}
-          </Callout>
+          <div className="auth-form__full">
+            <Callout tone="danger" dataCy="form-error">
+              {errors.root.server.message}
+            </Callout>
+          </div>
         )}
         <TextField
           label="Full name"
           autoComplete="name"
           autoFocus
-          hint="Shown to administrators when they review access requests."
           error={errors.displayName?.message}
           data-cy="display-name"
           {...register("displayName")}
@@ -126,7 +127,7 @@ export function SignUpPage() {
           type="password"
           autoComplete="new-password"
           revealable
-          hint={`At least ${PASSWORD_MIN_LENGTH} characters. A short phrase is easier to remember than a code.`}
+          hint={`At least ${PASSWORD_MIN_LENGTH} characters.`}
           error={errors.password?.message}
           data-cy="password"
           {...register("password")}
@@ -140,20 +141,26 @@ export function SignUpPage() {
           data-cy="confirm-password"
           {...register("confirmPassword")}
         />
-        <RolePicker legend="I'm joining as" options={JOINING_OPTIONS} field={register("joiningAs")} error={errors.joiningAs?.message} />
+        <div className="auth-form__full">
+          <RolePicker legend="I'm joining as" options={JOINING_OPTIONS} field={register("joiningAs")} error={errors.joiningAs?.message} />
+        </div>
         {joiningAs !== "general_public" && (
-          <RoleRequestDetails
-            role={joiningAs}
-            organisation={register("organisation")}
-            jobTitle={register("jobTitle")}
-            reason={register("reason")}
-            errors={{ organisation: errors.organisation?.message, jobTitle: errors.jobTitle?.message, reason: errors.reason?.message }}
-          />
+          <div className="auth-form__full">
+            <RoleRequestDetails
+              role={joiningAs}
+              organisation={register("organisation")}
+              jobTitle={register("jobTitle")}
+              reason={register("reason")}
+              errors={{ organisation: errors.organisation?.message, jobTitle: errors.jobTitle?.message, reason: errors.reason?.message }}
+            />
+          </div>
         )}
-        <Button type="submit" size="lg" fullWidth loading={isSubmitting} loadingLabel="Creating account…" data-cy="submit">
-          Create account
-        </Button>
-        <p className="auth-card__legal">
+        <div className="auth-form__full">
+          <Button type="submit" size="lg" fullWidth loading={isSubmitting} loadingLabel="Creating account…" data-cy="submit">
+            Create account
+          </Button>
+        </div>
+        <p className="auth-card__legal auth-form__full">
           By creating an account you agree to our <Link to="/terms">terms of use</Link> and <Link to="/privacy">privacy policy</Link>.
         </p>
       </form>

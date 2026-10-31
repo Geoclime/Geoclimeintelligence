@@ -108,6 +108,37 @@ describe("Flood reports", () => {
     cy.dataCy("report-card").should("contain", "Published");
   });
 
+  it("shows where a report was sent from, before it is published", () => {
+    cy.login("emergency_responder");
+    cy.interceptApi("GET", "/flood-reports?*", { data: [report], meta: { page: 1, pageSize: 20, total: 1 } });
+    // The map draws the same layers as the main map: boundaries and the feature layers.
+    cy.interceptApi("GET", "/admin-units/geojson*", { data: { type: "FeatureCollection", features: [] } });
+    for (const layer of ["roads", "waterways", "settlements", "infrastructure", "buildings"]) {
+      cy.interceptApi("GET", `/${layer}/geojson*`, { data: { type: "FeatureCollection", features: [] } });
+    }
+    cy.visit("/reports/review");
+
+    cy.dataCy("report-map").should("not.exist");
+    cy.dataCy("report-view-map").should("contain", "View on map").click();
+    cy.dataCy("report-view-map").should("contain", "Hide map").and("have.attr", "aria-expanded", "true");
+
+    // The links work whether or not this browser can draw the map itself.
+    cy.dataCy("report-map").should("be.visible");
+    // The full map is told which spot to mark, so it isn't just centred on it.
+    cy.dataCy("report-map-full").should("have.attr", "href", "/map?lng=7.0134&lat=4.7774&z=17.0&pin=7.01340%2C4.77740&pinLabel=Flood+report").and("have.attr", "target", "_blank");
+    cy.dataCy("report-map-google").should("have.attr", "href", "https://www.google.com/maps/search/?api=1&query=4.7774,7.0134");
+    cy.dataCy("report-map-layers").should("contain", "Boundaries").and("contain", "Waterways").and("contain", "Roads").and("contain", "Buildings");
+    cy.dataCy("report-map-layers").contains("label", "Buildings").find("input").should("be.checked");
+    cy.dataCy("report-map-satellite").click().should("have.attr", "aria-pressed", "true");
+    cy.dataCy("report-map-streets").should("have.attr", "aria-pressed", "false");
+    // The photograph already shows the buildings, so their shapes are put away; they can be put back.
+    cy.dataCy("report-map-layers").contains("label", "Buildings").find("input").should("not.be.checked").check();
+    cy.dataCy("report-map-layers").contains("label", "Roads").find("input").uncheck().should("not.be.checked");
+
+    cy.dataCy("report-view-map").click();
+    cy.dataCy("report-map").should("not.exist");
+  });
+
   it("keeps the review queue from members of the public", () => {
     cy.login("general_public");
     cy.visit("/reports/review");

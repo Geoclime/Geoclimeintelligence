@@ -732,7 +732,7 @@
   flex: 1;
   align-items: flex-start;
   justify-content: center;
-  padding: var(--space-2) var(--space-4) var(--space-7);
+  padding: var(--space-2) var(--space-4) var(--space-5);
 }
 
 @media (min-width: 900px) {
@@ -817,6 +817,41 @@
   justify-content: flex-end;
   margin-top: calc(-1 * var(--space-2));
   font-size: var(--text-sm);
+}
+
+/*
+ * A longer form (Finish setting up, Create an account) that should fit the screen without
+ * scrolling: a wider card whose fields sit two to a row once the card has room, and tighter spacing.
+ * The card itself is the container, so it works in the split layout and in the stacked one.
+ */
+.auth-card--wide {
+  max-width: 600px;
+  container-type: inline-size;
+}
+
+.auth-card--wide .auth-card__header {
+  margin-bottom: var(--space-4);
+}
+
+.auth-card--wide .auth-card__footer {
+  margin-top: var(--space-4);
+}
+
+.auth-form--grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+}
+
+/* Spans both columns: the error banner, the submit button, anything that needs the full width. */
+.auth-form__full {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 520px) {
+  .auth-form--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .auth-card__legal {

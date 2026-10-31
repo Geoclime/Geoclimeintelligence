@@ -70,6 +70,46 @@ describe("Home map", { defaultCommandTimeout: 10000 }, () => {
     cy.location("search").should("contain", `lga=${PORT_HARCOURT.id}`);
   });
 
+  it("marks a pinned place from the link, says where it is, and lets the pin be closed", () => {
+    cy.interceptApi("GET", "/admin-units/locate*", { data: locateReply }).as("locate");
+    cy.visit("/map?lng=7.0134&lat=4.7774&z=17&pin=7.01340%2C4.77740&pinLabel=Flood+report");
+    cy.wait("@locate").its("request.query").should("deep.equal", { lon: "7.0134", lat: "4.7774" });
+    cy.dataCy("selected-lga").should("contain", "Port Harcourt");
+    cy.get(".admin-unit-popup").should("contain", "Port Harcourt").and("contain", "Flood report");
+    cy.dataCy("map-legend").should("contain", "Pinned place");
+    cy.location("search").should("contain", "pin=");
+
+    cy.get(".admin-unit-popup .mapboxgl-popup-close-button").click();
+    cy.get(".admin-unit-popup").should("not.exist");
+    cy.location("search").should("not.contain", "pin=");
+    cy.dataCy("location-trace").should("not.exist");
+  });
+
+  it("traces from where you are to a pinned place: how far, which way, and directions", () => {
+    cy.interceptApi("GET", "/admin-units/locate*", { data: locateReply });
+    // You are about 1.1 km east of the pin.
+    cy.visit("/map?lng=7.0134&lat=4.7774&z=15&pin=7.01340%2C4.77740&pinLabel=Flood+report", {
+      onBeforeLoad: (win) => stubGeolocation(win, { longitude: 7.0234, latitude: 4.7774 }),
+    });
+    cy.dataCy("location-trace").should("contain", "Flood report").and("contain", "Press Where am I?");
+    cy.dataCy("trace-show").should("contain", "Show on map");
+    cy.dataCy("trace-directions").should("have.attr", "href").and("not.contain", "origin=");
+
+    cy.dataCy("where-am-i").click();
+    cy.dataCy("trace-offset").should("contain", "1.1 km west of you");
+    cy.dataCy("trace-show").should("contain", "Show both");
+    cy.dataCy("trace-directions")
+      .should("have.attr", "href")
+      .and("contain", "destination=4.7774,7.0134")
+      .and("contain", "origin=4.7774,7.0234");
+    cy.dataCy("map-legend").should("contain", "Your location");
+    cy.get(".admin-unit-popup").should("contain", "You are here");
+
+    cy.dataCy("trace-clear").click();
+    cy.dataCy("location-trace").should("not.exist");
+    cy.location("search").should("not.contain", "pin=");
+  });
+
   it("explains when location permission is refused", () => {
     cy.visit("/map", { onBeforeLoad: (win) => stubGeolocation(win, "denied") });
     cy.dataCy("where-am-i").click();

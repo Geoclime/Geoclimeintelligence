@@ -7,12 +7,20 @@ const MESSAGES: Record<number, string> = {
   3: "Finding your location took too long. Try again.",
 };
 
+/** A position and how sure the device is of it, in metres. */
+export interface GeolocationFix {
+  point: LonLat;
+  accuracy: number;
+}
+
 /**
  * The browser's own location, asked for only when the user presses "Where am I?". The position
- * is used for one locate request and never stored or sent anywhere else.
+ * is used for one locate request and kept in memory for the screen that asked, so it can be drawn;
+ * it is never stored or sent anywhere else.
  */
 export function useGeolocation() {
   const [locating, setLocating] = useState(false);
+  const [fix, setFix] = useState<GeolocationFix | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const request = useCallback(
@@ -28,7 +36,9 @@ export function useGeolocation() {
         navigator.geolocation.getCurrentPosition(
           (position) => {
             setLocating(false);
-            resolve([position.coords.longitude, position.coords.latitude]);
+            const point: LonLat = [position.coords.longitude, position.coords.latitude];
+            setFix({ point, accuracy: position.coords.accuracy });
+            resolve(point);
           },
           (failure) => {
             setLocating(false);
@@ -41,5 +51,5 @@ export function useGeolocation() {
     [],
   );
 
-  return { request, locating, error };
+  return { request, locating, error, fix };
 }

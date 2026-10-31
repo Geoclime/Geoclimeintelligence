@@ -1,15 +1,19 @@
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useId, useState, type ReactNode } from "react";
 import { useReportMedia } from "../../hooks/useReportMedia";
 import type { FloodReport, FloodReportMediaRef, ReportStatus } from "../../types/flood-report.types";
 import { formatCoordinates } from "../../utils/formatCoordinates";
 import { formatDateTime } from "../../utils/formatDate";
 import { WATER_DEPTH_INFO } from "../../utils/water-depth";
+import { MapErrorBoundary } from "../map/MapErrorBoundary";
 import { Badge } from "../shared/Badge";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { Spinner } from "../shared/Spinner";
 import { TextAreaField } from "../shared/TextAreaField";
 import "./reports.css";
+
+// The map (Mapbox is large) is only downloaded when someone asks to see a report on it.
+const ReportLocationMap = lazy(() => import("./ReportLocationMap").then((module) => ({ default: module.ReportLocationMap })));
 
 const STATUS: Record<ReportStatus, { label: string; tone: "warning" | "success" | "neutral" }> = {
   pending: { label: "Waiting for review", tone: "warning" },
@@ -74,6 +78,8 @@ export function ReportCard({ report, onReview, footer }: ReportCardProps) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<"publish" | "reject" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const mapId = useId();
   const depth = WATER_DEPTH_INFO[report.waterDepth];
   const status = STATUS[report.status];
 
@@ -99,10 +105,38 @@ export function ReportCard({ report, onReview, footer }: ReportCardProps) {
         <Badge tone={status.tone}>{status.label}</Badge>
       </header>
       <h3 className="report-card__place">{report.locationName}</h3>
-      <p className="report-card__where">
-        {[report.ward?.unitName, report.lga && `${report.lga.unitName} LGA`].filter(Boolean).join(", ") || "Outside the mapped areas"} ·{" "}
-        <span className="mono">{formatCoordinates(report.point)}</span>
-      </p>
+      <div className="report-card__where-row">
+        <p className="report-card__where">
+          {[report.ward?.unitName, report.lga && `${report.lga.unitName} LGA`].filter(Boolean).join(", ") || "Outside the mapped areas"} ·{" "}
+          <span className="mono">{formatCoordinates(report.point)}</span>
+        </p>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Icon name="map" size={14} />}
+          onClick={() => setMapOpen((open) => !open)}
+          aria-expanded={mapOpen}
+          aria-controls={mapId}
+          data-cy="report-view-map"
+        >
+          {mapOpen ? "Hide map" : "View on map"}
+        </Button>
+      </div>
+      {mapOpen && (
+        <div id={mapId}>
+          <MapErrorBoundary fallback={<p className="field__error">The map couldn't load. Check your connection and try again.</p>}>
+            <Suspense
+              fallback={
+                <div className="report-map__loading">
+                  <Spinner label="Loading map" />
+                </div>
+              }
+            >
+              <ReportLocationMap point={report.point} placeName={report.locationName} lgaId={report.lga?.id} />
+            </Suspense>
+          </MapErrorBoundary>
+        </div>
+      )}
       <p className="report-card__description">{report.description}</p>
       {report.media.length > 0 && (
         <div className="report-card__media-row">

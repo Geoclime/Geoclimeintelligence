@@ -69,6 +69,16 @@ The rules are pure functions in [`layer-rules.ts`](../server/src/modules/map-lay
 
 **Simplification.** With a zoom, road and waterway shapes are simplified to about one screen pixel (`ST_SimplifyPreserveTopology`, tolerance `180 / (512 × 2^zoom)` degrees). That's the same rule the admin-unit layers use. Points are never simplified.
 
+**Pre-simplified waterways.** Wide rivers are stored as outlines, and the state's rivers have about 284,000 vertices between them. Simplifying that live for a zoomed-out view took over a second of database time on every request, the slowest part of the map's first screen. So `waterways` keeps two simplified copies of each shape, `geom_z8` and `geom_z10` (migration `1792200000000-AddSimplifiedWaterways`). They are *generated columns*: PostgreSQL keeps them in step with `geom` itself on every insert and update, so loading waterways needs no extra step. `waterwayGeometryColumn` in `layer-rules.ts` picks the copy:
+
+| Zoom | Shape read |
+|---|---|
+| 9 and below | `geom_z8` (simplified for zoom 8) |
+| 10 and 11 | `geom_z10` (simplified for zoom 10) |
+| 12 and up, or no zoom | `geom`, simplified live (the view is small by then) |
+
+The picture is the same as before, since it is the same simplification done once instead of every time. Whole-state waterways went from about 1,040 ms of database time to about 35 ms. The bounding-box test still uses the indexed `geom`.
+
 **The cap.** No reply holds more than 12,000 roads, 6,000 waterways or 5,000 settlements. The query reads one extra row only to learn whether the cap was hit, and the reply then says `"truncated": true`. Rows are ordered so the cap drops the least important first:
 - roads by `class_rank`;
 - waterways rivers → creeks → other;

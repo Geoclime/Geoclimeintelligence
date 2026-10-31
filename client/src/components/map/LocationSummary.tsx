@@ -8,18 +8,25 @@ interface LocationSummaryProps {
   result: LocateResult | null;
   loading: boolean;
   error: string | null;
+  /** What this spot is, when it is more than a tapped point: "You are here", "Flood report". */
+  title?: string;
 }
 
 /**
  * "You are in: Rivers State > Port Harcourt > Phward 17", with links to the LGA and ward pages.
  * Shared by the map-click popup and the "Where am I?" panel.
  */
-export function LocationSummary({ point, result, loading, error }: LocationSummaryProps) {
+export function LocationSummary({ point, result, loading, error, title }: LocationSummaryProps) {
   const lga = result?.units.find((u) => u.level === 2);
   const ward = result?.units.find((u) => u.level === 3);
 
   return (
     <div className="location-summary" data-cy="location-summary" aria-live="polite">
+      {title && (
+        <p className="location-summary__title" data-cy="location-title">
+          {title}
+        </p>
+      )}
       <p className="location-summary__point">{formatCoordinates(point)}</p>
       {loading && (
         <p className="location-summary__status">

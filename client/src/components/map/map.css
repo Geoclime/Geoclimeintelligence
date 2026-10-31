@@ -160,6 +160,33 @@
   border: 3px solid #b54708;
 }
 
+/* The pinned place (amber) and the viewer (blue): round dots with a white edge, like on the map. */
+.map-legend__swatch--pin,
+.map-legend__swatch--you {
+  width: 10px;
+  height: 10px;
+  margin-inline: 4px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+.map-legend__swatch--pin {
+  background: #b54708;
+}
+
+.map-legend__swatch--you {
+  background: #1570ef;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--pin {
+  background: #fdb022;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--you {
+  background: #3b9cff;
+}
+
 /* Feature layers: a thick line, a thin line, an area and a dot, in the colours map-style.ts draws with. */
 .layer-toggle__swatch--roads,
 .map-legend__swatch--roads {
@@ -390,6 +417,11 @@
   min-width: 200px;
   color: var(--color-text);
   font-size: var(--text-sm);
+}
+
+.location-summary__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
 }
 
 .location-summary__point {

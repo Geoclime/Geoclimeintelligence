@@ -38,7 +38,14 @@ Stable reference data (countries, area lists, area details) goes through `cache/
 
 **4. The home map, `pages/map/MapPage.tsx`.**
 - **Click anywhere:** a click asks the server (`/admin-units/locate`) which state, LGA and ward is there, opens a popup with links, and selects that LGA.
-- **"Where am I?":** the button asks the browser for your location (with permission), then does the same lookup.
+- **"Where am I?":** the button asks the browser for your location (with permission), then does the same lookup. Your position is drawn as the blue dot with a white edge that every map app uses, labelled *You are here*, with a soft ring for how sure the device is (its accuracy, in real metres, so the ring grows as you zoom in). It stays on the map, and the popup says *You are here*. The position is kept in memory only, to draw it; it is never stored or sent anywhere.
+- **A pinned place:** a link can point at one spot, `/map?lng=7.0134&lat=4.7774&z=17&pin=7.01340,4.77740&pinLabel=Flood+report` (a flood report's *Open on the full map* link). The map marks it with an amber pin labelled *Flood report*, looks up its state, LGA and ward as if it had been tapped, and shows a *Pinned place* card:
+  - how far it is and in which direction from you ("920 m south-west of you"), once you have pressed *Where am I?* (until then it says how to get that);
+  - *Show both* (or *Show on map*), which brings you and the pin into view together, clear of the floating panels. *Where am I?* does the same when a pin is on the map;
+  - *Directions*, which opens Google Maps' route planner from you to the pin, in a new tab;
+  - a dashed line between you and the pin, and rows for both in the legend.
+
+  Closing the pin's popup, or the card's ✕, removes the pin. The pin is amber and you are blue, so they can't be mistaken for each other. `utils/geo-distance.ts` does the distance and direction (great-circle distance and compass bearing, no map service involved).
 - **Shareable links:** the view, the selected LGA and the visible layers live in the address (`utils/map-url.ts`), e.g. `/?lng=7.0134&lat=4.7774&z=11&lga=<id>&layers=state,lga`. A copied link opens the same view.
 - **Wards:** fetched only from zoom 10 up.
 - **No country yet:** administrators see "Set up your first country"; everyone else sees an honest "No map data yet".

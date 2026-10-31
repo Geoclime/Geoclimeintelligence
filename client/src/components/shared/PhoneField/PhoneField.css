@@ -1,0 +1,75 @@
+/* A phone number: the country code on the left, the number on the right, one row. */
+
+.phone-field__control {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.phone-field__control .field__input {
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * The visible code ("NG +234") is plain text so it stays short; the real <select> lies over it,
+ * invisible, so the dropdown lists country names, and phones show their own picker.
+ */
+.phone-field__code {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 40px;
+  padding: 0 34px 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7f81' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 10px center;
+  background-repeat: no-repeat;
+  color: var(--color-text);
+  white-space: nowrap;
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.phone-field__code:hover {
+  border-color: var(--color-primary);
+}
+
+.phone-field__code:has(.phone-field__select:focus-visible) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.phone-field__code:has(.phone-field__select:disabled) {
+  background-color: var(--color-surface-muted);
+  color: var(--color-text-subtle);
+  cursor: not-allowed;
+}
+
+.phone-field__iso {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.phone-field__select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+  /* 16px keeps iPhones from zooming the page when it opens. */
+  font-size: 16px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.phone-field__select:disabled {
+  cursor: not-allowed;
+}
