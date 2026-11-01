@@ -2,6 +2,8 @@
 # can still keep a local tree when a version cannot be hoisted.
 node_modules/
 
+.claude
+
 # Build output
 dist/
 build/
