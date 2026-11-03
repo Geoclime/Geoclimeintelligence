@@ -9,6 +9,7 @@ An administrator can import the flood risk map from the Imports screen, review i
 - **A "Flood risk" layer on the home map,** under the roads and rivers, with five legend rows in the colours painted into the picture and a credit line that names the data source the administrator chose. It has no toggle until a map has been promoted, so there is never a checkbox for nothing.
 - **"Flood risk here: High"** in the popup when you tap a spot, while the layer is on.
 - **A "Flood risk" card** on every LGA and ward page: the share that is high or very high risk, where it ranks among the areas of its level, and how it divides into the five classes.
+- **The map on those pages draws the flood risk surface too** (for example `/places/<lga id>`), under the area's outline, its wards and the floods responders recorded. A small "Flood risk" switch on the map hides it when you want to read the outline and the recorded floods on their own, and the legend sits beside it.
 - **In the import history,** the run shows as "Flood risk map".
 - **In the address,** `layers=` knows `floodRisk`. A link copied before this layer existed lists its layers explicitly, so it opens with Flood risk off, as it always looked.
 
@@ -48,6 +49,14 @@ All paths are relative to `client/src/`. It follows the standard's order: types 
 - Promote asks "Make this flood risk map live?" and says it replaces the current map. `useImportRun` clears the cached flood risk answers when it succeeds, so the map layer and the area cards update without a reload.
 
 **7. The area cards, `components/floods/FloodRiskCard.tsx`.** On `pages/places/LgaProfilePage.tsx` and `WardPage.tsx`, above the flood history. It shows nothing (not an empty card) until a map is live and has measured the area. It says "Derived: a modelled judgement of where it could flood, not a forecast and not a record of floods that happened", so it stays apart from the floods responders recorded on the ground beside it. Shared styles are in `components/map/flood-risk.css`.
+
+The small map on the same pages, `components/map/AreaOutlineMap.tsx`, draws the surface as well. It takes an optional `countryCode` (both pages pass the area's own) and reads the same cached map as the home screen through `useFloodRisk`, so a profile opened after the home map asks the server for nothing again. It mounts `FloodRiskLayer` first, so the surface stays under the outline, the wards and the recorded floods, and it adds a "Flood risk" switch with the five-colour legend as an overlay on the map (on by default). With no live map there is no switch and the map looks as it always did.
+
+**Only that place's part is drawn.** The imported picture covers the whole state, so pinning it as it is would colour every neighbouring LGA too. `utils/flood-risk-clip.ts` cuts it down in the browser, and `hooks/useClippedFloodRisk.ts` runs that when the map's picture and the area are known:
+- it finds which pixels the area's boundary covers (a longitude and latitude map to a pixel with the same Web Mercator arithmetic Mapbox uses to stretch the picture, and the server used to draw it);
+- it crops the picture to that box on a canvas, clips it to the boundary (even-odd, so a hole stays empty) and copies the pixels one to one with no smoothing, so a cell keeps its class colour and only the boundary's own edge is soft;
+- it pins the smaller picture by its own four corners, worked out the same way. For an LGA that is a few percent of the state's pixels, so it is also lighter to draw than the whole picture.
+The layer stays hidden until the cut is ready, so the whole state's picture never shows for a moment first. The home map is unchanged and still shows the whole state. The LGA's and ward's own figures on the card come from the server's cell counts, not from this picture.
 
 **8. Tests.**
 - **Unit (Vitest):** `utils/flood-risk.test.ts` (legend, credit line, class shares), `components/imports/import-form.schema.test.ts` (the new choice and its builder) and `utils/map-url.test.ts` (the layer in the link, including an old link opening with it off).

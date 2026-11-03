@@ -101,6 +101,7 @@ export function LgaProfilePage() {
           geometry={unit.geometry}
           bbox={unit.bbox}
           innerAreas={wardShapes.data}
+          countryCode={unit.countryCode}
           floods={area.floods}
           drains={area.drains}
           onSelect={area.select}

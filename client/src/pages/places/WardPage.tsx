@@ -98,6 +98,7 @@ export function WardPage() {
           geometry={ward.geometry}
           bbox={lga?.bbox ?? ward.bbox}
           contextGeometry={lga?.geometry ?? null}
+          countryCode={ward.countryCode}
           floods={area.floods}
           drains={area.drains}
           onSelect={area.select}
