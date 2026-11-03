@@ -46,6 +46,7 @@ export const QUERY_KEYS = {
   adminUnits: ["admin-units"],
   mapLayers: ["map-layers"],
   rainfall: ["rainfall"],
+  floodRisk: ["flood-risk"],
   public: ["public"],
   alerts: ["alerts"],
   reports: ["reports"],

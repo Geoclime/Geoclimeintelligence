@@ -10,6 +10,7 @@ import {
   type StartRainfallImportInput,
   type TemplateColumn,
 } from "../../types/import.types";
+import type { StartFloodRiskImportInput } from "../../types/flood-risk.types";
 import type { MapLayerUploadKind, UploadMapLayerInput } from "../../types/map-layer.types";
 
 /**
@@ -20,6 +21,8 @@ import type { MapLayerUploadKind, UploadMapLayerInput } from "../../types/map-la
  * select map-layer uploads (`POST /api/v1/map-layers/upload`), which skip column matching.
  * `rainfall:<level>` selects a rainfall import for that level's areas (`POST /api/v1/imports/rainfall`),
  * whose columns are columnMapping.area_code, area_name, year_month and rainfall_mm.
+ * `flood-risk` selects the flood risk map (`POST /api/v1/imports/flood-risk`): a classified GeoTIFF, which has
+ * no columns to match, so it needs only the country and the data source.
  */
 
 const optionalHeading = z.string().trim();
@@ -29,6 +32,13 @@ const rainfallHeading = z.string().trim().optional();
 export function parseRainfallChoice(levelValue: string): number | null {
   const match = /^rainfall:(\d+)$/.exec(levelValue);
   return match ? Number(match[1]) : null;
+}
+
+/** The Level choice that imports the flood risk map (a classified GeoTIFF). */
+export const FLOOD_RISK_CHOICE = "flood-risk";
+
+export function isFloodRiskChoice(levelValue: string): boolean {
+  return levelValue === FLOOD_RISK_CHOICE;
 }
 
 export function parseLayerChoice(levelValue: string): MapLayerUploadKind | null {
@@ -43,6 +53,8 @@ export function parseLayerChoice(levelValue: string): MapLayerUploadKind | null 
 
 export function detectLayerChoiceFromFileName(fileName: string): string | null {
   const lower = fileName.toLowerCase();
+  // A GeoTIFF is a map made of cells: the only one this app imports is the flood risk map.
+  if (lower.endsWith(".tif") || lower.endsWith(".tiff")) return FLOOD_RISK_CHOICE;
   // CHIRPS exported from Earth Engine is monthly rainfall per LGA (ADM2). Not "rainfall" alone:
   // rivers_state_rainfall_and_boundaries.xlsx is also the Phase 2 LGA boundaries file.
   if (lower.includes("chirps") && /\.(xlsx|csv|tsv)$/.test(lower)) return "rainfall:2";
@@ -67,7 +79,7 @@ export const importFormSchema = z
     headerRow: z.string().regex(/^\d*$/, "A row number, e.g. 2"),
     parentMode: z.enum(["column", "fixed"]),
     parentId: z.string(),
-    fileType: z.enum(["xlsx", "geojson", "shapefile", "csv", ""]),
+    fileType: z.enum(["xlsx", "geojson", "shapefile", "csv", "geotiff", ""]),
     /** OpenStreetMap layers only: load a cut-short GeoPackage even if rows are missing. */
     acceptPartial: z.boolean(),
     columnMapping: z.object({
@@ -86,6 +98,12 @@ export const importFormSchema = z
     if (layerKind) {
       if (layerKind !== "zip" && !values.sourceId.trim()) {
         ctx.addIssue({ code: "custom", path: ["sourceId"], message: "Choose the data source these features come from" });
+      }
+      return;
+    }
+    if (isFloodRiskChoice(values.level)) {
+      if (!values.sourceId.trim()) {
+        ctx.addIssue({ code: "custom", path: ["sourceId"], message: "Choose the data source this map comes from" });
       }
       return;
     }
@@ -166,6 +184,11 @@ export function toMapLayerUpload(values: ImportFormValues, file: File, layer: Ma
     sourceId: layer === "zip" ? undefined : values.sourceId || undefined,
     acceptPartial: isOsmLayer(layer) && values.acceptPartial ? true : undefined,
   };
+}
+
+/** Builds the flood risk upload: the GeoTIFF, the country and the data source it comes from. */
+export function toStartFloodRiskImport(values: ImportFormValues, file: File): StartFloodRiskImportInput {
+  return { file, countryCode: values.countryCode, sourceId: values.sourceId };
 }
 
 /** The layers loaded from Geofabrik's OpenStreetMap extract (GeoPackages), which can arrive cut short. */

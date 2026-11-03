@@ -79,6 +79,9 @@ export class ImportController {
   static async promote(req: Request<{ id: string }>, res: Response, next: NextFunction) {
     try {
       const run = await ImportService.Instance.promote(req.params.id, req.user!);
+      if (run.target === "flood_risk_layers") {
+        return res.json(ok(run, `The flood risk map is now live, with figures for ${run.promotedCount ?? 0} areas`));
+      }
       const what = run.target === "rainfall_observations" ? "rainfall months" : "areas";
       return res.json(ok(run, `${run.promotedCount ?? 0} ${what} are now live`));
     } catch (err) {

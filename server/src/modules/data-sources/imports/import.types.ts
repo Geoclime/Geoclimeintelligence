@@ -2,9 +2,10 @@ import type { FeatureCollection, Geometry } from "geojson";
 import type { BBox } from "../../../common/geo/geo";
 import type { OffsetPageQuery } from "../../../common/pagination/pagination";
 import type { PageMeta } from "../../../common/response/api-response";
+import type { FloodRiskStagedFields, NewFloodRiskLayer } from "../../flood-risk/flood-risk.types";
 import type { RainfallDataType } from "../../rainfall/rainfall.types";
 
-export const IMPORT_FILE_TYPES = ["xlsx", "geojson", "shapefile", "csv"] as const;
+export const IMPORT_FILE_TYPES = ["xlsx", "geojson", "shapefile", "csv", "geotiff"] as const;
 export type ImportFileType = (typeof IMPORT_FILE_TYPES)[number];
 
 /**
@@ -15,8 +16,8 @@ export function carriesRowShapes(fileType: ImportFileType): boolean {
   return fileType === "geojson" || fileType === "shapefile";
 }
 
-/** Which live table a run feeds: areas (Phase 2) or monthly rainfall per area (Phase 5). */
-export const IMPORT_TARGETS = ["admin_units", "rainfall_observations"] as const;
+/** Which live table a run feeds: areas (Phase 2), monthly rainfall per area (Phase 5), or a flood risk map. */
+export const IMPORT_TARGETS = ["admin_units", "rainfall_observations", "flood_risk_layers"] as const;
 export type ImportTarget = (typeof IMPORT_TARGETS)[number];
 export type ImportRunStatus = "checked" | "promoted";
 export type StagingRowStatus = "pending" | "passed" | "failed";
@@ -105,7 +106,7 @@ export interface RainfallStagedFields {
   liveRainfallMm: number | null;
 }
 
-export type StagedFields = AdminUnitStagedFields | RainfallStagedFields;
+export type StagedFields = AdminUnitStagedFields | RainfallStagedFields | FloodRiskStagedFields;
 
 export interface StagedRowInput<F extends StagedFields = AdminUnitStagedFields> {
   rowNumber: number;
@@ -136,7 +137,15 @@ export interface RainfallImportOptions {
   dataType: RainfallDataType;
 }
 
-export type ImportOptions = AdminUnitImportOptions | RainfallImportOptions;
+/** Settings for a flood risk run, stored in import_runs.options. */
+export interface FloodRiskImportOptions {
+  countryCode: string;
+  /** A modelled judgement of where it could flood, never an observation. */
+  dataType: "DERIVED";
+  title: string;
+}
+
+export type ImportOptions = AdminUnitImportOptions | RainfallImportOptions | FloodRiskImportOptions;
 
 export interface NewImportRun {
   target: ImportTarget;
@@ -204,8 +213,21 @@ export interface StagingRowDto {
   yearMonth: string | null;
   rainfallMm: number | null;
   change: RainfallChange | null;
+  /** Flood risk rows only (one per LGA and ward); null otherwise. */
+  risk: StagingRowRisk | null;
   errors: string[];
   warnings: string[];
+}
+
+/** What the flood risk review table shows for an area: how much of it is in which class. */
+export interface StagingRowRisk {
+  levelName: string;
+  /** Area that holds a class, in km2. */
+  areaKm2: number;
+  /** Share of classified cells that are high or very high, 0 to 100; null when the map has none here. */
+  percentHigh: number | null;
+  /** Mean class, 1 to 5; null when the map has none here. */
+  meanClass: number | null;
 }
 
 export interface StagingRowQuery extends OffsetPageQuery {
@@ -229,8 +251,10 @@ export interface IImportRepository {
    */
   createCheckedRun(
     run: NewImportRun,
-    rows: StagedRowInput<AdminUnitStagedFields>[] | StagedRowInput<RainfallStagedFields>[],
+    rows: StagedRowInput<AdminUnitStagedFields>[] | StagedRowInput<RainfallStagedFields>[] | StagedRowInput<FloodRiskStagedFields>[],
     checks: GeometryCheckContext | null,
+    /** A flood risk run's map, written in the same transaction as the run. */
+    layer?: NewFloodRiskLayer | null,
   ): Promise<ImportRunDto>;
   findRunById(id: string): Promise<ImportRunDto | null>;
   findRunPage(query: OffsetPageQuery): Promise<{ items: ImportRunDto[]; meta: PageMeta }>;

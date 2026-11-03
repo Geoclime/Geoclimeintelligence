@@ -78,6 +78,8 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 41. [email.md](email.md): the email outbox and worker, SMTP or Google Apps Script, fallback, retries, and the Apps Script to deploy.
 42. [features/onboarding.md](features/onboarding.md): "Finish setting up": name, phone and home LGA before using the app.
 43. [features/client-data-caching.md](features/client-data-caching.md): how the app remembers what it has asked (TanStack Query): instant reopen, freshness windows, what clears it, and what is never cached.
+44. [features/flood-risk-overlay.md](features/flood-risk-overlay.md): the flood risk map on the client: the "Flood risk map" choice on the import screen and its review, the "Flood risk" layer on the home map (credit line, click popup), and the flood risk card on LGA and ward pages.
+45. [flood-risk.md](flood-risk.md): importing the data team's classified GeoTIFF through the import pipeline: the two tables, the checks (CRS, classes, lining up with the LGAs), measuring every LGA and ward, drawing the picture, Promote, and the read endpoints.
 
 ## Accounts
 

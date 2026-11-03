@@ -16,9 +16,9 @@ interface LayerToggleProps {
 
 /**
  * The layer switcher. It lists only layers that are actually wired to real data (standard
- * section 10): State, LGA and Ward boundaries, and the roads, waterways and settlements drawn
- * over them. Rainfall, flood risk and the rest join once their datasets and endpoints exist,
- * never as placeholder checkboxes.
+ * section 10): State, LGA and Ward boundaries, the flood risk surface under them, and the roads,
+ * waterways and settlements drawn over them. Rainfall and the rest join once their datasets and
+ * endpoints exist, never as placeholder checkboxes.
  */
 export function LayerToggle({ layers, onChange }: LayerToggleProps) {
   return (

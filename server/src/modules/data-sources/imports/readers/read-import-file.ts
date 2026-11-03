@@ -7,8 +7,11 @@ import { readShapefile } from "./shapefile-reader";
 import { readXlsx, type XlsxReadOptions } from "./xlsx-reader";
 import { isWorkbook, listZipNames, openZip } from "./zip-bundle";
 
-/** What an upload is. A zip is a bundle: what it holds decides the file type once it is opened. */
-export type DetectedKind = ImportFileType | "zip";
+/**
+ * What an upload is. A zip is a bundle: what it holds decides the file type once it is opened.
+ * A GeoTIFF is never read here: it has no rows, and goes through the flood risk import instead.
+ */
+export type DetectedKind = Exclude<ImportFileType, "geotiff"> | "zip";
 
 const SUPPORTED =
   "Upload a shapefile (.shp, or a .zip of its .shp, .dbf and .prj), an Excel workbook (.xlsx), a GeoJSON file (.geojson or .json) or a CSV file (.csv).";
@@ -30,6 +33,12 @@ export function detectFileType(file: UploadedFile): DetectedKind {
   if (extension === ".shp") return "shapefile";
   if (extension === ".csv" || extension === ".tsv") return "csv";
   if (extension === ".zip") return "zip";
+  if (extension === ".tif" || extension === ".tiff") {
+    throw fileError(
+      "A GeoTIFF is a map made of cells, not a list of areas or rainfall rows. To import the flood risk map, choose " +
+        '"Flood risk map" as the level on the import screen.',
+    );
+  }
   if (SHAPEFILE_PARTS.includes(extension)) {
     throw fileError(
       `A ${extension} file is only one part of a shapefile. Upload the .shp file, or zip the .shp, .dbf and .prj together and upload the .zip.`,

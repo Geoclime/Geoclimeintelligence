@@ -8,7 +8,8 @@ Disaster Platform*. Per-feature explanations live in [`../docs/features/`](../do
 
 **Status:** Phase 1 (sign-in, sign-up, password reset, account page, Administrator user management) and Phase 2
 (dashboard sidebar, home map, Places, admin Countries and Imports) are done. See
-[`admin-geography.md`](../docs/features/admin-geography.md).
+[`admin-geography.md`](../docs/features/admin-geography.md). The home map also draws the flood risk map once an administrator has imported it (Imports → Flood risk map);
+see [`flood-risk-overlay.md`](../docs/features/flood-risk-overlay.md).
 
 ## Prerequisites
 

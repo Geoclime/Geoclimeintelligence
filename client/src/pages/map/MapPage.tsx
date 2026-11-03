@@ -26,6 +26,7 @@ import {
   WARD_MIN_ZOOM,
   type MapLayerId,
 } from "../../components/map/map-style";
+import { FloodRiskLayer } from "../../components/map/FloodRiskLayer";
 import { Button, buttonClassName } from "../../components/shared/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { Icon } from "../../components/shared/Icon";
@@ -36,6 +37,8 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useFieldSurvey } from "../../hooks/useFieldSurvey";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useLocatePoint } from "../../hooks/useLocatePoint";
+import { useFloodRisk } from "../../hooks/useFloodRisk";
+import { useFloodRiskAt } from "../../hooks/useFloodRiskAt";
 import { useMapLayerCatalog } from "../../hooks/useMapLayerCatalog";
 import { useMapLayers } from "../../hooks/useMapLayers";
 import { useSavedPlaces } from "../../hooks/useSavedPlaces";
@@ -46,6 +49,7 @@ import type { ClickedFeature } from "../../types/map-layer.types";
 import { boundsAround } from "../../utils/geo-distance";
 import { readMapFocus } from "../../utils/map-focus";
 import { readLayers, readMapView, readPin, readPinLabel, writeLayers, writeMapView, writePin } from "../../utils/map-url";
+import { floodRiskLegend, floodRiskNote } from "../../utils/flood-risk";
 import { overlayHint } from "../../utils/overlay-layers";
 import { hasAnyRole } from "../../utils/roles";
 import { canRecordSurvey } from "../../utils/field-survey";
@@ -81,6 +85,8 @@ const SURVEY_LEGEND = [
   { key: "drain-partly", label: "Drain: partly blocked", swatch: "drain-partly", layer: "drainage" },
   { key: "drain-bad", label: "Drain: blocked, overflowing or damaged", swatch: "drain-bad", layer: "drainage" },
 ] as const;
+
+const BOUNDARY_NOTE = "Boundaries: geoBoundaries (CC BY 4.0). Wards: GRID3 operational placeholders (CC BY 4.0).";
 
 const sameSpot = (a: LonLat | null | undefined, b: LonLat | null | undefined) => Boolean(a && b && a[0] === b[0] && a[1] === b[1]);
 
@@ -132,6 +138,11 @@ export function MapPage() {
 
   const stateUnit = states[0] ?? null;
   const country = countries.find((c) => c.countryCode === stateUnit?.countryCode) ?? countries[0] ?? null;
+  // The imported flood risk map, once an administrator has promoted one. Until then there is no toggle for it.
+  const floodRisk = useFloodRisk(country?.countryCode ?? null);
+  const floodRiskLayer = floodRisk.layer;
+  const floodRiskOn = layers.floodRisk && floodRiskLayer !== null;
+  const clickedRisk = useFloodRiskAt(country?.countryCode ?? null, located.point, floodRiskOn);
   const selectedLga = lgaList.find((lga) => lga.id === selectedLgaId) ?? null;
   const isAdmin = user ? hasAnyRole(user.role, ["administrator"]) : false;
   // Two updates can land in the same tick (a layer tick and the map's own "moved" event). The router
@@ -273,6 +284,9 @@ export function MapPage() {
       loading: wardLayer.loading,
       hint: zoom < WARD_MIN_ZOOM ? "Zoom in to see wards" : undefined,
     },
+    ...(floodRiskLayer
+      ? [{ id: "floodRisk" as const, label: "Flood risk", checked: layers.floodRisk, loading: floodRisk.loading, hint: "Relative risk, not a forecast" }]
+      : []),
     {
       id: "roads",
       label: "Roads",
@@ -324,14 +338,16 @@ export function MapPage() {
     },
   ];
   const fix = geolocation.fix;
-  const layerProblem = layerError ?? surveyData.floodExtents.error ?? surveyData.drainage.error;
+  const layerProblem = layerError ?? surveyData.floodExtents.error ?? surveyData.drainage.error ?? floodRisk.error;
   const legendItems = [
     ...LEGEND,
     ...(pin ? [{ key: "pin", label: "Pinned place", swatch: "pin" }] : []),
     ...(fix ? [{ key: "you", label: "Your location", swatch: "you" }] : []),
+    ...(floodRiskOn ? floodRiskLegend(floodRiskLayer.classes) : []),
     ...OVERLAY_LEGEND.filter((item) => layers[item.layer]),
     ...SURVEY_LEGEND.filter((item) => layers[item.layer]),
   ];
+  const legendNote = floodRiskOn ? `${BOUNDARY_NOTE} ${floodRiskNote(floodRiskLayer)}` : BOUNDARY_NOTE;
   // Mapbox stacks layers in the order they were added, and a boundary layer is added when its data
   // arrives. Remounting the markers whenever one appears or goes puts them back on top of the tint.
   const markerKey = [stateLayer.data, lgaLayer.data, wardLayer.data].map(Boolean).join();
@@ -370,6 +386,7 @@ export function MapPage() {
         className="map-page__map"
         dataCy="home-map"
       >
+        <FloodRiskLayer visible={floodRiskOn} imageUrl={floodRisk.imageUrl} coordinates={floodRiskLayer?.coordinates ?? null} />
         <MapOverlayLayers
           palette={palette}
           roads={roadLayer.data}
@@ -398,6 +415,7 @@ export function MapPage() {
             error={located.error}
             onClose={closePopup}
             title={popupTitle}
+            floodRisk={floodRiskOn ? clickedRisk : undefined}
             onSavePlace={isAdmin ? () => savedPlaces.openCreate(located.point!, describeWhere(located.result)) : undefined}
           />
         )}
@@ -440,7 +458,7 @@ export function MapPage() {
 
       <div className={`map-page__panels${panelsOpen ? " is-open" : ""}`} id="map-panels">
         <LayerToggle layers={layerOptions} onChange={toggleLayer} />
-        <MapLegend items={legendItems} note="Boundaries: geoBoundaries (CC BY 4.0). Wards: GRID3 operational placeholders (CC BY 4.0)." />
+        <MapLegend items={legendItems} note={legendNote} />
         <MapLayerSources catalog={catalog} visible={visibleOverlays} />
       </div>
       <Button

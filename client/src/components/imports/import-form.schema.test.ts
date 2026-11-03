@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   detectLayerChoiceFromFileName,
   EMPTY_MAPPING,
+  FLOOD_RISK_CHOICE,
   importFormSchema,
+  isFloodRiskChoice,
   parseLayerChoice,
   parseRainfallChoice,
   toMapLayerUpload,
+  toStartFloodRiskImport,
   toStartImport,
   toStartRainfallImport,
   type ImportFormValues,
@@ -115,6 +118,32 @@ describe("rainfall", () => {
     expect(input.columnMapping).toEqual(chirpsMapping);
     // and an areas upload never sends the rainfall columns
     expect(toStartImport({ ...base, columnMapping: { ...base.columnMapping, ...chirpsMapping } }, file, "xlsx").columnMapping).toEqual(base.columnMapping);
+  });
+});
+
+describe("the flood risk map", () => {
+  const floodRisk: ImportFormValues = { ...base, level: FLOOD_RISK_CHOICE, fileType: "", sheetName: "", headerRow: "", columnMapping: EMPTY_MAPPING };
+
+  it("is its own choice, picked automatically for a GeoTIFF but never for rows", () => {
+    expect(isFloodRiskChoice("flood-risk")).toBe(true);
+    expect(isFloodRiskChoice("2")).toBe(false);
+    expect(isFloodRiskChoice("rainfall:2")).toBe(false);
+    expect(detectLayerChoiceFromFileName("flood_risk_map.tif")).toBe("flood-risk");
+    expect(detectLayerChoiceFromFileName("Rivers_Flood_Risk.TIFF")).toBe("flood-risk");
+    expect(detectLayerChoiceFromFileName("rivers_roads.geojson")).toBe("layer:roads");
+    expect(parseLayerChoice("flood-risk")).toBeNull();
+    expect(parseRainfallChoice("flood-risk")).toBeNull();
+  });
+
+  it("needs only the country and where the map comes from: no columns to match", () => {
+    expect(importFormSchema.safeParse(floodRisk).success).toBe(true);
+    const result = importFormSchema.safeParse({ ...floodRisk, sourceId: "" });
+    expect(result.error!.issues.map((issue) => [issue.path.join("."), issue.message])).toEqual([["sourceId", "Choose the data source this map comes from"]]);
+  });
+
+  it("sends the GeoTIFF with its country and source, and nothing about columns", () => {
+    const tif = new File(["x"], "flood_risk_map.tif");
+    expect(toStartFloodRiskImport(floodRisk, tif)).toEqual({ file: tif, countryCode: "NGA", sourceId: base.sourceId });
   });
 });
 

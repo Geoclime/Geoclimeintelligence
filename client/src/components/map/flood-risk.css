@@ -1,0 +1,46 @@
+/* The flood risk map's classes: a stacked bar, then each class with its area. Used by the import review and the LGA profile. */
+.risk-bar {
+  display: flex;
+  height: 14px;
+  margin-block: var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-sm, 4px);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+}
+
+.risk-bar__part {
+  display: block;
+  height: 100%;
+}
+
+.risk-classes {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.risk-classes li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.risk-classes__swatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+.risk-classes__label {
+  flex: 1;
+}
+
+.risk-classes__figures {
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}

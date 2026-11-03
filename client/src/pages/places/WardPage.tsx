@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router";
 import { DrainageCard } from "../../components/floods/DrainageCard";
 import { FloodHistoryCard } from "../../components/floods/FloodHistoryCard";
+import { FloodRiskCard } from "../../components/floods/FloodRiskCard";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
 import { AreaSurveyPopup } from "../../components/map/AreaSurveyPopup";
 import { SourceBadge } from "../../components/map/SourceBadge";
@@ -87,6 +88,7 @@ export function WardPage() {
           <section className="card card__body">
             <SourceBadge source={ward.source} variant="full" />
           </section>
+          <FloodRiskCard areaId={ward.id} areaName={ward.unitName} />
           <FloodHistoryCard areaId={ward.id} areaName={ward.unitName} showWard={false} />
           <DrainageCard areaId={ward.id} areaName={ward.unitName} showWard={false} />
         </div>

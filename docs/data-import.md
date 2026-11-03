@@ -123,6 +123,15 @@ When this was run end to end on a scratch database with the real files:
 - a second Promote returned `409`;
 - re-uploading the LGA sheet failed all 23 rows as duplicates.
 
+### 9. The flood risk map
+
+A third target, `flood_risk_layers`, takes a **classified GeoTIFF** instead of rows: `POST /api/v1/imports/flood-risk` (file type `geotiff`). It goes through the same steps: the run is created and checked, the administrator reviews it, and Promote makes it live. What differs:
+- there are **no shapes to stage**: the staged rows are one per live LGA and ward, holding how many cells of each class fall inside it, and the map itself (its picture and class grid) is stored with the run in the same transaction;
+- the checks are about the raster: it must be a single band of whole classes 1 to 5 in a WGS 84 / UTM grid, lie inside the country's bounding box, and line up with the LGAs;
+- Promote retires the country's previous live map and makes this one live, so there is one live map per country.
+
+It needs the LGAs to be live first, like rainfall. The whole of it, including the tables, endpoints and what was checked, is in [flood-risk.md](flood-risk.md). A GeoTIFF sent to the areas or rainfall import is refused with a message pointing here.
+
 **Tests:**
 - [`tests/unit/import-readers.test.ts`](../server/tests/unit/import-readers.test.ts): the Excel and GeoJSON readers, heading-row detection and the templates. Shapefiles, zips and CSV: `import-shapefile.test.ts` and `import-csv.test.ts`.
 - [`tests/unit/admin-unit-rows.test.ts`](../server/tests/unit/admin-unit-rows.test.ts): name standardisation, parent matching, duplicates and the column guesses for the three real files.

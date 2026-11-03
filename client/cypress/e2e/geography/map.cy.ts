@@ -1,4 +1,4 @@
-import { OBIO_AKPOR, PORT_HARCOURT, STATE, WARD, buildMapLayers, emptyLayer, stubGeography } from "../../support/geo-factories";
+import { OBIO_AKPOR, PORT_HARCOURT, STATE, WARD, buildMapLayers, emptyLayer, stubFloodRisk, stubGeography } from "../../support/geo-factories";
 
 const locateReply = {
   point: [7.0134, 4.7774],
@@ -22,8 +22,10 @@ function stubGeolocation(win: Window, coords: { longitude: number; latitude: num
 
 // Layer requests wait for the map's own load event, and headless Electron draws WebGL in software,
 // so a load takes about 3-4 s: right at Cypress's default 4 s wait. A longer wait here costs nothing
-// when the app is fine and only delays a real failure.
-describe("Home map", { defaultCommandTimeout: 10000 }, () => {
+// when the app is fine and only delays a real failure. cy.wait() on a route is governed by
+// requestTimeout, not defaultCommandTimeout, so that is raised too: the flood risk picture adds
+// a few tenths of a second to the load in software WebGL.
+describe("Home map", { defaultCommandTimeout: 10000, requestTimeout: 10000 }, () => {
   beforeEach(() => {
     cy.login("general_public");
     stubGeography();
@@ -149,6 +151,42 @@ describe("Home map", { defaultCommandTimeout: 10000 }, () => {
     cy.dataCy("layer-infrastructure").should("contain", "Facilities").and("contain", "Health and police first");
     cy.dataCy("map-legend").should("contain", "Hospitals, clinics, pharmacies").and("contain", "Schools and colleges");
     cy.dataCy("map-source-infrastructure").should("contain", "OpenStreetMap contributors via Geofabrik").and("contain", "ODbL 1.0");
+  });
+
+  it("offers the flood risk surface, on by default, with its legend and a note that it is derived", () => {
+    cy.visit("/map?lng=7.0&lat=4.85&z=8");
+    cy.dataCy("layer-floodRisk").should("contain", "Flood risk").and("contain", "Relative risk, not a forecast");
+    cy.dataCy("layer-floodRisk").find("input").should("be.checked");
+    cy.dataCy("map-legend").should("contain", "Flood risk: Very low").and("contain", "Flood risk: Very high");
+    // The credit line comes from the data source the administrator chose when importing the map.
+    cy.dataCy("map-legend").should("contain", "Rivers State data team").and("contain", "CC BY 4.0");
+    cy.dataCy("map-legend").should("contain", "derived index").and("contain", "not a forecast or flood depth");
+  });
+
+  it("has no flood risk toggle until a map has been imported and promoted", () => {
+    stubFloodRisk(null);
+    cy.visit("/map?lng=7.0&lat=4.85&z=8");
+    cy.wait("@getFloodRisk");
+    cy.dataCy("layer-toggle").should("contain", "Roads").and("not.contain", "Flood risk");
+    cy.dataCy("map-legend").should("not.contain", "Flood risk");
+  });
+
+  it("says which flood risk class lies under a spot, in its popup, while the layer is on", () => {
+    // A pinned place is looked up as if it had been tapped, so no click on the canvas is needed.
+    cy.interceptApi("GET", "/admin-units/locate*", { data: locateReply });
+    cy.visit("/map?lng=7.0134&lat=4.7774&z=17&pin=7.01340%2C4.77740");
+    cy.wait("@floodRiskAt").its("request.query").should("deep.equal", { lon: "7.0134", lat: "4.7774", countryCode: "NGA" });
+    cy.dataCy("popup-flood-risk").should("contain", "Flood risk here").and("contain", "High");
+  });
+
+  it("switches the flood risk surface off, with its legend rows, and keeps that in the address", () => {
+    cy.visit("/map?lng=7.0&lat=4.85&z=8");
+    cy.dataCy("layer-floodRisk").find("input").uncheck();
+    cy.dataCy("map-legend").should("not.contain", "Flood risk:").and("not.contain", "derived index");
+    cy.location("search").should("contain", "layers=").and("not.contain", "floodRisk");
+    cy.dataCy("layer-floodRisk").find("input").check();
+    cy.dataCy("map-legend").should("contain", "Flood risk: High");
+    cy.location("search").should("not.contain", "layers=");
   });
 
   it("fetches buildings only at street level", () => {

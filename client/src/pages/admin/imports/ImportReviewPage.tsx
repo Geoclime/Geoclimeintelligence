@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
+import { FloodRiskRunCard } from "../../../components/imports/FloodRiskRunCard";
 import { ImportPreviewMap } from "../../../components/imports/ImportPreviewMap";
 import { ImportStatusBadge } from "../../../components/imports/ImportStatusBadge";
 import "../../../components/imports/imports.css";
@@ -18,6 +19,7 @@ import { useCountries } from "../../../hooks/useCountries";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 import { useImportRun } from "../../../hooks/useImportRun";
 import { useImportRunLayer } from "../../../hooks/useImportRunLayer";
+import { useRunFloodRisk } from "../../../hooks/useRunFloodRisk";
 import { useTheme } from "../../../hooks/useTheme";
 import { useToast } from "../../../hooks/useToast";
 import { errorMessage } from "../../../transport/api-error";
@@ -44,7 +46,10 @@ export function ImportReviewPage() {
   const run = useImportRun(id, { page, status, pageSize: 50 });
   const [view, setView] = useState<MapView | null>(null);
   const [layerVersion, setLayerVersion] = useState(0);
-  const layer = useImportRunLayer(run.run?.id, view?.bbox ?? null, layerVersion);
+  // A flood risk run has no staged shapes to draw: its map is drawn instead.
+  const isFloodRisk = run.run?.target === "flood_risk_layers";
+  const floodMap = useRunFloodRisk(run.run?.id, isFloodRisk);
+  const layer = useImportRunLayer(isFloodRisk ? undefined : run.run?.id, view?.bbox ?? null, layerVersion);
   const [confirming, setConfirming] = useState(false);
   const { countries } = useCountries();
   useDocumentTitle(run.run ? `Import: ${run.run.fileName}` : "Import");
@@ -63,19 +68,25 @@ export function ImportReviewPage() {
 
   const promoted = current.status === "promoted";
   const rainfall = current.target === "rainfall_observations";
+  const floodRisk = current.target === "flood_risk_layers";
+  const level = current.options.level ?? 0;
+  const levelName = current.options.levelName ?? "area";
   // Rainfall months already live with the same value pass, but Promote has nothing to write for them.
   const toPromote = current.promotableCount ?? current.passedCount;
-  const what = rainfall ? "rainfall months" : `${current.options.levelName} areas`;
-  const levelBelow = rainfall
-    ? null
-    : (countries.find((c) => c.countryCode === current.options.countryCode)?.levels[current.options.level] ?? null);
-  const parentLevelName = !rainfall && current.options.level > 1 ? "Parent" : null;
+  const what = floodRisk ? "areas measured" : rainfall ? "rainfall months" : `${levelName} areas`;
+  const levelBelow =
+    rainfall || floodRisk ? null : (countries.find((c) => c.countryCode === current.options.countryCode)?.levels[level] ?? null);
+  const parentLevelName = floodRisk || level > 1 ? "Parent" : null;
+  const dataLabel = floodRisk ? "Flood risk map" : rainfall ? `Rainfall per ${levelName}` : levelName;
   const setFilter = (value?: string) => setSearchParams(value ? { status: value } : {});
 
   const handlePromote = async () => {
     try {
       const result = await run.promote();
-      showToast({ type: "success", message: `${result.promotedCount ?? 0} ${what} are now live.` });
+      showToast({
+        type: "success",
+        message: floodRisk ? `The flood risk map is now live, with figures for ${result.promotedCount ?? 0} areas.` : `${result.promotedCount ?? 0} ${what} are now live.`,
+      });
       setLayerVersion((v) => v + 1);
     } catch (error) {
       showToast({ type: "error", message: errorMessage(error) });
@@ -91,7 +102,7 @@ export function ImportReviewPage() {
       <header className="page__header">
         <div>
           <p className="page__eyebrow">
-            Import · {current.options.countryCode} · {rainfall ? `Rainfall per ${current.options.levelName}` : current.options.levelName}
+            Import · {current.options.countryCode} · {dataLabel}
           </p>
           <h1 className="page__title">{current.fileName}</h1>
           <p className="page__lead">
@@ -101,7 +112,7 @@ export function ImportReviewPage() {
         <div className="page__actions">
           {!promoted && (
             <Link
-              to={`/admin/imports/new?country=${current.options.countryCode}&level=${rainfall ? "rainfall:" : ""}${current.options.level}`}
+              to={`/admin/imports/new?country=${current.options.countryCode}&level=${floodRisk ? "flood-risk" : `${rainfall ? "rainfall:" : ""}${level}`}`}
               className={buttonClassName({ variant: "secondary" })}
             >
               Upload a corrected file
@@ -113,7 +124,7 @@ export function ImportReviewPage() {
             onClick={() => setConfirming(true)}
             data-cy="promote"
           >
-            {promoted ? "Promoted" : `Promote ${toPromote} ${rainfall ? "months" : "areas"}`}
+            {promoted ? "Promoted" : floodRisk ? "Promote the map" : `Promote ${toPromote} ${rainfall ? "months" : "areas"}`}
           </Button>
         </div>
       </header>
@@ -164,10 +175,24 @@ export function ImportReviewPage() {
         )}
         {promoted && rainfall && (
           <Callout tone="success" dataCy="promoted-next">
-            {current.promotedCount} rainfall months were added or updated for the {current.options.levelName} areas.
+            {current.promotedCount} rainfall months were added or updated for the {levelName} areas.
           </Callout>
         )}
-        {promoted && !rainfall && (
+        {promoted && floodRisk && (
+          <Callout
+            tone="success"
+            dataCy="promoted-next"
+            action={
+              <Link to="/map" className={buttonClassName({ variant: "secondary", size: "sm" })}>
+                Open the map
+              </Link>
+            }
+          >
+            The flood risk map is live for {current.options.countryCode}, with figures for {current.promotedCount} LGAs and wards. It is the
+            &quot;Flood risk&quot; layer on the home map, and replaces any earlier map.
+          </Callout>
+        )}
+        {promoted && !rainfall && !floodRisk && (
           <Callout
             tone="success"
             dataCy="promoted-next"
@@ -182,8 +207,8 @@ export function ImportReviewPage() {
               )
             }
           >
-            {current.promotedCount} {current.options.levelName} areas are live.
-            {levelBelow ? ` Next, import the ${levelBelow.name} areas inside them.` : ` ${current.options.levelName} is the lowest level, so this country's areas are complete.`}
+            {current.promotedCount} {levelName} areas are live.
+            {levelBelow ? ` Next, import the ${levelBelow.name} areas inside them.` : ` ${levelName} is the lowest level, so this country's areas are complete.`}
           </Callout>
         )}
       </div>
@@ -194,9 +219,11 @@ export function ImportReviewPage() {
             <EmptyState
               icon="map"
               title="Rainfall has no shapes of its own"
-              message={`Each row is matched to a live ${current.options.levelName} and shown on its boundary. The rows below give each month, its value and what promoting does with it.`}
+              message={`Each row is matched to a live ${levelName} and shown on its boundary. The rows below give each month, its value and what promoting does with it.`}
             />
           </div>
+        ) : floodRisk && current.extent ? (
+          <ImportPreviewMap theme={theme} extent={current.extent} data={null} onViewChange={setView} floodRisk={{ layer: floodMap.layer, imageUrl: floodMap.imageUrl }} />
         ) : current.extent ? (
           <ImportPreviewMap theme={theme} extent={current.extent} data={layer.data} onViewChange={setView} />
         ) : (
@@ -219,16 +246,27 @@ export function ImportReviewPage() {
                 <dd className="mono">{current.sheetName}</dd>
               </div>
             )}
-            <div>
-              <dt>Columns</dt>
-              <dd>
-                {Object.entries(current.columnMapping).map(([column, heading]) => (
-                  <span key={column} className="data-table__secondary">
-                    {column} ← {heading}
-                  </span>
-                ))}
-              </dd>
-            </div>
+            {!floodRisk && (
+              <div>
+                <dt>Columns</dt>
+                <dd>
+                  {Object.entries(current.columnMapping).map(([column, heading]) => (
+                    <span key={column} className="data-table__secondary">
+                      {column} ← {heading}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            )}
+            {floodRisk && (
+              <div>
+                <dt>Kind of data</dt>
+                <dd>
+                  Derived
+                  <span className="data-table__secondary">A modelled judgement of where it could flood, not an observation</span>
+                </dd>
+              </div>
+            )}
             <div>
               <dt>Checked</dt>
               <dd>
@@ -249,6 +287,17 @@ export function ImportReviewPage() {
         </section>
       </div>
 
+      {floodRisk && floodMap.layer && (
+        <div className="section-gap">
+          <FloodRiskRunCard layer={floodMap.layer} />
+        </div>
+      )}
+      {floodRisk && floodMap.error && !floodMap.layer && (
+        <div className="section-gap">
+          <Callout tone="warning">The map itself couldn&apos;t be loaded for this import: {floodMap.error}</Callout>
+        </div>
+      )}
+
       <section className="card section-gap" aria-busy={run.loading} aria-labelledby="rows-title">
         <div className="card__header">
           <h2 id="rows-title" className="card__title">
@@ -266,7 +315,7 @@ export function ImportReviewPage() {
           <EmptyState icon="check" message={status === "failed" ? "No rows failed their checks." : "No rows to show."} />
         ) : (
           <>
-            <StagingRowsTable rows={run.rows} parentLevelName={parentLevelName} rainfall={rainfall} />
+            <StagingRowsTable rows={run.rows} parentLevelName={parentLevelName} rainfall={rainfall} floodRisk={floodRisk} />
             <div className="card__footer">
               <Pagination
                 page={page}
@@ -285,11 +334,13 @@ export function ImportReviewPage() {
 
       <Modal
         open={confirming}
-        title={`Promote ${toPromote} ${what}?`}
+        title={floodRisk ? "Make this flood risk map live?" : `Promote ${toPromote} ${what}?`}
         description={
-          rainfall
-            ? "They become live for their areas and available to every later feature. Months already live with the same value are left as they are."
-            : "They become live: on the map, in the directory, and available to every later feature."
+          floodRisk
+            ? "It becomes the Flood risk layer on the home map for every signed-in user, replacing the current map if there is one. Each LGA and ward keeps the figures measured here."
+            : rainfall
+              ? "They become live for their areas and available to every later feature. Months already live with the same value are left as they are."
+              : "They become live: on the map, in the directory, and available to every later feature."
         }
         onClose={() => setConfirming(false)}
         dismissible={!run.promoting}

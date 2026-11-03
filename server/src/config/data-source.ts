@@ -9,6 +9,7 @@ import { DataSourceRecord } from "../modules/data-sources/data-source.entity";
 import { ImportRun, ImportStagingRow } from "../modules/data-sources/imports/import-run.entity";
 import { DrainageFeature } from "../modules/field-survey/drainage-feature.entity";
 import { FloodExtent } from "../modules/field-survey/flood-extent.entity";
+import { FloodRiskLayer } from "../modules/flood-risk/flood-risk-layer.entity";
 import { Building } from "../modules/map-layers/building.entity";
 import { Infrastructure } from "../modules/map-layers/infrastructure.entity";
 import { Road } from "../modules/map-layers/road.entity";
@@ -41,7 +42,7 @@ export const AppDataSource = new DataSource({
         ...(env.DATABASE_SSL_CA ? { ca: readFileSync(env.DATABASE_SSL_CA, "utf8") } : {}),
       }
     : false,
-  entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow, Road, Waterway, SettlementPoint, Infrastructure, Building, RainfallObservation, FloodExtent, DrainageFeature],
+  entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow, Road, Waterway, SettlementPoint, Infrastructure, Building, RainfallObservation, FloodExtent, DrainageFeature, FloodRiskLayer],
   migrations: [path.join(__dirname, "..", "migrations", "*.ts")],
   // Passed to node-postgres' pool. Its defaults close a connection after 10 seconds idle, so a pause in use
   // means the next burst (the map asks for eight layers at once) opens a fresh connection for each, every one

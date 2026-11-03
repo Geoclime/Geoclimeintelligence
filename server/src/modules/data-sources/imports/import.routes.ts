@@ -3,6 +3,8 @@ import multer from "multer";
 import { AppError, ValidationError } from "../../../common/errors/app-error";
 import { authorise } from "../../../middleware/authorise.middleware";
 import { validate } from "../../../middleware/validate.middleware";
+import { FloodRiskController } from "../../flood-risk/flood-risk.controller";
+import { floodRiskForRunSchema, startFloodRiskImportSchema } from "../../flood-risk/flood-risk.validation";
 import { ImportController } from "./import.controller";
 import {
   adminUnitTemplateSchema,
@@ -49,6 +51,8 @@ importsRouter.post("/preview", uploadFile, validate(previewImportSchema), Import
 importsRouter.get("/", validate(listImportsSchema), ImportController.list);
 importsRouter.post("/", uploadFile, validate(startImportSchema), ImportController.start);
 importsRouter.post("/rainfall", uploadFile, validate(startRainfallImportSchema), ImportController.startRainfall);
+importsRouter.post("/flood-risk", uploadFile, validate(startFloodRiskImportSchema), FloodRiskController.startImport);
 importsRouter.get("/:id", validate(getImportSchema), ImportController.get);
 importsRouter.get("/:id/geojson", validate(importGeoJsonSchema), ImportController.geoJson);
+importsRouter.get("/:id/flood-risk", validate(floodRiskForRunSchema), FloodRiskController.forRun);
 importsRouter.post("/:id/promote", validate(promoteImportSchema), ImportController.promote);

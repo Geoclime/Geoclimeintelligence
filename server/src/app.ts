@@ -15,6 +15,7 @@ import { authRouter } from "./modules/auth/auth.routes";
 import { dataSourcesRouter } from "./modules/data-sources/data-source.routes";
 import { importsRouter } from "./modules/data-sources/imports/import.routes";
 import { drainageRouter, floodExtentsRouter } from "./modules/field-survey/field-survey.routes";
+import { floodRiskRouter } from "./modules/flood-risk/flood-risk.routes";
 import { buildingsRouter, infrastructureRouter, mapLayersRouter, roadsRouter, settlementsRouter, waterwaysRouter } from "./modules/map-layers/map-layer.routes";
 import { publicRouter } from "./modules/public/public.routes";
 import { rainfallRouter } from "./modules/rainfall/rainfall.routes";
@@ -63,6 +64,7 @@ export function createApp(): Express {
   app.use("/api/v1/flood-extents", floodExtentsRouter);
   app.use("/api/v1/drainage", drainageRouter);
   app.use("/api/v1/rainfall", rainfallRouter);
+  app.use("/api/v1/flood-risk", floodRiskRouter);
   app.use("/api/v1/alerts", alertsRouter);
   app.use("/api/v1/flood-reports", floodReportsRouter);
   app.use("/api/v1/notifications", notificationsRouter);

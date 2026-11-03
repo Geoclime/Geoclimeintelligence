@@ -1,7 +1,9 @@
 import { useCallback } from "react";
 import { QUERY_KEYS, invalidateQueries } from "../cache/queryClient";
 import { previewImportFile, startImport, startRainfallImport } from "../endpoints/import.endpoints";
+import { startFloodRiskImport } from "../endpoints/flood-risk.endpoints";
 import { clearMapLayers, uploadMapLayer } from "../endpoints/map-layer.endpoints";
+import type { StartFloodRiskImportInput } from "../types/flood-risk.types";
 import type { ImportPreview, ImportRun, PreviewImportInput, StartImportInput, StartRainfallImportInput } from "../types/import.types";
 import type { ClearMapLayerInput, MapLayerClearReport, MapLayerLoadReport, UploadMapLayerInput } from "../types/map-layer.types";
 
@@ -32,6 +34,13 @@ export function useImportUpload() {
     return response.data;
   }, []);
 
+  /** Creates a flood risk run from a classified GeoTIFF: measured per LGA and ward, live only once promoted. */
+  const startFloodRisk = useCallback(async (input: StartFloodRiskImportInput): Promise<ImportRun> => {
+    const response = await startFloodRiskImport(input);
+    if (!response.data) throw new Error(response.message || "The server returned no import run.");
+    return response.data;
+  }, []);
+
   /** Uploads a map-layer file (roads, waterways, settlements or delivery zip) straight into PostGIS. */
   const uploadLayer = useCallback(async (input: UploadMapLayerInput): Promise<MapLayerLoadReport> => {
     const response = await uploadMapLayer(input);
@@ -50,5 +59,5 @@ export function useImportUpload() {
     return response.data;
   }, []);
 
-  return { preview, start, startRainfall, uploadLayer, clearLayer };
+  return { preview, start, startRainfall, startFloodRisk, uploadLayer, clearLayer };
 }

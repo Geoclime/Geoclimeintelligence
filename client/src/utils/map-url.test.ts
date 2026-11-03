@@ -53,17 +53,17 @@ describe("map URL state", () => {
 
   const everything = {
     state: true, lga: true, ward: true, roads: true, waterways: true, settlements: true, infrastructure: true, buildings: true,
-    floodExtents: true, drainage: true,
+    floodExtents: true, drainage: true, floodRisk: true,
   };
   const nothing = {
     state: false, lga: false, ward: false, roads: false, waterways: false, settlements: false, infrastructure: false, buildings: false,
-    floodExtents: false, drainage: false,
+    floodExtents: false, drainage: false, floodRisk: false,
   };
 
   it("shows every layer by default and only lists layers when some are off", () => {
     expect(readLayers(new URLSearchParams(""))).toEqual(everything);
     const params = writeLayers(new URLSearchParams(""), { ...everything, lga: false, roads: false });
-    expect(params.get("layers")).toBe("state,ward,waterways,settlements,infrastructure,buildings,floodExtents,drainage");
+    expect(params.get("layers")).toBe("state,ward,waterways,settlements,infrastructure,buildings,floodExtents,drainage,floodRisk");
     expect(readLayers(params)).toEqual({ ...everything, lga: false, roads: false });
     expect(writeLayers(params, everything).has("layers")).toBe(false);
   });
@@ -75,6 +75,12 @@ describe("map URL state", () => {
 
   it("carries the flood and drainage layers in the link", () => {
     expect(readLayers(new URLSearchParams("layers=floodExtents,drainage"))).toEqual({ ...nothing, floodExtents: true, drainage: true });
+  });
+
+  it("carries the flood risk layer in the link, and leaves it off for a link that predates it", () => {
+    expect(readLayers(new URLSearchParams("layers=floodRisk"))).toEqual({ ...nothing, floodRisk: true });
+    expect(readLayers(new URLSearchParams("layers=state,lga,ward,roads")).floodRisk).toBe(false);
+    expect(writeLayers(new URLSearchParams(""), { ...everything, floodRisk: false }).get("layers")).not.toContain("floodRisk");
   });
 
   it("drops unknown layer names", () => {

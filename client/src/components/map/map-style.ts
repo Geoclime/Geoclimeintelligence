@@ -21,11 +21,18 @@ export type BoundaryLayerId = "state" | "lga" | "ward";
 /** What responders record on the ground: floods walked or drawn, and the drains that should carry them away. */
 export type SurveyLayerId = "floodExtents" | "drainage";
 
-/** Every switchable layer: the boundaries, then the roads, waterways and settlements drawn over them, then field survey. */
-export type MapLayerId = BoundaryLayerId | OverlayLayerId | SurveyLayerId;
+/**
+ * A modelled surface drawn under everything else, bundled with the app rather than fetched by area
+ * (data/flood-risk). It is a judgement about where it could flood, not a record of where it did.
+ */
+export type HazardLayerId = "floodRisk";
+
+/** Every switchable layer: the boundaries, then the roads, waterways and settlements drawn over them, then field survey, then the flood risk surface. */
+export type MapLayerId = BoundaryLayerId | OverlayLayerId | SurveyLayerId | HazardLayerId;
 export const BOUNDARY_LAYER_IDS: BoundaryLayerId[] = ["state", "lga", "ward"];
 export const OVERLAY_LAYER_IDS: OverlayLayerId[] = ["roads", "waterways", "settlements", "infrastructure", "buildings"];
 export const SURVEY_LAYER_IDS: SurveyLayerId[] = ["floodExtents", "drainage"];
+export const HAZARD_LAYER_IDS: HazardLayerId[] = ["floodRisk"];
 
 /** Buildings are only fetched and drawn from street level. Mirrors BUILDING_MIN_ZOOM in server/src/modules/map-layers/layer-rules.ts. */
 export const BUILDING_MIN_ZOOM = 15;

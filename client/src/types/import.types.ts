@@ -3,11 +3,11 @@ import type { BBox } from "./admin-unit.types";
 
 // Mirrors server/src/modules/data-sources/imports/import.types.ts.
 
-export type ImportFileType = "xlsx" | "geojson" | "shapefile" | "csv";
+export type ImportFileType = "xlsx" | "geojson" | "shapefile" | "csv" | "geotiff";
 export type ImportRunStatus = "checked" | "promoted";
 export type StagingRowStatus = "pending" | "passed" | "failed";
-/** Which live table a run feeds: areas, or monthly rainfall per area. */
-export type ImportTarget = "admin_units" | "rainfall_observations";
+/** Which live table a run feeds: areas, monthly rainfall per area, or a flood risk map. */
+export type ImportTarget = "admin_units" | "rainfall_observations" | "flood_risk_layers";
 
 export const TEMPLATE_COLUMNS = ["unit_name", "unit_code", "parent_code", "geometry_wkt"] as const;
 export type TemplateColumn = (typeof TEMPLATE_COLUMNS)[number];
@@ -42,13 +42,15 @@ export interface ImportPreview {
 
 export interface ImportOptions {
   countryCode: string;
-  /** The level imported, or for rainfall the level of the areas it is for. */
-  level: number;
-  levelName: string;
+  /** The level imported, or for rainfall the level of the areas it is for. A flood risk map has none. */
+  level?: number;
+  levelName?: string;
   /** Areas only. */
   parentId?: string | null;
-  /** Rainfall only: OBSERVED, MODELLED... */
+  /** Rainfall: OBSERVED, MODELLED... A flood risk map is always DERIVED. */
   dataType?: string;
+  /** Flood risk map only. */
+  title?: string;
 }
 
 export interface UserRef {
@@ -95,8 +97,21 @@ export interface StagingRow {
   yearMonth: string | null;
   rainfallMm: number | null;
   change: RainfallChange | null;
+  /** Flood risk rows only (one per LGA and ward). */
+  risk: StagingRowRisk | null;
   errors: string[];
   warnings: string[];
+}
+
+/** What the flood risk review table shows for an area: how much of it is in which class. */
+export interface StagingRowRisk {
+  levelName: string;
+  /** Area that holds a class, in km2. */
+  areaKm2: number;
+  /** Share of classified cells that are high or very high, 0 to 100; null when the map has none here. */
+  percentHigh: number | null;
+  /** Mean class, 1 to 5; null when the map has none here. */
+  meanClass: number | null;
 }
 
 /** GET /api/v1/imports/:id: the run plus one page of its staged rows. */

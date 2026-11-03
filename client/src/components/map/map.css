@@ -276,6 +276,17 @@
   background: rgb(180 35 24 / 0.18);
 }
 
+/* Flood risk: the toggle shows the whole ramp; each legend row is painted inline with its class colour (data/flood-risk).
+   The ring keeps the palest class visible on a light panel. */
+.layer-toggle__swatch--floodRisk {
+  background: linear-gradient(90deg, #1a9641, #a6d96a, #ffffbf, #fdae61, #d7191c);
+}
+
+.layer-toggle__swatch--floodRisk,
+.map-legend__swatch--flood-risk {
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+}
+
 :root[data-theme="dark"] .layer-toggle__swatch--state,
 :root[data-theme="dark"] .map-legend__swatch--state {
   border-color: #9ee0e2;
@@ -560,6 +571,24 @@
   .detail-map {
     height: 420px;
   }
+}
+
+/* ---------- Flood risk at a clicked spot ---------- */
+
+.admin-unit-popup__risk {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.admin-unit-popup__risk-dot {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
 }
 
 /* ---------- Places an administrator saved by hand ---------- */
