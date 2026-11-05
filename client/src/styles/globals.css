@@ -118,6 +118,39 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Slim scrollbars everywhere, including the page and the open list of a <select> (the default is wide,
+   with arrow buttons). ::-webkit-scrollbar covers Chrome, Edge and Safari; the standard properties
+   cover Firefox. A component with its own scrollbar styling (the sidebar, the bell's panel) overrides this. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+}
+
 body {
   margin: 0;
   min-height: 100dvh;

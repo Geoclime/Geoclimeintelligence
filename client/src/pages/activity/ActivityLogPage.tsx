@@ -46,7 +46,18 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   "user.access_changed": "Access changed",
 };
 
-const isDate = (value: string | null) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined);
+/** The "What" filter's groups, by the part of the action before the dot, in the order they are listed. */
+const ACTION_GROUPS: Array<{ label: string; kinds: string[] }> = [
+  { label: "Floods", kinds: ["flood"] },
+  { label: "Drains", kinds: ["drain"] },
+  { label: "Places", kinds: ["place"] },
+  { label: "Households and photos", kinds: ["household", "photo"] },
+  { label: "Roles and access", kinds: ["role", "user"] },
+];
+
+const actionsOf = (kinds: string[]) => AUDIT_ACTIONS.filter((action) => kinds.includes(action.split(".")[0]));
+
+const isDate =(value: string | null) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined);
 
 /**
  * The activity log: who recorded, inspected, called over, changed or deleted what on the record of the
@@ -108,15 +119,19 @@ export function ActivityLogPage() {
         </Button>
       </header>
 
-      <section className="card" aria-busy={loading} aria-label="Activity">
+      <section className="card activity-card" aria-busy={loading} aria-label="Activity">
         <div className="activity-filters">
           <TextField label="Search" placeholder="Name, email or what happened" value={text} onChange={(event) => setText(event.target.value)} data-cy="activity-search" />
           <SelectField label="What" value={filters.action ?? ""} onChange={(event) => setFilter("action", event.target.value)} data-cy="activity-action">
             <option value="">Everything</option>
-            {AUDIT_ACTIONS.map((action) => (
-              <option key={action} value={action}>
-                {ACTION_LABEL[action]}
-              </option>
+            {ACTION_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {actionsOf(group.kinds).map((action) => (
+                  <option key={action} value={action}>
+                    {ACTION_LABEL[action]}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </SelectField>
           <TextField label="From" type="date" value={filters.from ?? ""} onChange={(event) => setFilter("from", event.target.value)} data-cy="activity-from" />

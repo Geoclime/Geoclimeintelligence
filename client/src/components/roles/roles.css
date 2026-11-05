@@ -86,11 +86,16 @@
 
 /* The activity log */
 
+.activity-card {
+  padding: var(--space-4);
+}
+
 .activity-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-3);
   align-items: end;
+  margin-bottom: var(--space-3);
 }
 
 .activity-filters .field {

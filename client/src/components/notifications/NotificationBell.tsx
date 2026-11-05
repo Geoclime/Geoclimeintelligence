@@ -1,17 +1,20 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { useNotifications } from "../../hooks/useNotifications";
+import { EmptyState } from "../shared/EmptyState";
 import { Icon } from "../shared/Icon";
 import { NotificationItem } from "./NotificationItem";
 import "./notifications.css";
 
 /**
- * The top bar's bell: the unread count, and a panel with the newest notifications, "Mark all as
- * read", and links to the inbox and settings. Esc or a click outside closes it.
+ * The top bar's bell: the unread count, and a panel with the newest notifications (all or only the
+ * unread) and "Mark all as read". Esc or a click outside closes it.
  */
 export function NotificationBell() {
   const { recent, unreadCount, loading, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const shown = unreadOnly ? recent.filter((n) => !n.readAt) : recent;
   const panelId = useId();
   const root = useRef<HTMLDivElement>(null);
   const location = useLocation();
@@ -57,20 +60,33 @@ export function NotificationBell() {
               </button>
             )}
           </header>
+          <div className="notification-panel__filter">
+            <div className="segmented" role="group" aria-label="Show">
+              <button type="button" aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>
+                All
+              </button>
+              <button type="button" aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>
+                Unread{unreadCount > 0 ? ` (${unreadCount})` : ""}
+              </button>
+            </div>
+          </div>
           <div className="notification-panel__list">
-            {recent.length === 0 ? (
-              <p className="notification-panel__empty">{loading ? "Loading…" : "Nothing yet. Flood alerts for your area and updates on your reports appear here."}</p>
+            {shown.length === 0 ? (
+              <div className="notification-panel__empty">
+                {loading ? (
+                  <p>Loading…</p>
+                ) : (
+                  <EmptyState
+                    icon="bell"
+                    title={unreadOnly ? "You're all caught up" : "No notifications yet"}
+                    message="Flood alerts for your area and updates on your reports appear here."
+                  />
+                )}
+              </div>
             ) : (
-              recent.map((notification) => <NotificationItem key={notification.id} notification={notification} onOpen={(n) => void markRead(n.id)} compact />)
+              shown.map((notification) => <NotificationItem key={notification.id} notification={notification} onOpen={(n) => void markRead(n.id)} compact />)
             )}
           </div>
-          <footer className="notification-panel__footer">
-            <Link to="/notifications">See all</Link>
-            <Link to="/notifications#settings">
-              <Icon name="edit" size={14} />
-              Settings
-            </Link>
-          </footer>
         </div>
       )}
     </div>

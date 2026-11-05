@@ -79,8 +79,7 @@
   }
 }
 
-.notification-panel__header,
-.notification-panel__footer {
+.notification-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -92,17 +91,9 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.notification-panel__footer {
-  border-top: 1px solid var(--color-border);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-
-.notification-panel__footer a {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  text-decoration: none;
+.notification-panel__filter {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .notification-panel__title {
@@ -125,11 +116,53 @@
   padding: var(--space-1);
 }
 
+/* A slim scrollbar: the default one is wide, with arrow buttons, and crowds a small panel.
+   ::-webkit-scrollbar covers Chrome, Edge and Safari; the standard properties cover Firefox. */
+.notification-panel__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-panel__list::-webkit-scrollbar-button {
+  display: none;
+}
+
+.notification-panel__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-panel__list::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+}
+
+.notification-panel__list::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .notification-panel__list {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+}
+
 .notification-panel__empty {
-  padding: var(--space-5) var(--space-4);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   text-align: center;
+}
+
+.notification-panel__empty > p {
+  padding: var(--space-5) var(--space-4);
+}
+
+/* The shared empty state is sized for a page; tighten it for the small panel. */
+.notification-panel__empty .state-panel {
+  padding: var(--space-5) var(--space-4);
+}
+
+.notification-panel__empty .state-panel__title {
+  font-size: var(--text-md);
 }
 
 /* ---------- One notification ---------- */
@@ -394,6 +427,6 @@
 
 @media (min-width: 1100px) {
   .notifications-page__grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 720px);
   }
 }

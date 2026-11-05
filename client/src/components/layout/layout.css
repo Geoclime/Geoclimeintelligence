@@ -104,6 +104,36 @@
   padding: var(--space-3) var(--space-2);
 }
 
+/* A slim scrollbar: the default one is wide, with arrow buttons. The sidebar is dark in both themes.
+   ::-webkit-scrollbar covers Chrome, Edge and Safari; the standard properties cover Firefox. */
+.app-sidebar__nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-sidebar__nav::-webkit-scrollbar-button {
+  display: none;
+}
+
+.app-sidebar__nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar__nav::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 0.25);
+}
+
+.app-sidebar__nav::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 0.4);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .app-sidebar__nav {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+  }
+}
+
 .app-sidebar__group + .app-sidebar__group {
   margin-top: var(--space-4);
 }
