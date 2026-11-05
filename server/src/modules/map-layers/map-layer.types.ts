@@ -1,7 +1,7 @@
 import type { FeatureCollection, Geometry, MultiLineString, MultiPolygon, Point } from "geojson";
 import type { BBox, LonLat } from "../../common/geo/geo";
 import type { DataSourceDto } from "../data-sources/data-source.types";
-import type { FacilityOrigin, FacilityType, MapLayerId, WaterClass } from "./layer-rules";
+import type { FacilityOrigin, FacilityType, MapLayerId, WaterClass, WetlandClass } from "./layer-rules";
 
 /**
  * A map-layer reply: GeoJSON plus `truncated`. It is true when more features were in view than
@@ -141,6 +141,14 @@ export interface BuildingFeatureProperties {
 
 export type BuildingFeatureCollection = LayerFeatureCollection<MultiPolygon, BuildingFeatureProperties>;
 
+export interface WetlandFeatureProperties {
+  id: string;
+  name: string | null;
+  wetlandClass: WetlandClass;
+}
+
+export type WetlandFeatureCollection = LayerFeatureCollection<MultiPolygon, WetlandFeatureProperties>;
+
 /** The visible area, and optionally the zoom, which thins the layer and simplifies its shapes. */
 export interface LayerGeoJsonQuery {
   bbox: BBox;
@@ -186,5 +194,10 @@ export interface IInfrastructureRepository {
 
 export interface IBuildingRepository {
   findGeoJson(query: LayerGeoJsonQuery): Promise<BuildingFeatureCollection>;
+  summarise(): Promise<LayerSummary>;
+}
+
+export interface IWetlandRepository {
+  findGeoJson(query: LayerGeoJsonQuery): Promise<WetlandFeatureCollection>;
   summarise(): Promise<LayerSummary>;
 }

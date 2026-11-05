@@ -4,6 +4,8 @@ import type { LonLat } from "../types/admin-unit.types";
 import type { PlaceOnMap } from "../types/map-layer.types";
 import { placeOnMapFrom } from "../utils/saved-places";
 import { toNewPlaceBody, toUpdatePlaceBody, type PlaceFormValues } from "../components/map/place-form.schema";
+import type { PendingPhoto } from "../types/photo.types";
+import { usePhotoUploads } from "./usePhotos";
 import { useToast } from "./useToast";
 
 /** What the form is open for: a new place at a point, or an existing one. */
@@ -16,6 +18,7 @@ export type PlaceFormTarget = { mode: "create"; point: LonLat; where: string } |
  */
 export function useSavedPlaces(onChanged: () => void) {
   const { showToast } = useToast();
+  const photoUploads = usePhotoUploads();
   const [selected, setSelected] = useState<PlaceOnMap | null>(null);
   const [form, setForm] = useState<PlaceFormTarget | null>(null);
   // A new key each time the form opens, so it starts from the right values instead of the last ones.
@@ -34,16 +37,15 @@ export function useSavedPlaces(onChanged: () => void) {
 
   /** Saves the form: a new place, or the changes to the one being edited. Rejects so the form can show why. */
   const submit = useCallback(
-    async (values: PlaceFormValues) => {
+    async (values: PlaceFormValues, photos: PendingPhoto[] = []) => {
       if (!form) throw new Error("No place is being edited");
-      if (form.mode === "create") {
-        const { data } = await savePlace(toNewPlaceBody(values, form.point));
-        return data ? placeOnMapFrom(data) : null;
-      }
-      const { data } = await updatePlace(form.place.id, toUpdatePlaceBody(values));
-      return data ? placeOnMapFrom(data) : null;
+      const { data } = form.mode === "create" ? await savePlace(toNewPlaceBody(values, form.point)) : await updatePlace(form.place.id, toUpdatePlaceBody(values));
+      if (!data) return null;
+      // The place is saved first; its photos follow, so a weak signal never costs the place.
+      void photoUploads.upload({ type: "place", id: data.id }, photos);
+      return placeOnMapFrom(data);
     },
-    [form],
+    [form, photoUploads],
   );
 
   /** The form saved: say so, close it and the popup, and have the map draw the change. */

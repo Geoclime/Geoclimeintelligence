@@ -8,6 +8,8 @@ import { describeKind } from "../../utils/facility-kinds";
 import { areaFocusLink, communityFocusLink, facilityFocusLink, type MapFocusLink } from "../../utils/map-focus";
 import { MAP_PATH } from "../../utils/map-url";
 import { hasAnyRole } from "../../utils/roles";
+import { can } from "../../utils/permissions";
+import { useAuth } from "../../hooks/useAuth";
 import { Icon, type IconName } from "../shared/Icon";
 import { NAV_GROUPS } from "./nav-items";
 
@@ -35,6 +37,7 @@ const EXTRA_PAGES = [
  * (which are behind sign-in, like the map's other layers) through their own route.
  */
 export function QuickSearch({ role }: { role: UserRole }) {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -78,10 +81,10 @@ export function QuickSearch({ role }: { role: UserRole }) {
 
   const pages = useMemo(() => {
     const items = NAV_GROUPS.flatMap((group) => group.items)
-      .filter((item) => item.roles.length === 0 || hasAnyRole(role, item.roles))
+      .filter((item) => (item.permission ? can(user, item.permission) : item.roles.length === 0 || hasAnyRole(role, item.roles)))
       .map((item) => ({ to: item.to, label: item.label, icon: item.icon, description: item.description }));
     return [...items, ...EXTRA_PAGES.filter((extra) => !items.some((item) => item.to === extra.to))];
-  }, [role]);
+  }, [role, user]);
 
   // On the map already, the layers the viewer switched on stay as they are when a place is chosen.
   const mapParams = location.pathname === MAP_PATH ? new URLSearchParams(location.search) : undefined;

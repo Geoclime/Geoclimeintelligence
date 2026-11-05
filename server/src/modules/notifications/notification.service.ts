@@ -1,3 +1,4 @@
+import { PermissionResolver } from "../../common/access/permission-resolver";
 import type { AuthUser } from "../../common/access/auth-user";
 import { EmailOutbox, type IEmailOutbox } from "../../common/email/email-outbox";
 import { notificationEmail } from "../../common/email/notification-email";
@@ -94,13 +95,13 @@ export class NotificationService {
   async preferences(user: AuthUser): Promise<PreferencesDto> {
     const saved = new Map((await this.notifications.findAllPreferences(user.id)).map((p) => [p.category, p]));
     return {
-      categories: categoriesFor(user.role).map((category) => ({ ...ALL_ON, ...saved.get(category), category, label: CATEGORY_INFO[category].label })),
+      categories: categoriesFor(await PermissionResolver.Instance.permissionsFor(user.role)).map((category) => ({ ...ALL_ON, ...saved.get(category), category, label: CATEGORY_INFO[category].label })),
       channels: { inApp: true, email: this.email.enabled, push: this.push.enabled },
     };
   }
 
   async savePreference(user: AuthUser, preference: PreferenceDto): Promise<PreferencesDto> {
-    if (!categoriesFor(user.role).includes(preference.category)) {
+    if (!categoriesFor(await PermissionResolver.Instance.permissionsFor(user.role)).includes(preference.category)) {
       throw new ValidationError([{ field: "category", message: "This kind of notification doesn't apply to your role" }]);
     }
     await this.notifications.savePreference(user.id, preference);

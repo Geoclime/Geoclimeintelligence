@@ -4,9 +4,21 @@ import { ConflictError, NotFoundError, ValidationError } from "../../common/erro
 import { domainEvents } from "../../common/events/domain-events";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
+import { AuditService } from "../audit/audit.service";
+import { PhotoService } from "../photos/photo.service";
 import type { LayerGeoJsonQuery } from "../map-layers/map-layer.types";
 import { FloodExtentRepository } from "./flood-extent.repository";
-import type { FloodExtentDto, FloodExtentFeatureCollection, FloodExtentWithImpact, FloodHistory, FloodImpact, IFloodExtentRepository, PublicFloodPoint } from "./field-survey.types";
+import type {
+  FloodExtentDto,
+  FloodExtentFeatureCollection,
+  FloodExtentWithImpact,
+  FloodHistory,
+  FloodImpact,
+  FloodImpactFeatureCollection,
+  FloodPeople,
+  IFloodExtentRepository,
+  PublicFloodPoint,
+} from "./field-survey.types";
 import type { CreateFloodExtentBody } from "./field-survey.validation";
 import { assertMayDelete, assertRecordInRegion, locateSurvey } from "./survey-location";
 import { SURVEY_LIMITS } from "./survey-rules";
@@ -16,16 +28,23 @@ const { min, max } = SURVEY_LIMITS.extentAreaM2;
 /**
  * Flood extents: the reach of a flood, recorded on the ground. Responders, officials and administrators
  * walk (or draw) its edge; everyone signed in sees it on the map, with what it reaches. The route's
- * authorise() is the role check; region scope is checked here, because it needs the area hierarchy.
- * Recording and receding are open to anyone in scope (a flood is everyone's to report and to call
- * over); deleting is for whoever recorded it, or an administrator. Each change is announced
+ * requirePermission() is the role check; region scope is checked here, because it needs the area
+ * hierarchy. Recording and receding are open to anyone in scope with the permission (a flood is
+ * everyone's to report and to call over); deleting is for whoever recorded it (survey.delete_own), or
+ * anyone with survey.delete_any. Every change is in the activity log, with who made it. Each change is announced
  * (flood.recorded, flood.receded, flood.deleted) so the public alert map, which shows the floods that
  * are still going, is refreshed for everyone watching it.
  */
 export class FloodExtentService {
   private static _instance?: FloodExtentService;
   static get Instance(): FloodExtentService {
-    return (this._instance ??= new FloodExtentService(FloodExtentRepository.Instance, AdminUnitRepository.Instance, RegionAccess.Instance));
+    return (this._instance ??= new FloodExtentService(
+      FloodExtentRepository.Instance,
+      AdminUnitRepository.Instance,
+      RegionAccess.Instance,
+      AuditService.Instance,
+      PhotoService.Instance,
+    ));
   }
 
   // Public so tests can inject fakes; application code always uses .Instance.
@@ -33,6 +52,8 @@ export class FloodExtentService {
     private readonly extents: IFloodExtentRepository,
     private readonly units: Pick<IAdminUnitRepository, "findContaining" | "findSummaryById">,
     private readonly regions: Pick<RegionAccess, "assert">,
+    private readonly audit: Pick<AuditService, "record">,
+    private readonly photos: Pick<PhotoService, "removeAllFor">,
   ) {}
 
   async create(input: CreateFloodExtentBody, actor: AuthUser): Promise<FloodExtentWithImpact> {
@@ -56,6 +77,15 @@ export class FloodExtentService {
         { field: "points", message: `The shape covers less than ${min} m² or more than ${max / 1_000_000} km², which a flood can't. Check the points and try again.` },
       ]);
     }
+    await this.audit.record(actor, {
+      action: "flood.recorded",
+      entityType: "flood_extent",
+      entityId: extent.id,
+      lgaId: extent.lgaId,
+      wardId: extent.wardId,
+      summary: `Recorded a flood of ${hectares(extent.areaM2)}${extent.depth ? `, ${extent.depth}-deep` : ""} (${extent.method})`,
+      details: { areaM2: extent.areaM2, depth: extent.depth, method: extent.method, accuracyM: extent.accuracyM },
+    });
     domainEvents.emit("flood.recorded", { floodId: extent.id });
     return { extent, impact: (await this.extents.impactOf(extent.id)) ?? emptyImpact(extent.areaM2) };
   }
@@ -84,15 +114,37 @@ export class FloodExtentService {
     return impact;
   }
 
+  /** The buildings, road stretches and facilities inside a flood, as shapes to draw over it. */
+  async impactFeatures(id: string): Promise<FloodImpactFeatureCollection> {
+    const features = await this.extents.impactFeatures(id);
+    if (!features) throw new NotFoundError("Flood extent");
+    return features;
+  }
+
+  /** Who recorded it and who called it over. Staff-only (survey.view_people on the route). */
+  async people(id: string): Promise<FloodPeople> {
+    const people = await this.extents.findPeople(id);
+    if (!people) throw new NotFoundError("Flood extent");
+    return people;
+  }
+
   async recede(id: string, actor: AuthUser): Promise<FloodExtentDto> {
     const record = await this.extents.findById(id);
     if (!record) throw new NotFoundError("Flood extent");
     await assertRecordInRegion(this.regions, actor, record);
     if (record.recededAt) throw new ConflictError("This flood is already marked as receded");
 
-    const updated = await this.extents.markReceded(id);
+    const updated = await this.extents.markReceded(id, actor.id);
     // Someone else marked it between the read and the write.
     if (!updated) throw new ConflictError("This flood is already marked as receded");
+    await this.audit.record(actor, {
+      action: "flood.receded",
+      entityType: "flood_extent",
+      entityId: id,
+      lgaId: updated.lgaId,
+      wardId: updated.wardId,
+      summary: `Marked a flood of ${hectares(updated.areaM2)} as receded`,
+    });
     domainEvents.emit("flood.receded", { floodId: id });
     return updated;
   }
@@ -104,9 +156,17 @@ export class FloodExtentService {
     await assertRecordInRegion(this.regions, actor, record);
     if (!record.recededAt) throw new ConflictError("This flood isn't marked as receded");
 
-    const updated = await this.extents.markActive(id);
+    const updated = await this.extents.markActive(id, actor.id);
     // Someone else reopened it between the read and the write.
     if (!updated) throw new ConflictError("This flood isn't marked as receded");
+    await this.audit.record(actor, {
+      action: "flood.reopened",
+      entityType: "flood_extent",
+      entityId: id,
+      lgaId: updated.lgaId,
+      wardId: updated.wardId,
+      summary: `Put a flood of ${hectares(updated.areaM2)} back as still going`,
+    });
     domainEvents.emit("flood.reopened", { floodId: id });
     return updated;
   }
@@ -114,10 +174,26 @@ export class FloodExtentService {
   async remove(id: string, actor: AuthUser): Promise<void> {
     const record = await this.extents.findById(id);
     if (!record) throw new NotFoundError("Flood extent");
-    assertMayDelete(actor, record.recordedBy);
+    await assertMayDelete(actor, record.recordedBy);
+    // Its photos' files go first: the rows go with the flood, and a file with no row could never be found again.
+    await this.photos.removeAllFor({ floodExtentId: id });
     if (!(await this.extents.delete(id))) throw new NotFoundError("Flood extent");
+    await this.audit.record(actor, {
+      action: "flood.deleted",
+      entityType: "flood_extent",
+      entityId: id,
+      lgaId: record.lgaId,
+      wardId: record.wardId,
+      summary: `Deleted a flood record${record.recededAt ? " (it had receded)" : ""}`,
+      details: { recordedBy: record.recordedBy },
+    });
     domainEvents.emit("flood.deleted", { floodId: id });
   }
+}
+
+/** "3.2 ha", or square metres for something smaller than a tenth of a hectare. */
+function hectares(areaM2: number): string {
+  return areaM2 >= 1000 ? `${(areaM2 / 10_000).toFixed(1)} ha` : `${Math.round(areaM2)} m²`;
 }
 
 /** What to show when the impact couldn't be read right after a save: the flood is stored, the counts are not. */
@@ -125,6 +201,7 @@ function emptyImpact(areaM2: number): FloodImpact {
   return {
     areaM2,
     buildings: 0,
+    households: 0,
     roadMetres: 0,
     facilities: { total: 0, items: [] },
     settlements: [],

@@ -19,7 +19,7 @@ import { useToast } from "../../hooks/useToast";
 import { errorMessage } from "../../transport/api-error";
 import type { FloodAlert } from "../../types/alert.types";
 import { severityByLga, SEVERITY_INFO, sortAlerts } from "../../utils/alert-severity";
-import { hasAnyRole } from "../../utils/roles";
+import { can } from "../../utils/permissions";
 import "../../components/alerts/alerts.css";
 import "../../components/reports/reports.css";
 
@@ -44,8 +44,8 @@ export function AlertsPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   // Whether the edit being saved was sent to people, for the message afterwards.
   const tellPeople = useRef(false);
-  const canIssue = user ? hasAnyRole(user.role, ["government_official"]) : false;
-  const canReview = user ? hasAnyRole(user.role, ["emergency_responder", "government_official"]) : false;
+  const canIssue = can(user, "alerts.issue");
+  const canReview = can(user, "reports.review");
 
   const sorted = useMemo(() => sortAlerts(alerts), [alerts]);
   const inForce = sorted.filter((a) => a.status === "active" || a.status === "scheduled");

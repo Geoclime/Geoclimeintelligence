@@ -17,7 +17,8 @@
 import "reflect-metadata";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { assertScopeAllowedForRole, USER_ROLES } from "../common/access/roles";
+import { assertScopeAllowedForRole } from "../common/access/roles";
+import { RoleRepository } from "../modules/roles/role.repository";
 import { AppError } from "../common/errors/app-error";
 import { AppDataSource } from "../config/data-source";
 import { AdminUnitRepository } from "../modules/admin-units/admin-unit.repository";
@@ -25,7 +26,7 @@ import { UserRepository } from "../modules/users/user.repository";
 
 const argsSchema = z.object({
   email: z.email(),
-  role: z.enum(USER_ROLES),
+  role: z.string().regex(/^[a-z][a-z0-9_]{1,31}$/, "--role must be a role code, e.g. emergency_responder"),
   scope: z.uuid().optional(),
 });
 
@@ -39,10 +40,12 @@ async function main() {
   });
   const args = argsSchema.parse(values);
   const scopeAdminUnitId = args.scope ?? null;
-  assertScopeAllowedForRole(args.role, scopeAdminUnitId);
 
   await AppDataSource.initialize();
   try {
+    const role = await RoleRepository.Instance.findByCode(args.role);
+    if (!role) throw new AppError(404, `No role ${args.role}. See the Roles screen for the codes.`);
+    assertScopeAllowedForRole(role, scopeAdminUnitId);
     const user = await UserRepository.Instance.findByEmail(args.email);
     if (!user) {
       throw new AppError(404, `No user with email ${args.email}. They must sign in and call the API once first.`);

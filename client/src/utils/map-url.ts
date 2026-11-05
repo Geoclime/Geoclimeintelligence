@@ -1,4 +1,4 @@
-import { BOUNDARY_LAYER_IDS, HAZARD_LAYER_IDS, OVERLAY_LAYER_IDS, SURVEY_LAYER_IDS, type MapLayerId } from "../components/map/map-style";
+import { BOUNDARY_LAYER_IDS, HAZARD_LAYER_IDS, OVERLAY_LAYER_IDS, PERSONAL_LAYER_IDS, SURVEY_LAYER_IDS, type MapLayerId } from "../components/map/map-style";
 import type { LonLat } from "../types/admin-unit.types";
 
 /**
@@ -10,7 +10,22 @@ import type { LonLat } from "../types/admin-unit.types";
 /** Where the map lives. It was "/" until the public landing page took that address. */
 export const MAP_PATH = "/map";
 
-const MAP_PARAMS = ["lng", "lat", "z", "lga", "layers", "pin"];
+const MAP_PARAMS = ["lng", "lat", "z", "lga", "layers", "pin", "base"];
+
+/** The picture under everything: the themed street map, or aerial imagery for checking what is really on the ground. */
+export type MapBase = "map" | "satellite";
+
+/** /map?base=satellite opens on imagery; anything else (or nothing) is the street map. */
+export function readBase(params: URLSearchParams): MapBase {
+  return params.get("base") === "satellite" ? "satellite" : "map";
+}
+
+export function writeBase(params: URLSearchParams, base: MapBase): URLSearchParams {
+  const next = new URLSearchParams(params);
+  if (base === "satellite") next.set("base", "satellite");
+  else next.delete("base");
+  return next;
+}
 
 /**
  * True for an address that carries map state, i.e. a map link copied before the map moved to
@@ -27,7 +42,7 @@ export interface MapUrlView {
 }
 
 // The flood risk layer comes last, so a link that lists layers (and so predates it) still reads as before, with it off.
-const ALL_LAYERS: MapLayerId[] = [...BOUNDARY_LAYER_IDS, ...OVERLAY_LAYER_IDS, ...SURVEY_LAYER_IDS, ...HAZARD_LAYER_IDS];
+const ALL_LAYERS: MapLayerId[] = [...BOUNDARY_LAYER_IDS, ...OVERLAY_LAYER_IDS, ...SURVEY_LAYER_IDS, ...HAZARD_LAYER_IDS, ...PERSONAL_LAYER_IDS];
 
 function num(value: string | null, min: number, max: number): number | null {
   if (value === null || value.trim() === "") return null;

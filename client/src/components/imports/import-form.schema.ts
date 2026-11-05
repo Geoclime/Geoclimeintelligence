@@ -17,7 +17,7 @@ import type { MapLayerUploadKind, UploadMapLayerInput } from "../../types/map-la
  * The import screen's form. Field names follow the backend's startImportSchema
  * (server/src/modules/data-sources/imports/import.validation.ts): countryCode, level, sourceId,
  * sheetName, headerRow, parentId and columnMapping.<column>, so a 400's field errors land on the
- * right input. Level values `layer:roads`, `layer:waterways`, `layer:settlements`, `layer:infrastructure`, `layer:buildings` and `layer:zip`
+ * right input. Level values `layer:roads`, `layer:waterways`, `layer:settlements`, `layer:infrastructure`, `layer:buildings`, `layer:wetlands` and `layer:zip`
  * select map-layer uploads (`POST /api/v1/map-layers/upload`), which skip column matching.
  * `rainfall:<level>` selects a rainfall import for that level's areas (`POST /api/v1/imports/rainfall`),
  * whose columns are columnMapping.area_code, area_name, year_month and rainfall_mm.
@@ -47,6 +47,7 @@ export function parseLayerChoice(levelValue: string): MapLayerUploadKind | null 
   if (levelValue === "layer:settlements") return "settlements";
   if (levelValue === "layer:infrastructure") return "infrastructure";
   if (levelValue === "layer:buildings") return "buildings";
+  if (levelValue === "layer:wetlands") return "wetlands";
   if (levelValue === "layer:zip") return "zip";
   return null;
 }
@@ -62,6 +63,7 @@ export function detectLayerChoiceFromFileName(fileName: string): string | null {
   // Geofabrik's extract: a buildings .gpkg, any other gis_osm_*.gpkg, or the zip of them all (osm-...zip,
   // facilities by default: choose Buildings for the same zip).
   if (lower.endsWith(".gpkg") && lower.includes("buildings")) return "layer:buildings";
+  if (lower.endsWith(".gpkg") && /(^|_)water_a(_|.)/.test(lower)) return "layer:wetlands";
   // A zip with "osm" in its name: osm-20261027....zip, Rivers_State_OSM_All_Features_....zip.
   if (lower.endsWith(".gpkg") || (/(^|[^a-z])osm([^a-z]|$)/.test(lower) && lower.endsWith(".zip"))) return "layer:infrastructure";
   if (lower.includes("road") && (lower.endsWith(".geojson") || lower.endsWith(".json"))) return "layer:roads";
@@ -193,7 +195,7 @@ export function toStartFloodRiskImport(values: ImportFormValues, file: File): St
 
 /** The layers loaded from Geofabrik's OpenStreetMap extract (GeoPackages), which can arrive cut short. */
 export function isOsmLayer(layer: MapLayerUploadKind | null): boolean {
-  return layer === "infrastructure" || layer === "buildings";
+  return layer === "infrastructure" || layer === "buildings" || layer === "wetlands";
 }
 
 /** Builds the upload. Unmapped columns and the parent column in "one parent" mode are left out. */

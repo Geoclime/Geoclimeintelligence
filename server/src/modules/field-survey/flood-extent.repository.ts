@@ -7,6 +7,8 @@ import type {
   FloodHistory,
   FloodHistoryItem,
   FloodImpact,
+  FloodImpactFeatureCollection,
+  FloodPeople,
   IFloodExtentRepository,
   NewFloodExtent,
   PublicFloodPoint,
@@ -80,28 +82,29 @@ export class FloodExtentRepository extends BaseRepository<FloodExtent> implement
     return rows[0] ? toDto(rows[0]) : null;
   }
 
-  async markReceded(id: string): Promise<FloodExtentDto | null> {
+  async markReceded(id: string, by: string): Promise<FloodExtentDto | null> {
     const rows: FloodExtentRow[] = await this.repo.query(
       `WITH changed AS (
-         UPDATE flood_extents SET receded_at = now(), updated_at = now()
+         UPDATE flood_extents SET receded_at = now(), receded_by = $2::uuid, updated_at = now()
           WHERE id = $1 AND receded_at IS NULL
           RETURNING *)
        SELECT ${RETURNING} FROM changed`,
-      [id],
+      [id, by],
     );
     return rows[0] ? toDto(rows[0]) : null;
   }
 
-  async markActive(id: string): Promise<FloodExtentDto | null> {
+  async markActive(id: string, by: string): Promise<FloodExtentDto | null> {
     // Only receded_at is cleared: observed_at stays, so the flood returns to exactly the state it had before it was
     // marked receded, including whether the public alert map still shows it (that looks at how recently it was recorded).
+    // Who reopened it, and when, is kept; who had marked it receded is in the activity log.
     const rows: FloodExtentRow[] = await this.repo.query(
       `WITH changed AS (
-         UPDATE flood_extents SET receded_at = NULL, updated_at = now()
+         UPDATE flood_extents SET receded_at = NULL, receded_by = NULL, reopened_by = $2::uuid, reopened_at = now(), updated_at = now()
           WHERE id = $1 AND receded_at IS NOT NULL
           RETURNING *)
        SELECT ${RETURNING} FROM changed`,
-      [id],
+      [id, by],
     );
     return rows[0] ? toDto(rows[0]) : null;
   }
@@ -120,6 +123,7 @@ export class FloodExtentRepository extends BaseRepository<FloodExtent> implement
       `WITH view AS (SELECT ST_MakeEnvelope($1, $2, $3, $4, 4326) AS box),
             picked AS (
               SELECT e.id, e.geom, e.area_m2, e.depth, e.method, e.receded_at, e.observed_at, e.lga_id, e.ward_id,
+                     (SELECT count(*)::int FROM map_photos mp WHERE mp.flood_extent_id = e.id) AS photo_count,
                      row_number() OVER (ORDER BY (e.receded_at IS NOT NULL), e.observed_at DESC, e.id) AS n
                 FROM flood_extents e, view
                WHERE e.geom && view.box AND ST_Intersects(e.geom, view.box)
@@ -135,13 +139,69 @@ export class FloodExtentRepository extends BaseRepository<FloodExtent> implement
            'geometry', ST_AsGeoJSON(geom, 6)::json,
            'properties', json_build_object('id', id, 'areaM2', area_m2, 'depth', depth, 'method', method,
                                            'receded', receded_at IS NOT NULL, 'observedAt', observed_at,
-                                           'lgaId', lga_id, 'wardId', ward_id)
+                                           'photoCount', photo_count, 'lgaId', lga_id, 'wardId', ward_id)
          ) ORDER BY n) FILTER (WHERE n <= $5::int), '[]'::json)
        ) AS fc
        FROM picked`,
       [minLon, minLat, maxLon, maxLat, limit, SURVEY_LIMITS.recededVisibleDays],
     );
     return rows[0]?.fc ?? { type: "FeatureCollection", features: [], truncated: false };
+  }
+
+  async findPeople(id: string): Promise<FloodPeople | null> {
+    type Row = Record<"recordedId" | "recordedName" | "recordedRole" | "recededId" | "recededName" | "recededRole" | "reopenedId" | "reopenedName" | "reopenedRole", string | null> & {
+      recededAt: Date | null;
+      reopenedAt: Date | null;
+    };
+    const rows: Row[] = await this.repo.query(
+      `SELECT e.recorded_by AS "recordedId", r.display_name AS "recordedName", r.role AS "recordedRole",
+              e.receded_by AS "recededId", d.display_name AS "recededName", d.role AS "recededRole", e.receded_at AS "recededAt",
+              e.reopened_by AS "reopenedId", o.display_name AS "reopenedName", o.role AS "reopenedRole", e.reopened_at AS "reopenedAt"
+         FROM flood_extents e
+         LEFT JOIN users r ON r.id = e.recorded_by
+         LEFT JOIN users d ON d.id = e.receded_by
+         LEFT JOIN users o ON o.id = e.reopened_by
+        WHERE e.id = $1`,
+      [id],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    const person = (personId: string | null, name: string | null, role: string | null) => (personId ? { id: personId, name, role } : null);
+    return {
+      recordedBy: person(row.recordedId, row.recordedName, row.recordedRole),
+      recededBy: person(row.recededId, row.recededName, row.recededRole),
+      recededAt: row.recededAt?.toISOString() ?? null,
+      reopenedBy: person(row.reopenedId, row.reopenedName, row.reopenedRole),
+      reopenedAt: row.reopenedAt?.toISOString() ?? null,
+    };
+  }
+
+  async impactFeatures(id: string): Promise<FloodImpactFeatureCollection | null> {
+    // The shapes behind impactOf's counts, to draw over the flood while its popup is open: the buildings it
+    // touches, the stretches of road under it (clipped to it), and the facilities inside. Each kind is capped
+    // separately, so a flood over a dense town still shows its roads and facilities. Coordinates to 6 places.
+    const cap = SURVEY_LIMITS.impactFeatureCap;
+    const rows: { fc: FloodImpactFeatureCollection | null }[] = await this.repo.query(
+      `WITH e AS (SELECT geom FROM flood_extents WHERE id = $1),
+            b AS (SELECT b.id, b.name, b.geom AS g FROM buildings b, e WHERE b.geom && e.geom AND ST_Intersects(b.geom, e.geom) ORDER BY b.id LIMIT $2::int + 1),
+            r AS (SELECT r.id, r.name, ST_Multi(ST_CollectionExtract(ST_Intersection(r.geom, e.geom), 2)) AS g
+                    FROM roads r, e WHERE r.geom && e.geom AND ST_Intersects(r.geom, e.geom) ORDER BY r.class_rank, r.id LIMIT $2::int + 1),
+            f AS (SELECT i.id, i.name, i.geom AS g FROM infrastructure i, e WHERE i.geom && e.geom AND ST_Covers(e.geom, i.geom) ORDER BY i.id LIMIT $2::int + 1),
+            all_items AS (
+              SELECT 'building' AS kind, id, name, g, row_number() OVER () AS n FROM b
+              UNION ALL SELECT 'road', id, name, g, row_number() OVER () FROM r WHERE NOT ST_IsEmpty(g)
+              UNION ALL SELECT 'facility', id, name, g, row_number() OVER () FROM f)
+       SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM e) THEN NULL ELSE json_build_object(
+         'type', 'FeatureCollection',
+         'truncated', EXISTS (SELECT 1 FROM all_items WHERE n > $2::int),
+         'features', COALESCE((SELECT json_agg(json_build_object(
+           'type', 'Feature', 'id', id,
+           'geometry', ST_AsGeoJSON(g, 6)::json,
+           'properties', json_build_object('kind', kind, 'name', name)))
+           FROM all_items WHERE n <= $2::int), '[]'::json)) END AS fc`,
+      [id, cap],
+    );
+    return rows[0]?.fc ?? null;
   }
 
   async findActive(days: number, limit: number): Promise<PublicFloodPoint[]> {
@@ -202,6 +262,7 @@ export class FloodExtentRepository extends BaseRepository<FloodExtent> implement
        SELECT json_build_object(
          'areaM2', (SELECT area_m2 FROM e),
          'buildings', (SELECT count(*)::int FROM buildings b, e WHERE b.geom && e.geom AND ST_Intersects(b.geom, e.geom)),
+         'households', (SELECT count(*)::int FROM households h, e WHERE h.geom && e.geom AND ST_Covers(e.geom, h.geom)),
          'roadMetres', (SELECT COALESCE(round(sum(ST_Length(ST_CollectionExtract(ST_Intersection(r.geom, e.geom), 2)::geography)))::int, 0)
                           FROM roads r, e WHERE r.geom && e.geom AND ST_Intersects(r.geom, e.geom)),
          'facilities', json_build_object(

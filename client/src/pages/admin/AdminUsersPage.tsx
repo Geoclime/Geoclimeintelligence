@@ -14,6 +14,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useToast } from "../../hooks/useToast";
 import { useUpdateUserAccess } from "../../hooks/useUpdateUserAccess";
 import { useUsers } from "../../hooks/useUsers";
+import { useRoles } from "../../hooks/useRoles";
 import { USER_ROLES, type UserRole } from "../../types/auth.types";
 import type { ManagedUser } from "../../types/user.types";
 import { parsePageParam } from "../../utils/pagination";
@@ -34,7 +35,9 @@ export function AdminUsersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = parsePageParam(searchParams.get("page"));
   const roleParam = searchParams.get("role");
-  const role = USER_ROLES.includes(roleParam as UserRole) ? (roleParam as UserRole) : undefined;
+  const { roles } = useRoles();
+  // Any role code: the built-in ones and those made on the Roles screen.
+  const role: UserRole | undefined = roleParam && /^[a-z][a-z0-9_]{1,31}$/.test(roleParam) ? roleParam : undefined;
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const q = useDebounce(query.trim(), 300);
   const [editing, setEditing] = useState<ManagedUser | null>(null);
@@ -85,9 +88,9 @@ export function AdminUsersPage() {
       replaceUser(updated);
       setEditing(null);
       const name = updated.displayName || updated.email || "The account";
-      showToast({ type: "success", message: `${name} is now ${roleLabel(updated.role)}.` });
+      showToast({ type: "success", message: `${name} is now ${roleLabel(updated.role, roles)}.` });
     },
-    [replaceUser, showToast],
+    [replaceUser, roles, showToast],
   );
 
   const handleDeclined = useCallback(
@@ -95,9 +98,9 @@ export function AdminUsersPage() {
       replaceUser(updated);
       setEditing(null);
       const name = updated.displayName || updated.email || "The account";
-      showToast({ type: "info", message: `${name}'s role request is declined. They stay ${roleLabel(updated.role)}.` });
+      showToast({ type: "info", message: `${name}'s role request is declined. They stay ${roleLabel(updated.role, roles)}.` });
     },
-    [replaceUser, showToast],
+    [replaceUser, roles, showToast],
   );
 
   const renderBody = () => {
@@ -192,9 +195,9 @@ export function AdminUsersPage() {
               data-cy="user-role-filter"
             >
               <option value="">All roles</option>
-              {USER_ROLES.map((value) => (
+              {(roles.length > 0 ? roles.map((item) => item.code) : [...USER_ROLES]).map((value) => (
                 <option key={value} value={value}>
-                  {roleLabel(value)}
+                  {roleLabel(value, roles)}
                 </option>
               ))}
               <option value={REQUESTS_FILTER}>Open role requests</option>

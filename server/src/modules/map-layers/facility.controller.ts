@@ -17,7 +17,7 @@ export class FacilityController {
 
   static async update(req: Request<{ id: string }>, res: Response, next: NextFunction) {
     try {
-      return res.json(ok(await FacilityService.Instance.update(req.params.id, req.body as UpdateFacilityBody), "Place updated"));
+      return res.json(ok(await FacilityService.Instance.update(req.params.id, req.body as UpdateFacilityBody, req.user!), "Place updated"));
     } catch (err) {
       next(err);
     }
@@ -25,7 +25,7 @@ export class FacilityController {
 
   static async remove(req: Request<{ id: string }>, res: Response, next: NextFunction) {
     try {
-      await FacilityService.Instance.remove(req.params.id);
+      await FacilityService.Instance.remove(req.params.id, req.user!);
       return res.json(ok(null, "Place deleted"));
     } catch (err) {
       next(err);

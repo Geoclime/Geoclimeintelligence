@@ -67,6 +67,7 @@ const LAYER_LABELS: Record<string, string> = {
   settlements: "Settlements",
   infrastructure: "Infrastructure",
   buildings: "Buildings",
+  wetlands: "Wetlands",
   zip: "Map layers delivery zip",
 };
 
@@ -371,6 +372,7 @@ export function ImportNewPage() {
                     <option value="layer:settlements">Map layer: Settlements (GeoJSON)</option>
                     <option value="layer:infrastructure">Map layer: Infrastructure (OpenStreetMap extract, .zip or .gpkg)</option>
                     <option value="layer:buildings">Map layer: Buildings (OpenStreetMap extract, .zip or .gpkg)</option>
+                    <option value="layer:wetlands">Map layer: Wetlands (OpenStreetMap extract, .zip or water_a .gpkg)</option>
                     <option value="layer:zip">Map layer: Delivery zip (provenance.json + layers)</option>
                   </optgroup>
                 )}
@@ -496,6 +498,13 @@ export function ImportNewPage() {
                     Upload the same OpenStreetMap extract (the zip), or one buildings <code>.gpkg</code> file (<code>rivers_buildings_a.gpkg</code>, <code>gis_osm_buildings_a_free_1.gpkg</code>...). Only the building
                     files are read. Rivers State has about 414,000 buildings, so loading takes a few minutes: keep this page open until the
                     report appears. Use the same source as Infrastructure if it&apos;s the same extract.
+                  </Callout>
+                )}
+                {layerKind === "wetlands" && (
+                  <Callout tone="info" dataCy="layer-wetlands-note">
+                    Upload the same OpenStreetMap extract (the zip), or its water areas file (<code>rivers_water_a.gpkg</code>, <code>gis_osm_water_a_free_1.gpkg</code>). Only
+                    mangrove, swamp, marsh and tidal flats are kept: open water is already on the waterways layer. Use the same source as
+                    Infrastructure if it&apos;s the same extract.
                   </Callout>
                 )}
                 {isOsmLayer(layerKind) && (

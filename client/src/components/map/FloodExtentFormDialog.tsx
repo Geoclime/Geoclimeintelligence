@@ -1,7 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { WATER_DEPTHS } from "../../types/flood-report.types";
+import type { PendingPhoto } from "../../types/photo.types";
+import { PhotoPicker } from "../photos/PhotoPicker";
+import { MAX_PHOTOS } from "../photos/PhotoSection";
 import { applySubmitError } from "../../utils/form-errors";
 import { formatDistance } from "../../utils/geo-distance";
 import { formatArea } from "../../utils/survey-geometry";
@@ -19,14 +22,17 @@ interface FloodExtentFormDialogProps {
   perimeterM: number;
   pointCount: number;
   method: "walked" | "drawn";
+  /** Whether this person may add photos (photos.add). */
+  canAddPhotos: boolean;
   onClose: () => void;
-  /** Saves the flood. Rejects with an ApiError so the form can show why. */
-  onSubmit: (values: FloodFormValues) => Promise<void>;
+  /** Saves the flood, then sends the photos. Rejects with an ApiError so the form can show why. */
+  onSubmit: (values: FloodFormValues, photos: PendingPhoto[]) => Promise<void>;
 }
 
-/** The last step of recording a flood: how deep, and anything worth saying. Render it with a fresh `key` each time it opens. */
-export function FloodExtentFormDialog({ areaM2, perimeterM, pointCount, method, onClose, onSubmit }: FloodExtentFormDialogProps) {
+/** The last step of recording a flood: how deep, anything worth saying, and photos. Render it with a fresh `key` each time it opens. */
+export function FloodExtentFormDialog({ areaM2, perimeterM, pointCount, method, canAddPhotos, onClose, onSubmit }: FloodExtentFormDialogProps) {
   const formId = useId();
+  const [photos, setPhotos] = useState<PendingPhoto[]>([]);
   const {
     register,
     handleSubmit,
@@ -36,7 +42,7 @@ export function FloodExtentFormDialog({ areaM2, perimeterM, pointCount, method, 
 
   const onFormSubmit = handleSubmit(async (values) => {
     try {
-      await onSubmit(values);
+      await onSubmit(values, photos);
     } catch (failure) {
       // A refused outline ("covers less than 10 m²") has no field here, so it shows at the top of the form.
       applySubmitError(failure, setError, ["depth", "note"]);
@@ -85,6 +91,12 @@ export function FloodExtentFormDialog({ areaM2, perimeterM, pointCount, method, 
           data-cy="flood-note"
           {...register("note")}
         />
+        {canAddPhotos && (
+          <fieldset className="role-picker">
+            <legend className="role-picker__legend">Photos (optional)</legend>
+            <PhotoPicker photos={photos} onChange={setPhotos} max={MAX_PHOTOS} of="the flood" disabled={isSubmitting} />
+          </fieldset>
+        )}
       </form>
     </Modal>
   );

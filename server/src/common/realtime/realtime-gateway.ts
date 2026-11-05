@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import { env } from "../../config/env";
 import { logger } from "../../config/logger";
 import { AuthService } from "../../modules/auth/auth.service";
+import { PermissionResolver } from "../access/permission-resolver";
 
 /** Every connection joins this room: what everyone may hear, signed in or not. */
 export const PUBLIC_ROOM = "public";
@@ -10,7 +11,6 @@ export const PUBLIC_ROOM = "public";
 export const REVIEWERS_ROOM = "reviewers";
 export const ADMINISTRATORS_ROOM = "administrators";
 
-const REVIEWER_ROLES = new Set(["emergency_responder", "government_official", "administrator"]);
 
 /**
  * Live updates to browsers over Socket.IO, attached to the API's own HTTP server.
@@ -63,7 +63,10 @@ export class RealtimeGateway {
       if (!userId) return;
       void socket.join(`user:${userId}`);
       const role = socket.data.role as string;
-      if (REVIEWER_ROLES.has(role)) void socket.join(REVIEWERS_ROOM);
+      // The review queue's room is for whoever may review: a permission, so a role made on the Roles screen joins too.
+      void PermissionResolver.Instance.has({ role }, "reports.review").then((reviewer) => {
+        if (reviewer) void socket.join(REVIEWERS_ROOM);
+      });
       if (role === "administrator") void socket.join(ADMINISTRATORS_ROOM);
     });
 

@@ -10,7 +10,7 @@ import { useWalkRecorder } from "./useWalkRecorder";
 
 /**
  * Field survey on the map, in one place: recording a flood's edge or a drain (the recorder), saving it
- * (the form), and opening what was recorded (the popup). `canRecord` is the role check for the screen;
+ * (the form), and opening what was recorded (the popup). `canRecord` is the permission check for the screen;
  * the server checks it again on every request. Whenever something is saved, changed or deleted, `refresh`
  * goes up so the map fetches its survey layers again, and `patches` say what changed so it can be drawn
  * at once instead of after that fetch. `revealLayer` switches on the layer of what was just saved.
@@ -78,6 +78,8 @@ export function useFieldSurvey(canRecord: boolean, revealLayer?: (layer: "floodE
     discardUnfinished,
     startRecording,
     handleMapClick,
+    /** Fetches the survey layers again, e.g. after a drainage plan was imported. */
+    reload: onChanged,
     recording: target !== null,
   };
 }

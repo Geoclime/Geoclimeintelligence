@@ -45,21 +45,21 @@ export function floodAdded(extent: FloodExtent, points: readonly LonLat[]): Surv
       type: "Feature",
       id,
       geometry: { type: "MultiPolygon", coordinates: [[[...points.map((point) => [...point]), [...points[0]!]]]] },
-      properties: { id, areaM2, depth, method, receded: false, observedAt, lgaId, wardId },
+      properties: { id, areaM2, depth, method, receded: false, observedAt, lgaId, wardId, photoCount: 0 },
     },
   };
 }
 
 /** A drain just saved: a line along the walk for a drain, a dot for a culvert, outfall, inlet or pond. */
 export function drainAdded(drain: Drainage, points: readonly LonLat[]): SurveyChange {
-  const { id, kind, condition, name, widthM, depthM, lengthM, note, lastCheckedAt, lgaId, wardId } = drain;
+  const { id, kind, condition, name, widthM, depthM, lengthM, note, lastCheckedAt, lgaId, wardId, method, flowDirection, diameterM, material, barrels } = drain;
   return {
     kind: "drain-added",
     feature: {
       type: "Feature",
       id,
       geometry: isLineKind(kind) ? { type: "LineString", coordinates: points.map((point) => [...point]) } : { type: "Point", coordinates: [...points[0]!] },
-      properties: { id, kind, condition, name, widthM, depthM, lengthM, note, lastCheckedAt, lgaId, wardId },
+      properties: { id, kind, condition, name, widthM, depthM, lengthM, note, lastCheckedAt, lgaId, wardId, method, flowDirection, diameterM, material, barrels, photoCount: 0 },
     },
   };
 }

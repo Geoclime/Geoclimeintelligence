@@ -7,6 +7,7 @@ import { GuestOnly } from "./components/routing/GuestOnly";
 import { RequireAuth } from "./components/routing/RequireAuth";
 import { RequireCompleteProfile } from "./components/routing/RequireCompleteProfile";
 import { RequireRole } from "./components/routing/RequireRole";
+import { RequirePermission } from "./components/routing/RequirePermission";
 import { RouteErrorPage } from "./pages/RouteErrorPage";
 
 // Route-level code splitting (standard section 13): a signed-out visitor never downloads the
@@ -24,6 +25,8 @@ const SignInPage = page(() => import("./pages/auth/SignInPage"), (m) => m.SignIn
 const SignUpPage = page(() => import("./pages/auth/SignUpPage"), (m) => m.SignUpPage);
 const ForgotPasswordPage = page(() => import("./pages/auth/ForgotPasswordPage"), (m) => m.ForgotPasswordPage);
 const MapPage = page(() => import("./pages/map/MapPage"), (m) => m.MapPage);
+const RolesPage = page(() => import("./pages/admin/RolesPage"), (m) => m.RolesPage);
+const ActivityLogPage = page(() => import("./pages/activity/ActivityLogPage"), (m) => m.ActivityLogPage);
 const AccountPage = page(() => import("./pages/account/AccountPage"), (m) => m.AccountPage);
 const PlacesPage = page(() => import("./pages/places/PlacesPage"), (m) => m.PlacesPage);
 const LgaProfilePage = page(() => import("./pages/places/LgaProfilePage"), (m) => m.LgaProfilePage);
@@ -97,8 +100,13 @@ export const router = createBrowserRouter([
                   { path: "report", element: <ReportFloodPage /> },
                   {
                     path: "reports/review",
-                    element: <RequireRole roles={["emergency_responder", "government_official"]} />,
+                    element: <RequirePermission permission="reports.review" />,
                     children: [{ index: true, element: <ReviewReportsPage /> }],
+                  },
+                  {
+                    path: "activity",
+                    element: <RequirePermission permission="audit.view" />,
+                    children: [{ index: true, element: <ActivityLogPage /> }],
                   },
                   { path: "places", element: <PlacesPage /> },
                   { path: "places/:id", element: <LgaProfilePage /> },
@@ -108,6 +116,7 @@ export const router = createBrowserRouter([
                     element: <RequireRole roles={["administrator"]} />,
                     children: [
                       { path: "users", element: <AdminUsersPage /> },
+                      { path: "roles", element: <RolesPage /> },
                       { path: "countries", element: <AdminCountriesPage /> },
                       { path: "countries/new", element: <CountryFormPage /> },
                       { path: "countries/:code", element: <CountryDetailPage /> },

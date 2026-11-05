@@ -1,4 +1,4 @@
-import { REGION_SCOPABLE_ROLES, type RequestableRole, type UserRole } from "../types/auth.types";
+import { REGION_SCOPABLE_ROLES, type BuiltInRole, type RequestableRole, type UserRole } from "../types/auth.types";
 
 interface RoleInfo {
   label: string;
@@ -6,7 +6,7 @@ interface RoleInfo {
   description: string;
 }
 
-export const ROLE_INFO: Record<UserRole, RoleInfo> = {
+export const ROLE_INFO: Record<BuiltInRole, RoleInfo> = {
   general_public: {
     label: "General Public",
     description: "Read published disaster events, risk layers and alerts. Read-only.",
@@ -40,12 +40,28 @@ export const JOINING_AS: Record<"general_public" | RequestableRole, { label: str
   researcher: { label: "Researcher", description: "Universities and institutes studying climate, water and risk." },
 };
 
-export function roleLabel(role: UserRole): string {
-  return ROLE_INFO[role].label;
+/** "field_inspector" → "Field inspector": how a role an administrator made is named before its own name is known. */
+function prettify(code: string): string {
+  const words = code.replace(/_/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-export function isRegionScopable(role: UserRole): boolean {
-  return REGION_SCOPABLE_ROLES.includes(role);
+/** A role's name: a built-in role's own, or (for one made on the Roles screen) its name from the list of roles, if given. */
+export function roleLabel(role: UserRole, roles?: readonly { code: string; name: string }[]): string {
+  return roles?.find((item) => item.code === role)?.name ?? (role in ROLE_INFO ? ROLE_INFO[role as BuiltInRole].label : prettify(role));
+}
+
+/** A role's description, likewise. */
+export function roleDescription(role: UserRole, roles?: readonly { code: string; description: string }[]): string {
+  return roles?.find((item) => item.code === role)?.description ?? (role in ROLE_INFO ? ROLE_INFO[role as BuiltInRole].description : "A role an administrator created.");
+}
+
+/**
+ * Whether a role's users may be limited to one area. The role list says (the Roles screen can change it);
+ * without it, the built-in default applies.
+ */
+export function isRegionScopable(role: UserRole, roles?: readonly { code: string; canBeScoped: boolean }[]): boolean {
+  return roles?.find((item) => item.code === role)?.canBeScoped ?? REGION_SCOPABLE_ROLES.includes(role);
 }
 
 /**

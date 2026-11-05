@@ -30,8 +30,8 @@ export const uploadMapLayerSchema = z.object({
     .object({
       countryCode: countryCodeSchema,
       layer: z.enum(
-        ["roads", "waterways", "settlements", "infrastructure", "buildings", "zip"],
-        "Choose roads, waterways, settlements, infrastructure, buildings or the delivery zip",
+        ["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands", "zip"],
+        "Choose roads, waterways, settlements, infrastructure, buildings, wetlands or the delivery zip",
       ),
       sourceId: optional(z.uuid("Choose the data source these features come from")),
       wardLevel: optional(z.coerce.number().int().min(1).max(6)),
@@ -54,7 +54,7 @@ export const clearMapLayerSchema = z.object({
   body: z.object({
     countryCode: countryCodeSchema,
     layers: z
-      .array(z.enum(["roads", "waterways", "settlements", "infrastructure", "buildings"]))
+      .array(z.enum(["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"]))
       .min(1, "Choose at least one layer to clear"),
   }),
 });

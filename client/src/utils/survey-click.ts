@@ -1,6 +1,6 @@
 import type { LonLat } from "../types/admin-unit.types";
 import { WATER_DEPTHS, type WaterDepth } from "../types/flood-report.types";
-import { DRAINAGE_CONDITIONS, DRAINAGE_KINDS, type DrainageCondition, type DrainageKind, type SelectedSurvey } from "../types/field-survey.types";
+import { DRAIN_MATERIALS, DRAINAGE_CONDITIONS, DRAINAGE_KINDS, FLOW_DIRECTIONS, type DrainageCondition, type DrainageKind, type SelectedSurvey } from "../types/field-survey.types";
 import type { ClickedFeature } from "../types/map-layer.types";
 
 const FLOOD_LAYER = "flood-extent-fill";
@@ -35,6 +35,12 @@ export function surveyFeatureIn(features: readonly ClickedFeature[], clicked: Lo
         lengthM: num(p.lengthM),
         note: text(p.note),
         lastCheckedAt: text(p.lastCheckedAt) ?? "",
+        method: p.method === "import" ? "import" : p.method === "drawn" ? "drawn" : "walked",
+        flowDirection: oneOf(FLOW_DIRECTIONS, p.flowDirection),
+        diameterM: num(p.diameterM),
+        material: oneOf(DRAIN_MATERIALS, p.material),
+        barrels: num(p.barrels),
+        photoCount: num(p.photoCount) ?? 0,
         lgaId: text(p.lgaId),
         wardId: text(p.wardId),
       },
@@ -57,6 +63,7 @@ export function surveyFeatureIn(features: readonly ClickedFeature[], clicked: Lo
         method: p.method === "drawn" ? "drawn" : "walked",
         receded: p.receded === true,
         observedAt: text(p.observedAt) ?? "",
+        photoCount: num(p.photoCount) ?? 0,
         lgaId: text(p.lgaId),
         wardId: text(p.wardId),
       },

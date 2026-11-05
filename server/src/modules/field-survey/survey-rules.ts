@@ -16,6 +16,20 @@ export type FloodDepth = (typeof FLOOD_DEPTHS)[number];
 export const SURVEY_METHODS = ["walked", "drawn"] as const;
 export type SurveyMethod = (typeof SURVEY_METHODS)[number];
 
+/** How a drain came to be on the map: walked or drawn by hand, or loaded from a drainage plan file. */
+export type RecordMethod = SurveyMethod | "import";
+
+/**
+ * Which way water runs along a recorded drain line: `with_line` from its first point to its last (the
+ * way it was walked or tapped), `against_line` the other way. Not known is null.
+ */
+export const FLOW_DIRECTIONS = ["with_line", "against_line"] as const;
+export type FlowDirection = (typeof FLOW_DIRECTIONS)[number];
+
+/** What a culvert or drain is made of. */
+export const DRAIN_MATERIALS = ["concrete", "masonry", "plastic", "metal", "earth", "other"] as const;
+export type DrainMaterial = (typeof DRAIN_MATERIALS)[number];
+
 export const DRAINAGE_KINDS = ["open_drain", "covered_drain", "culvert", "outfall", "inlet", "retention_pond"] as const;
 export type DrainageKind = (typeof DRAINAGE_KINDS)[number];
 
@@ -50,12 +64,21 @@ export const SURVEY_LIMITS = {
   nameLength: 120,
   /** The widest and deepest a drain is plausibly measured at, in metres. */
   maxDrainSizeM: 100,
+  /** The widest pipe a culvert is plausibly measured at, in metres, and the most pipes side by side. */
+  maxDiameterM: 20,
+  maxBarrels: 20,
+  /** Inspections listed for one drain at a time. */
+  inspectionListMax: 50,
+  /** Features one drainage plan upload may hold. */
+  importMaxFeatures: 5_000,
   /** A drain this close to a flood is listed beside it. */
   nearbyDrainMetres: 150,
   /** What one map reply may hold, per layer. */
   featureCap: 2_000,
   /** Names listed in a flood's impact summary. */
   impactListMax: 20,
+  /** Shapes of each kind (buildings, roads, facilities) drawn over a selected flood. */
+  impactFeatureCap: 1_500,
   /** A receded flood stays on the map this long, then drops off it. */
   recededVisibleDays: 7,
   /**

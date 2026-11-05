@@ -22,6 +22,7 @@ const ZOOM = 16;
 const LAYER_SWITCHES: { label: string; swatch: string; layers: MapLayerId[] }[] = [
   { label: "Boundaries", swatch: "lga", layers: ["state", "lga", "ward"] },
   { label: "Waterways", swatch: "waterways", layers: ["waterways"] },
+  { label: "Wetlands", swatch: "wetlands", layers: ["wetlands"] },
   { label: "Roads", swatch: "roads", layers: ["roads"] },
   { label: "Buildings", swatch: "buildings", layers: ["buildings"] },
   { label: "Facilities", swatch: "facility-health", layers: ["infrastructure"] },
@@ -37,10 +38,12 @@ const ALL_LAYERS: Record<MapLayerId, boolean> = {
   settlements: true,
   infrastructure: true,
   buildings: true,
+  wetlands: true,
   // Field survey and the flood risk surface are drawn on the full map only.
   floodExtents: false,
   drainage: false,
   floodRisk: false,
+  households: false,
 };
 
 interface ReportLocationMapProps {
@@ -94,6 +97,7 @@ export function ReportLocationMap({ point, placeName, lgaId = null }: ReportLoca
           settlements={data.settlements.data}
           infrastructure={data.infrastructure.data}
           buildings={data.buildings.data}
+          wetlands={data.wetlands.data}
         />
         <AdminBoundaryLayers palette={palette} state={data.state.data} lgas={data.lga.data} wards={data.ward.data} lgaLabels={[]} selectedLgaId={lgaId} />
         {/* Remounted as a boundary layer appears, so the pin is added after it and drawn on top. */}

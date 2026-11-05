@@ -2,7 +2,8 @@ import type { NextFunction, Request, Response } from "express";
 import { ok } from "../../common/response/api-response";
 import type { LayerGeoJsonQueryInput } from "../map-layers/map-layer.validation";
 import { DrainageService } from "./drainage.service";
-import type { CreateDrainageBody, CreateFloodExtentBody, FloodHistoryQuery, UpdateDrainageBody } from "./field-survey.validation";
+import { ValidationError } from "../../common/errors/app-error";
+import type { CreateDrainageBody, CreateFloodExtentBody, FloodHistoryQuery, ImportDrainageBody, UpdateDrainageBody } from "./field-survey.validation";
 import { FloodExtentService } from "./flood-extent.service";
 
 // Casts of req.body / req.query are safe: validate() already replaced them with the parsed values.
@@ -36,6 +37,22 @@ export class FloodExtentController {
   static async impact(req: Request<{ id: string }>, res: Response, next: NextFunction) {
     try {
       return res.json(ok(await FloodExtentService.Instance.impact(req.params.id)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async impactFeatures(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await FloodExtentService.Instance.impactFeatures(req.params.id)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async people(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await FloodExtentService.Instance.people(req.params.id)));
     } catch (err) {
       next(err);
     }
@@ -105,6 +122,38 @@ export class DrainageController {
     try {
       await DrainageService.Instance.remove(req.params.id, req.user!);
       return res.json(ok(null, "Drainage deleted"));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async inspections(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      const { limit } = req.query as unknown as { limit: number };
+      return res.json(ok(await DrainageService.Instance.inspections(req.params.id, limit)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async people(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await DrainageService.Instance.people(req.params.id)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async importPlan(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) throw new ValidationError([{ field: "file", message: "Choose the drainage plan (a .geojson file) to upload" }]);
+      const body = req.body as ImportDrainageBody;
+      const report = await DrainageService.Instance.importPlan(
+        { fileName: req.file.originalname, buffer: req.file.buffer },
+        { countryCode: body.countryCode, wardLevel: body.wardLevel, planDate: body.planDate },
+        req.user!,
+      );
+      return res.status(201).json(ok(report, `Imported ${report.inserted.toLocaleString("en")} drains (${report.alreadyPresent.toLocaleString("en")} already there)`));
     } catch (err) {
       next(err);
     }

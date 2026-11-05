@@ -1,0 +1,131 @@
+/* The Roles screen: roles as columns, permissions as rows. */
+
+.roles-matrix {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.roles-matrix__scroll {
+  overflow-x: auto;
+}
+
+.roles-matrix__table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.roles-matrix__table th,
+.roles-matrix__table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.roles-matrix__corner {
+  min-width: 240px;
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.roles-matrix__role {
+  min-width: 130px;
+}
+
+.roles-matrix__role-name {
+  display: block;
+  font-weight: 700;
+}
+
+.roles-matrix__role-meta {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.roles-matrix__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.roles-matrix__group th {
+  padding-top: var(--space-4);
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.roles-matrix__permission {
+  font-weight: 600;
+}
+
+.roles-matrix__permission-text {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.roles-matrix__cell {
+  color: var(--color-text-subtle);
+  text-align: center !important;
+}
+
+.roles-matrix__cell.is-held {
+  color: var(--color-success, #039855);
+}
+
+/* The activity log */
+
+.activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.activity-filters .field {
+  min-width: 160px;
+}
+
+.activity-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-list__item {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.activity-list__when {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.activity-list__who {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 640px) {
+  .activity-list__item {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}

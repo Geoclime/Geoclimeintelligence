@@ -3,16 +3,36 @@ import {
   DRAINAGE_CONDITIONS,
   type DrainageCondition,
   type DrainageKind,
+  type DrainMaterial,
+  type FlowDirection,
   type SurveyTarget,
 } from "../types/field-survey.types";
 import { hasAnyRole } from "./roles";
 
 /** Words and rules for field survey: what is recorded, what the conditions mean, and who records it. */
 
-/** Mirrors the server's authorise() on the survey routes: responders, officials, and administrators (who always pass). */
+/**
+ * The built-in roles that record field survey as seeded. Who may record is now a permission the Roles
+ * screen sets (utils/permissions.ts); this stays for screens that only know a role.
+ */
 export function canRecordSurvey(role: UserRole): boolean {
   return hasAnyRole(role, ["emergency_responder", "government_official"]);
 }
+
+/** Which way the water runs, in the words of someone standing at the drain's first point. */
+export const FLOW_LABEL: Record<FlowDirection, string> = {
+  with_line: "From where I started towards where I finished",
+  against_line: "Towards where I started",
+};
+
+export const MATERIAL_LABEL: Record<DrainMaterial, string> = {
+  concrete: "Concrete",
+  masonry: "Masonry or block",
+  plastic: "Plastic (PVC)",
+  metal: "Metal",
+  earth: "Earth (unlined)",
+  other: "Something else",
+};
 
 export const LINE_DRAIN_KINDS: readonly DrainageKind[] = ["open_drain", "covered_drain"];
 export const SPOT_DRAIN_KINDS: readonly DrainageKind[] = ["culvert", "outfall", "inlet", "retention_pond"];

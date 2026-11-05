@@ -8,7 +8,7 @@
  * the loader uses roadClassRank to fill roads.class_rank when it stores a road.
  */
 
-export const MAP_LAYER_IDS = ["roads", "waterways", "settlements", "infrastructure", "buildings"] as const;
+export const MAP_LAYER_IDS = ["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"] as const;
 export type MapLayerId = (typeof MAP_LAYER_IDS)[number];
 
 /** Lower = more important. Anything not listed (track, path, footway, construction...) is minor. */
@@ -160,6 +160,7 @@ export const LAYER_FEATURE_LIMIT: Readonly<Record<MapLayerId, number>> = {
   settlements: 5_000,
   infrastructure: 5_000,
   buildings: 10_000,
+  wetlands: 3_000,
 };
 
 /**
@@ -183,3 +184,32 @@ export function waterwayGeometryColumn(zoom?: number): WaterwayGeometryColumn {
   if (zoom === undefined || zoom >= 12) return "geom";
   return zoom >= 10 ? "geom_z10" : "geom_z8";
 }
+
+/**
+ * Wetlands: the low, wet ground a flood spreads over first. Geofabrik's water areas file
+ * (gis_osm_water_a_free_1, or the handover's rivers_water_a.gpkg) holds them beside open water;
+ * the open water (`water`, `riverbank`, `reservoir`...) is already on the waterways layer, so only
+ * the wetland classes are kept, each filed under a plain class.
+ */
+export const WETLAND_CLASSES = ["mangrove", "swamp", "marsh", "tidal_flat", "wet_meadow", "wetland"] as const;
+export type WetlandClass = (typeof WETLAND_CLASSES)[number];
+
+const WETLAND_FCLASS: Readonly<Record<string, WetlandClass>> = {
+  wetland_mangrove: "mangrove",
+  wetland_swamp: "swamp",
+  wetland_marsh: "marsh",
+  wetland_reedbed: "marsh",
+  wetland_bog: "marsh",
+  wetland_tidalflat: "tidal_flat",
+  wetland_saltmarsh: "tidal_flat",
+  wetland_wet_meadow: "wet_meadow",
+  wetland: "wetland",
+};
+
+/** The wetland class of a Geofabrik water-area `fclass`, or null for open water (the waterways layer has that). */
+export function wetlandClassOf(fclass: string): WetlandClass | null {
+  return WETLAND_FCLASS[fclass.trim().toLowerCase()] ?? null;
+}
+
+/** Wetlands keep the same two simplified copies as waterways (migration CreateWetlands), read the same way. */
+export const wetlandGeometryColumn = waterwayGeometryColumn;

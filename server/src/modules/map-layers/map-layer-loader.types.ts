@@ -71,6 +71,17 @@ export interface BuildingRow {
   shape: string;
 }
 
+/** One wetland outline (mangrove, swamp, tidal flat...) from Geofabrik's water areas GeoPackage. */
+export interface WetlandRow {
+  osmId: string;
+  name: string | null;
+  /** layer-rules.ts WETLAND_CLASSES. */
+  wetlandClass: string;
+  /** Geofabrik's `fclass` as delivered: wetland_mangrove, wetland_tidalflat... */
+  osmClass: string;
+  shape: string;
+}
+
 /** Why a row was left out, with how many rows: shown to the person running the loader. */
 export type RejectCounts = Record<string, number>;
 
@@ -121,6 +132,7 @@ export interface LayerLoadTx {
   insertSettlements(rows: SettlementRow[], context: WardBatchContext): Promise<BatchResult>;
   insertInfrastructure(rows: InfrastructureRow[], context: WardBatchContext): Promise<BatchResult>;
   insertBuildings(rows: BuildingRow[], context: WardBatchContext): Promise<BatchResult>;
+  insertWetlands(rows: WetlandRow[], context: BatchContext): Promise<BatchResult>;
   /** Deletes every road of the country; returns how many went. */
   deleteRoads(countryCode: string): Promise<number>;
   /** Deletes every waterway (lines and areas) of the country; returns how many went. */
@@ -131,6 +143,8 @@ export interface LayerLoadTx {
   deleteInfrastructure(countryCode: string): Promise<number>;
   /** Deletes every building of the country; returns how many went. */
   deleteBuildings(countryCode: string): Promise<number>;
+  /** Deletes every wetland of the country; returns how many went. */
+  deleteWetlands(countryCode: string): Promise<number>;
 }
 
 /** What the loader service depends on, so it can be unit-tested with an in-memory fake (section 2). */

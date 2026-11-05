@@ -1,5 +1,6 @@
 import type { AuthUser } from "../../common/access/auth-user";
 import { domainEvents } from "../../common/events/domain-events";
+import { PermissionResolver } from "../../common/access/permission-resolver";
 import { RegionAccess } from "../../common/access/region-access";
 import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../common/errors/app-error";
 import type { PageMeta } from "../../common/response/api-response";
@@ -9,7 +10,6 @@ import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
 import { FloodReportRepository } from "./flood-report.repository";
 import {
-  REVIEWER_ROLES,
   toReportDto,
   type FloodReportDto,
   type FloodReportMediaRow,
@@ -165,7 +165,7 @@ export class FloodReportService {
     const owner = row.reporterId === user.id;
     if (owner && row.status !== "published") {
       // Allowed.
-    } else if (REVIEWER_ROLES.includes(user.role)) {
+    } else if (await this.canReview(user)) {
       await this.assertCanReview(row, user);
     } else if (owner || row.status === "published") {
       throw new ForbiddenError("A published report can only be removed by a coordinator");
@@ -179,14 +179,14 @@ export class FloodReportService {
 
   async mine(user: AuthUser, query: MyReportsQuery): Promise<{ items: FloodReportDto[]; meta: PageMeta }> {
     const { items, meta } = await this.reports.findReportPage({ reporterId: user.id, page: query.page, pageSize: query.pageSize });
-    return { items: items.map((row) => this.toDto(row, user)), meta };
+    return { items: await Promise.all(items.map((row) => this.toDto(row, user))), meta };
   }
 
   /** The review list: reports inside the reviewer's region scope. */
   async list(user: AuthUser, query: ListReportsQuery): Promise<{ items: FloodReportDto[]; meta: PageMeta }> {
     const scoped = await this.regions.scope({ status: query.status, page: query.page, pageSize: query.pageSize }, user);
     const { items, meta } = await this.reports.findReportPage(scoped);
-    return { items: items.map((row) => this.toDto(row, user)), meta };
+    return { items: await Promise.all(items.map((row) => this.toDto(row, user))), meta };
   }
 
   async get(id: string, user: AuthUser): Promise<FloodReportDto> {
@@ -258,7 +258,7 @@ export class FloodReportService {
   }
 
   private async assertCanReview(row: FloodReportRow, user: AuthUser): Promise<void> {
-    if (!REVIEWER_ROLES.includes(user.role)) throw new ForbiddenError("Your role is not permitted to review reports");
+    if (!(await this.canReview(user))) throw new ForbiddenError("Your role is not permitted to review reports");
     if (!user.scopeAdminUnitId) return;
     // A scoped reviewer may act on reports in their region; one outside every mapped area is no one's region.
     const area = row.wardId ?? row.lgaId;
@@ -266,8 +266,13 @@ export class FloodReportService {
     await this.regions.assert(user, area);
   }
 
-  private toDto(row: FloodReportRow, user: AuthUser): FloodReportDto {
-    return toReportDto(row, { id: user.id, canReview: REVIEWER_ROLES.includes(user.role) }, (media) => this.deliveryUrl(media));
+  /** Reviewing is the reports.review permission (responders and officials as seeded, and administrators). */
+  private canReview(user: AuthUser): Promise<boolean> {
+    return PermissionResolver.Instance.has(user, "reports.review");
+  }
+
+  private async toDto(row: FloodReportRow, user: AuthUser): Promise<FloodReportDto> {
+    return toReportDto(row, { id: user.id, canReview: await this.canReview(user) }, (media) => this.deliveryUrl(media));
   }
 
   /** A signed link for a Cloudinary file; null for one kept in the database (fetched through the API). */

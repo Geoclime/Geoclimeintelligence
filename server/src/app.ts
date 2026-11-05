@@ -16,10 +16,16 @@ import { dataSourcesRouter } from "./modules/data-sources/data-source.routes";
 import { importsRouter } from "./modules/data-sources/imports/import.routes";
 import { drainageRouter, floodExtentsRouter } from "./modules/field-survey/field-survey.routes";
 import { floodRiskRouter } from "./modules/flood-risk/flood-risk.routes";
-import { buildingsRouter, infrastructureRouter, mapLayersRouter, roadsRouter, settlementsRouter, waterwaysRouter } from "./modules/map-layers/map-layer.routes";
+import { buildingsRouter, infrastructureRouter, mapLayersRouter, roadsRouter, settlementsRouter, waterwaysRouter, wetlandsRouter } from "./modules/map-layers/map-layer.routes";
 import { publicRouter } from "./modules/public/public.routes";
 import { rainfallRouter } from "./modules/rainfall/rainfall.routes";
 import { usersRouter } from "./modules/users/user.routes";
+import { auditRouter } from "./modules/audit/audit.routes";
+import { photosRouter } from "./modules/photos/photo.routes";
+import { householdsRouter } from "./modules/households/household.routes";
+import { RoleRepository } from "./modules/roles/role.repository";
+import { rolesRouter } from "./modules/roles/role.routes";
+import { PermissionResolver } from "./common/access/permission-resolver";
 
 export function createApp(): Express {
   const app = express();
@@ -49,7 +55,14 @@ export function createApp(): Express {
   // router -- never re-declared inside a router. See section 11's production incident.
   app.use("/api/v1", authMiddleware, resolveUserMiddleware);
 
+  // What each role may do is read from role_permissions (the Roles screen edits it).
+  PermissionResolver.Instance.useSource(RoleRepository.Instance);
+
   app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/roles", rolesRouter);
+  app.use("/api/v1/audit-events", auditRouter);
+  app.use("/api/v1/photos", photosRouter);
+  app.use("/api/v1/households", householdsRouter);
   app.use("/api/v1/users", usersRouter);
   app.use("/api/v1/countries", countriesRouter);
   app.use("/api/v1/admin-units", adminUnitsRouter);
@@ -61,6 +74,7 @@ export function createApp(): Express {
   app.use("/api/v1/settlements", settlementsRouter);
   app.use("/api/v1/infrastructure", infrastructureRouter);
   app.use("/api/v1/buildings", buildingsRouter);
+  app.use("/api/v1/wetlands", wetlandsRouter);
   app.use("/api/v1/flood-extents", floodExtentsRouter);
   app.use("/api/v1/drainage", drainageRouter);
   app.use("/api/v1/rainfall", rainfallRouter);

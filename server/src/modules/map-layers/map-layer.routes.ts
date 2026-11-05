@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from "express"
 import multer from "multer";
 import { AppError, ValidationError } from "../../common/errors/app-error";
 import { authorise } from "../../middleware/authorise.middleware";
+import { requirePermission } from "../../middleware/require-permission.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { MAX_IMPORT_FILE_BYTES } from "../data-sources/imports/readers/reader-limits";
 import { FacilityController } from "./facility.controller";
@@ -52,14 +53,18 @@ settlementsRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerControll
 /**
  * GET /api/v1/infrastructure/geojson?bbox=...&zoom=... and GET /api/v1/infrastructure/search?q=... for
  * any signed-in user. POST / saves a place an import missed, and PATCH and DELETE /:id change or
- * remove one saved that way: Administrator-only.
+ * remove one saved that way: they need the places.manage permission (administrators only as seeded).
  */
 export const infrastructureRouter = Router();
 infrastructureRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController.infrastructure);
 infrastructureRouter.get("/search", validate(facilitySearchSchema), MapLayerController.searchInfrastructure);
-infrastructureRouter.post("/", authorise("administrator"), validate(createFacilitySchema), FacilityController.create);
-infrastructureRouter.patch("/:id", authorise("administrator"), validate(updateFacilitySchema), FacilityController.update);
-infrastructureRouter.delete("/:id", authorise("administrator"), validate(facilityIdSchema), FacilityController.remove);
+infrastructureRouter.post("/", requirePermission("places.manage"), validate(createFacilitySchema), FacilityController.create);
+infrastructureRouter.patch("/:id", requirePermission("places.manage"), validate(updateFacilitySchema), FacilityController.update);
+infrastructureRouter.delete("/:id", requirePermission("places.manage"), validate(facilityIdSchema), FacilityController.remove);
+
+/** GET /api/v1/wetlands/geojson?bbox=...&zoom=...: mangrove, swamp, marsh and tidal flats. */
+export const wetlandsRouter = Router();
+wetlandsRouter.get("/geojson", validate(layerGeoJsonSchema), MapLayerController.wetlands);
 
 /** GET /api/v1/buildings/geojson?bbox=...&zoom=... (empty below zoom 15) */
 export const buildingsRouter = Router();

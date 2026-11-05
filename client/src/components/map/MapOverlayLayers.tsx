@@ -3,6 +3,7 @@ import { memo, useMemo } from "react";
 import { Layer, Source } from "react-map-gl/mapbox";
 import type {
   BuildingFeatureCollection,
+  WetlandFeatureCollection,
   InfrastructureFeatureCollection,
   RoadFeatureCollection,
   SettlementFeatureCollection,
@@ -17,12 +18,13 @@ interface MapOverlayLayersProps {
   settlements: SettlementFeatureCollection | null;
   infrastructure: InfrastructureFeatureCollection | null;
   buildings: BuildingFeatureCollection | null;
+  wetlands?: WetlandFeatureCollection | null;
 }
 
 const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 /**
- * Waterways, buildings, roads, settlements and infrastructure as native Mapbox sources and layers
+ * Wetlands, waterways, buildings, roads, settlements and infrastructure as native Mapbox sources and layers
  * (standard section 10: never React markers for a whole layer), drawn bottom to top in that order
  * and under the boundary lines.
  *
@@ -32,14 +34,21 @@ const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
  * ones that landed earlier. An empty source draws nothing, so nothing is drawn from placeholder
  * data.
  */
-export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads, waterways, settlements, infrastructure, buildings }: MapOverlayLayersProps) {
+export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads, waterways, settlements, infrastructure, buildings, wetlands = null }: MapOverlayLayersProps) {
   const layers = useMemo(() => overlayLayers(palette), [palette]);
 
   return (
     <>
+      <Source id="wetlands" type="geojson" data={wetlands ?? EMPTY}>
+        <Layer {...layers.wetlandFill} />
+        <Layer {...layers.wetlandLine} />
+      </Source>
       <Source id="waterways" type="geojson" data={waterways ?? EMPTY}>
         <Layer {...layers.waterFill} />
+        <Layer {...layers.waterUnderground} />
         <Layer {...layers.waterLine} />
+        <Layer {...layers.waterChannel} />
+        <Layer {...layers.waterLabels} />
       </Source>
       <Source id="buildings" type="geojson" data={buildings ?? EMPTY}>
         <Layer {...layers.buildingFill} />
@@ -57,6 +66,7 @@ export const MapOverlayLayers = memo(function MapOverlayLayers({ palette, roads,
       </Source>
       <Source id="infrastructure" type="geojson" data={infrastructure ?? EMPTY}>
         <Layer {...layers.infrastructureDots} />
+        <Layer {...layers.infrastructureGlyphs} />
         <Layer {...layers.infrastructureLabels} />
       </Source>
     </>

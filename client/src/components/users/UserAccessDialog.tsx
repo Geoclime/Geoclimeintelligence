@@ -1,11 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useId, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { useRoles } from "../../hooks/useRoles";
 import { USER_ROLES } from "../../types/auth.types";
 import type { ManagedUser, UserAccessPatch } from "../../types/user.types";
 import { applySubmitError } from "../../utils/form-errors";
 import { formatDate } from "../../utils/formatDate";
-import { ROLE_INFO, isRegionScopable } from "../../utils/roles";
+import { ROLE_INFO, isRegionScopable, roleDescription, roleLabel } from "../../utils/roles";
 import { Button } from "../shared/Button";
 import { Callout } from "../shared/Callout";
 import { Modal } from "../shared/Modal";
@@ -46,7 +47,10 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved, onDecline, on
     defaultValues: { role: request?.role ?? user?.role ?? "general_public", scopeAdminUnitId: user?.scopeAdminUnitId ?? "" },
   });
   const role = useWatch({ control, name: "role" });
-  const scopable = isRegionScopable(role);
+  // Every role on the Roles screen, built-in and made by an administrator; the built-in five until they load.
+  const { roles } = useRoles();
+  const options = roles.length > 0 ? roles.map((item) => item.code) : [...USER_ROLES];
+  const scopable = isRegionScopable(role, roles);
   const approving = request !== null && role === request.role;
   const busy = isSubmitting || declining;
 
@@ -65,7 +69,7 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved, onDecline, on
   const onSubmit = handleSubmit(async (values) => {
     if (!user) return;
     try {
-      onSaved(await onSave(user.id, toAccessPatch(values)));
+      onSaved(await onSave(user.id, toAccessPatch(values, roles)));
     } catch (error) {
       applySubmitError(error, setError, ["role", "scopeAdminUnitId"]);
     }
@@ -126,12 +130,12 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved, onDecline, on
 
         <fieldset className="role-picker">
           <legend className="role-picker__legend">Role</legend>
-          {USER_ROLES.map((option) => (
+          {options.map((option) => (
             <label key={option} className="role-picker__option" data-cy={`role-option-${option}`}>
               <input type="radio" value={option} {...register("role")} />
               <span className="role-picker__text">
-                <span className="role-picker__label">{ROLE_INFO[option].label}</span>
-                <span className="role-picker__description">{ROLE_INFO[option].description}</span>
+                <span className="role-picker__label">{roleLabel(option, roles)}</span>
+                <span className="role-picker__description">{roleDescription(option, roles)}</span>
               </span>
             </label>
           ))}
@@ -152,8 +156,7 @@ export function UserAccessDialog({ user, onClose, onSave, onSaved, onDecline, on
           />
         ) : (
           <p className="access-form__note">
-            Only Emergency Responders and Government Officials can be limited to a region. This role covers every
-            region.
+            This role can't be limited to a region, so it covers every region. Whether a role can is set on the Roles screen.
           </p>
         )}
       </form>

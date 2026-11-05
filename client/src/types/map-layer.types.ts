@@ -3,7 +3,7 @@ import type { BBox, LonLat } from "./admin-unit.types";
 import type { DataSource } from "./data-source.types";
 
 /** The feature layers drawn over the boundaries. Mirrors MapLayerId in server/src/modules/map-layers/layer-rules.ts. */
-export type OverlayLayerId = "roads" | "waterways" | "settlements" | "infrastructure" | "buildings";
+export type OverlayLayerId = "roads" | "waterways" | "settlements" | "infrastructure" | "buildings" | "wetlands";
 
 /** Mirrors FACILITY_TYPES in server/src/modules/map-layers/layer-rules.ts. */
 export type FacilityType =
@@ -111,7 +111,7 @@ export interface UpdatePlaceBody {
   note?: string;
 }
 
-/** A hand-saved place on the map: what the popup and the edit form need. */
+/** A facility on the map: what its popup and (for a place saved by hand) the edit form need. */
 export interface PlaceOnMap {
   id: string;
   name: string | null;
@@ -120,6 +120,8 @@ export interface PlaceOnMap {
   note: string | null;
   /** [longitude, latitude] */
   point: [number, number];
+  /** Where it came from. Left out means saved by hand, as everything built before imported facilities could be opened. */
+  origin?: FacilityOrigin;
 }
 
 /** One drawn feature under a click: which layer, and the properties it was built from. */
@@ -139,6 +141,17 @@ export interface BuildingFeatureProperties {
 
 export type BuildingFeatureCollection = LayerFeatureCollection<MultiPolygon, BuildingFeatureProperties>;
 
+/** Mirrors WETLAND_CLASSES in server/src/modules/map-layers/layer-rules.ts. */
+export type WetlandClass = "mangrove" | "swamp" | "marsh" | "tidal_flat" | "wet_meadow" | "wetland";
+
+export interface WetlandFeatureProperties {
+  id: string;
+  name: string | null;
+  wetlandClass: WetlandClass;
+}
+
+export type WetlandFeatureCollection = LayerFeatureCollection<MultiPolygon, WetlandFeatureProperties>;
+
 /** Which collection each layer's endpoint returns. */
 export interface OverlayCollections {
   roads: RoadFeatureCollection;
@@ -146,6 +159,7 @@ export interface OverlayCollections {
   settlements: SettlementFeatureCollection;
   infrastructure: InfrastructureFeatureCollection;
   buildings: BuildingFeatureCollection;
+  wetlands: WetlandFeatureCollection;
 }
 
 /** GET /api/v1/{roads,waterways,settlements,infrastructure,buildings}/geojson. bbox is required: the server refuses a request without one. */
@@ -175,7 +189,7 @@ export interface UploadMapLayerInput {
 }
 
 export interface MapLayerLoadItemReport {
-  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure" | "buildings";
+  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure" | "buildings" | "wetlands";
   /** E.g. that the file was recovered from a cut-short copy. */
   notes?: string[];
   file: string;

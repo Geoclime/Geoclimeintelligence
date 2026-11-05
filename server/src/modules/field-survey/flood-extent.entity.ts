@@ -55,6 +55,16 @@ export class FloodExtent {
   @Column({ name: "recorded_by", type: "uuid", nullable: true })
   recordedBy!: string | null;
 
+  /** Who marked it receded, and who put it back as still going (migration CreateAuditTrail). Staff-only to read. */
+  @Column({ name: "receded_by", type: "uuid", nullable: true })
+  recededBy!: string | null;
+
+  @Column({ name: "reopened_by", type: "uuid", nullable: true })
+  reopenedBy!: string | null;
+
+  @Column({ name: "reopened_at", type: "timestamptz", nullable: true })
+  reopenedAt!: Date | null;
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;
 

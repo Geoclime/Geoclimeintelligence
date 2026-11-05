@@ -2,6 +2,8 @@ import { useCallback, useState } from "react";
 import { deleteDrainage, deleteFloodExtent, recedeFloodExtent, reopenFloodExtent, updateDrainage } from "../endpoints/field-survey.endpoints";
 import { errorMessage } from "../transport/api-error";
 import type { SelectedSurvey, UpdateDrainageBody } from "../types/field-survey.types";
+import type { PendingPhoto } from "../types/photo.types";
+import { usePhotoUploads } from "./usePhotos";
 import { removedChange, type SurveyChange } from "../utils/survey-patches";
 import { useToast } from "./useToast";
 
@@ -12,6 +14,7 @@ import { useToast } from "./useToast";
  */
 export function useSurveySelection(onChanged: (change?: SurveyChange) => void) {
   const { showToast } = useToast();
+  const photoUploads = usePhotoUploads();
   const [selected, setSelected] = useState<SelectedSurvey | null>(null);
   const [removing, setRemoving] = useState<SelectedSurvey | null>(null);
 
@@ -33,9 +36,16 @@ export function useSurveySelection(onChanged: (change?: SurveyChange) => void) {
   );
 
   const inspect = useCallback(
-    (id: string, body: UpdateDrainageBody) =>
-      run(() => updateDrainage(id, body), "Inspection saved.", body.condition ? { kind: "drain-condition", id, condition: body.condition } : undefined),
-    [run],
+    (id: string, body: UpdateDrainageBody, photos: PendingPhoto[] = []) =>
+      run(
+        async () => {
+          const { data } = await updateDrainage(id, body);
+          if (data?.inspectionId) void photoUploads.upload({ type: "inspection", id: data.inspectionId }, photos);
+        },
+        "Inspection saved.",
+        body.condition ? { kind: "drain-condition", id, condition: body.condition } : undefined,
+      ),
+    [photoUploads, run],
   );
   const reopen = useCallback((id: string) => run(() => reopenFloodExtent(id), "Marked as active again.", { kind: "flood-state", id, receded: false }), [run]);
   // A slip of the finger is easy to make and the toast is where it is noticed, so it carries the way back.

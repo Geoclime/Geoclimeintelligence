@@ -1,8 +1,8 @@
-import type { LineString, MultiPolygon, Point } from "geojson";
+import type { LineString, MultiLineString, MultiPolygon, Point } from "geojson";
 import type { LonLat } from "../../common/geo/geo";
 import type { FacilityType } from "../map-layers/layer-rules";
 import type { LayerFeatureCollection, LayerGeoJsonQuery } from "../map-layers/map-layer.types";
-import type { DrainageCondition, DrainageKind, FloodDepth, SurveyMethod } from "./survey-rules";
+import type { DrainageCondition, DrainageKind, DrainMaterial, FloodDepth, FlowDirection, RecordMethod, SurveyMethod } from "./survey-rules";
 
 // ---------- flood extents ----------
 
@@ -54,6 +54,8 @@ export interface FloodExtentFeatureProperties {
   method: SurveyMethod;
   receded: boolean;
   observedAt: string;
+  /** Photos on the flood (seen only with photos.view). */
+  photoCount: number;
   /** The LGA and ward it is filed under (at its middle), so a place's page can draw only its own floods. */
   lgaId: string | null;
   wardId: string | null;
@@ -74,6 +76,8 @@ export interface FloodImpact {
   areaM2: number;
   /** Building outlines the flood touches (zero until the buildings layer is loaded). */
   buildings: number;
+  /** Households people marked as their homes inside the flood: a count only, never who or where. */
+  households: number;
   /** Road length under water, in metres, summed over every road segment it crosses. */
   roadMetres: number;
   facilities: { total: number; items: { name: string | null; facilityType: FacilityType; osmClass: string }[] };
@@ -124,6 +128,12 @@ export interface FloodHistory {
   items: FloodHistoryItem[];
 }
 
+/** What a flood reaches, as shapes to draw over it: `kind` says which. Capped, so `truncated` says when more were inside. */
+export type FloodImpactFeatureCollection = LayerFeatureCollection<
+  MultiPolygon | Point | MultiLineString,
+  { kind: "building" | "road" | "facility"; name: string | null }
+>;
+
 export interface FloodExtentWithImpact {
   extent: FloodExtentDto;
   impact: FloodImpact;
@@ -135,9 +145,12 @@ export interface IFloodExtentRepository {
   create(input: NewFloodExtent): Promise<FloodExtentDto | null>;
   findGeoJson(query: LayerGeoJsonQuery): Promise<FloodExtentFeatureCollection>;
   impactOf(id: string): Promise<FloodImpact | null>;
-  markReceded(id: string): Promise<FloodExtentDto | null>;
+  markReceded(id: string, by: string): Promise<FloodExtentDto | null>;
   /** Undoes markReceded: null when the flood isn't there or isn't receded. */
-  markActive(id: string): Promise<FloodExtentDto | null>;
+  markActive(id: string, by: string): Promise<FloodExtentDto | null>;
+  findPeople(id: string): Promise<FloodPeople | null>;
+  /** The buildings, road stretches and facilities inside the flood, as shapes to draw (capped). */
+  impactFeatures(id: string): Promise<FloodImpactFeatureCollection | null>;
   delete(id: string): Promise<boolean>;
   /** Floods recorded in the last `days` days that have not receded, newest first, for the public alert map. */
   findActive(days: number, limit: number): Promise<PublicFloodPoint[]>;
@@ -157,7 +170,13 @@ export interface DrainageDto {
   /** Length of a walked drain, in metres; null for a single spot. */
   lengthM: number | null;
   note: string | null;
-  method: SurveyMethod;
+  method: RecordMethod;
+  /** Lines only: which way the water runs along it; null when nobody said. */
+  flowDirection: FlowDirection | null;
+  /** A culvert's (or any spot's) pipe: its inside width, what it is made of, how many side by side. */
+  diameterM: number | null;
+  material: DrainMaterial | null;
+  barrels: number | null;
   wardId: string | null;
   lgaId: string | null;
   /** When someone last looked at it: set on saving and on every re-inspection. */
@@ -177,7 +196,11 @@ export interface NewDrainage {
   widthM: number | null;
   depthM: number | null;
   note: string | null;
-  method: SurveyMethod;
+  method: RecordMethod;
+  flowDirection: FlowDirection | null;
+  diameterM: number | null;
+  material: DrainMaterial | null;
+  barrels: number | null;
   points: LonLat[];
   recordedBy: string;
 }
@@ -188,6 +211,89 @@ export interface DrainageChanges {
   widthM: number | null;
   depthM: number | null;
   note: string | null;
+  flowDirection: FlowDirection | null;
+  diameterM: number | null;
+  material: DrainMaterial | null;
+  barrels: number | null;
+}
+
+/** Who looked, and from where: kept with every inspection (drain_inspections). */
+export interface InspectionContext {
+  inspectedBy: string;
+  inspectorName: string | null;
+  inspectorRole: string;
+  conditionBefore: DrainageCondition;
+  /** What the inspector wrote about this check (the drain's own note is separate). */
+  note: string | null;
+  /** Where the inspector's phone was, if it shared its position. */
+  point: LonLat | null;
+  accuracyM: number | null;
+}
+
+/** One inspection, as the drain's history lists it (staff-only: it names people). */
+export interface DrainInspectionDto {
+  id: string;
+  inspectedAt: string;
+  inspectedBy: string | null;
+  inspectorName: string | null;
+  inspectorRole: string;
+  conditionBefore: DrainageCondition;
+  conditionAfter: DrainageCondition;
+  note: string | null;
+  /** How far the inspector stood from the drain, in metres; null when the phone didn't share where it was. */
+  distanceM: number | null;
+  accuracyM: number | null;
+  photoCount: number;
+}
+
+/** A person as staff see them on a record: their name and role, never their email. */
+export interface PersonRef {
+  id: string | null;
+  name: string | null;
+  role: string | null;
+}
+
+/** Who recorded a drain and who last checked it. */
+export interface DrainPeople {
+  recordedBy: PersonRef | null;
+  lastCheckedBy: PersonRef | null;
+  lastCheckedAt: string;
+}
+
+/** Who recorded a flood, and who called it over (or not over). */
+export interface FloodPeople {
+  recordedBy: PersonRef | null;
+  recededBy: PersonRef | null;
+  recededAt: string | null;
+  reopenedBy: PersonRef | null;
+  reopenedAt: string | null;
+}
+
+/** One drain from a drainage plan file, checked and ready to store. */
+export interface ImportedDrain {
+  /** The plan's own id for it (its feature id or `ref`): what stops a second upload adding it twice. */
+  sourceRef: string;
+  kind: DrainageKind;
+  condition: DrainageCondition;
+  name: string | null;
+  widthM: number | null;
+  depthM: number | null;
+  diameterM: number | null;
+  material: DrainMaterial | null;
+  barrels: number | null;
+  flowDirection: FlowDirection | null;
+  note: string | null;
+  points: LonLat[];
+  /** YYYY-MM-DD: when it was last seen, as the plan says (or the plan's own date): its "last checked". */
+  checkedAt: string;
+}
+
+export interface DrainageImportReport {
+  featuresInFile: number;
+  inserted: number;
+  alreadyPresent: number;
+  /** Left out before or by the database, by reason. */
+  rejected: Record<string, number>;
 }
 
 export interface DrainageRecord extends DrainageChanges {
@@ -208,6 +314,13 @@ export interface DrainageFeatureProperties {
   lengthM: number | null;
   note: string | null;
   lastCheckedAt: string;
+  method: RecordMethod;
+  flowDirection: FlowDirection | null;
+  diameterM: number | null;
+  material: DrainMaterial | null;
+  barrels: number | null;
+  /** Photos on the drain and its inspections (seen only with photos.view). */
+  photoCount: number;
   /** The LGA and ward it is filed under (at its start), so a place's page can draw only its own drains. */
   lgaId: string | null;
   wardId: string | null;
@@ -247,7 +360,15 @@ export interface IDrainageRepository {
   findById(id: string): Promise<DrainageRecord | null>;
   /** Null when a walked drain is shorter or longer than a drain can be (SURVEY_LIMITS.drainLengthM). */
   create(input: NewDrainage): Promise<DrainageDto | null>;
-  update(id: string, changes: DrainageChanges): Promise<DrainageDto | null>;
+  /** Saves an inspection: the drain's new state and its drain_inspections row, in one statement. */
+  inspect(id: string, changes: DrainageChanges, inspection: InspectionContext): Promise<{ drain: DrainageDto; inspectionId: string; distanceM: number | null } | null>;
+  findInspections(id: string, limit: number): Promise<DrainInspectionDto[]>;
+  findPeople(id: string): Promise<DrainPeople | null>;
+  /** Stores a drainage plan's drains; one already stored under the same sourceRef is left alone. */
+  importMany(
+    drains: ImportedDrain[],
+    context: { countryCode: string; recordedBy: string; wardLevel: number },
+  ): Promise<{ inserted: number; alreadyPresent: number; rejected: Record<string, number> }>;
   findGeoJson(query: LayerGeoJsonQuery): Promise<DrainageFeatureCollection>;
   /** The drainage in an LGA or ward: totals over all of it, and the first `limit` drains, those needing attention first. */
   findSummary(areaId: string, limit: number): Promise<DrainageSummary>;

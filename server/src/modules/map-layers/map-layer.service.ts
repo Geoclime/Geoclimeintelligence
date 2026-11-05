@@ -12,17 +12,20 @@ import type {
   IRoadRepository,
   ISettlementRepository,
   IWaterwayRepository,
+  IWetlandRepository,
   LayerGeoJsonQuery,
   LayerSummary,
   MapLayerInfoDto,
   RoadFeatureCollection,
   SettlementFeatureCollection,
   WaterwayFeatureCollection,
+  WetlandFeatureCollection,
 } from "./map-layer.types";
 import type { FacilitySearchQuery } from "./map-layer.validation";
 import { RoadRepository } from "./road.repository";
 import { SettlementPointRepository } from "./settlement-point.repository";
 import { WaterwayRepository } from "./waterway.repository";
+import { WetlandRepository } from "./wetland.repository";
 
 /** How many facilities one search lists. */
 const FACILITY_HITS = 8;
@@ -33,6 +36,7 @@ const LAYER_LABELS: Readonly<Record<MapLayerId, string>> = {
   settlements: "Settlements",
   infrastructure: "Infrastructure",
   buildings: "Buildings",
+  wetlands: "Wetlands",
 };
 
 /** The repository behind each layer. */
@@ -42,6 +46,7 @@ export interface MapLayerRepositories {
   settlements: ISettlementRepository;
   infrastructure: IInfrastructureRepository;
   buildings: IBuildingRepository;
+  wetlands: IWetlandRepository;
 }
 
 /**
@@ -60,6 +65,7 @@ export class MapLayerService {
         settlements: SettlementPointRepository.Instance,
         infrastructure: InfrastructureRepository.Instance,
         buildings: BuildingRepository.Instance,
+        wetlands: WetlandRepository.Instance,
       },
       DataSourceRepository.Instance,
     ));
@@ -73,7 +79,7 @@ export class MapLayerService {
 
   /** Each layer with its size and the sources behind it: what the screen shows as provenance. */
   async catalog(): Promise<MapLayerInfoDto[]> {
-    const ids: MapLayerId[] = ["roads", "waterways", "settlements", "infrastructure", "buildings"];
+    const ids: MapLayerId[] = ["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"];
     const summaries: LayerSummary[] = await Promise.all(ids.map((id) => this.layers[id].summarise()));
     return Promise.all(
       ids.map(async (id, index) => ({
@@ -108,6 +114,10 @@ export class MapLayerService {
 
   buildingsGeoJson(query: LayerGeoJsonQuery): Promise<BuildingFeatureCollection> {
     return this.layers.buildings.findGeoJson(query);
+  }
+
+  wetlandsGeoJson(query: LayerGeoJsonQuery): Promise<WetlandFeatureCollection> {
+    return this.layers.wetlands.findGeoJson(query);
   }
 
   private async resolveSources(ids: string[]): Promise<DataSourceDto[]> {

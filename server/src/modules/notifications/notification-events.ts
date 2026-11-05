@@ -4,6 +4,7 @@ import { RealtimeGateway } from "../../common/realtime/realtime-gateway";
 import { AlertRepository } from "../alerts/alert.repository";
 import type { AlertSeverity } from "../alerts/alert.types";
 import { FloodReportRepository } from "../flood-reports/flood-report.repository";
+import { HouseholdRepository } from "../households/household.repository";
 import type { WaterDepth } from "../flood-reports/flood-report.types";
 import { UserRepository } from "../users/user.repository";
 import { NotificationRepository } from "./notification.repository";
@@ -18,6 +19,9 @@ const ROLE_LABEL: Record<UserRole, string> = {
   researcher: "Researcher",
   administrator: "Administrator",
 };
+
+/** A household within this distance of a recorded flood: its owner is told. */
+const HOUSEHOLD_ALERT_METRES = 500;
 
 /** At most `max` characters, cut at a word with an ellipsis. */
 function clip(text: string, max: number): string {
@@ -68,6 +72,32 @@ export function registerNotificationListeners(): void {
       link: "/alerts",
       urgent: alert.severity !== "watch",
     });
+  });
+
+  // A flood recorded on the ground near someone's household: they hear about it, once even if several of
+  // their households are near. Only the owner is told, and only where their own household is.
+  domainEvents.on("flood.recorded", async ({ floodId }) => {
+    const near = await HouseholdRepository.Instance.ownersNearFlood(floodId, HOUSEHOLD_ALERT_METRES);
+    const byOwner = new Map<string, { label: string; distanceM: number }>();
+    for (const row of near) {
+      const seen = byOwner.get(row.ownerId);
+      if (!seen || row.distanceM < seen.distanceM) byOwner.set(row.ownerId, { label: row.label, distanceM: row.distanceM });
+    }
+    await Promise.all(
+      [...byOwner].map(([ownerId, { label, distanceM }]) =>
+        notify.notify({
+          userIds: [ownerId],
+          category: "flood_alerts",
+          title: distanceM === 0 ? `Flooding recorded at your household "${clip(label, 40)}"` : `Flooding recorded near your household "${clip(label, 40)}"`,
+          body:
+            distanceM === 0
+              ? "A responder recorded flood water reaching your household. Check on it and stay safe."
+              : `A responder recorded flood water about ${distanceM < 100 ? "100" : Math.round(distanceM / 50) * 50} m from your household. Check on it and stay safe.`,
+          link: "/map",
+          urgent: distanceM === 0,
+        }),
+      ),
+    );
   });
 
   domainEvents.on("report.submitted", async ({ reportId, reporterId }) => {

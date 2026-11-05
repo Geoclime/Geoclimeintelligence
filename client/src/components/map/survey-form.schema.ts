@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { WATER_DEPTHS, type WaterDepth } from "../../types/flood-report.types";
 import {
+  DRAIN_MATERIALS,
   DRAINAGE_CONDITIONS,
   DRAINAGE_KINDS,
+  FLOW_DIRECTIONS,
   type DrainageKind,
   type NewDrainageBody,
   type NewFloodExtentBody,
@@ -18,6 +20,8 @@ import type { Walk } from "../../utils/walk-state";
 export const MAX_SURVEY_NOTE_LENGTH = 500;
 export const MAX_DRAIN_NAME_LENGTH = 120;
 export const MAX_DRAIN_SIZE_M = 100;
+export const MAX_DIAMETER_M = 20;
+export const MAX_BARRELS = 20;
 
 const note = z.string().trim().max(MAX_SURVEY_NOTE_LENGTH, { error: `Keep the note to ${MAX_SURVEY_NOTE_LENGTH} characters or fewer` });
 
@@ -36,12 +40,27 @@ export const floodFormSchema = z.object({
 });
 export type FloodFormValues = z.infer<typeof floodFormSchema>;
 
+/** One of `list`, or "" when not said. */
+const optionalChoice = (list: readonly string[], message: string) => z.string().refine((value) => value === "" || list.includes(value), { error: message });
+
 export const drainFormSchema = z.object({
   kind: z.enum(DRAINAGE_KINDS, { error: "Choose what kind of drainage this is" }),
   condition: z.enum(DRAINAGE_CONDITIONS, { error: "Choose the condition it is in" }),
   name: z.string().trim().max(MAX_DRAIN_NAME_LENGTH, { error: `Keep the name to ${MAX_DRAIN_NAME_LENGTH} characters or fewer` }),
   widthM: size("Width"),
   depthM: size("Depth"),
+  /** Lines only: which way the water runs. */
+  flowDirection: optionalChoice(FLOW_DIRECTIONS, "Choose which way the water flows"),
+  /** Spots (a culvert's pipe, mostly). */
+  diameterM: z.string().trim().refine((value) => {
+    if (value === "") return true;
+    const metres = Number(value);
+    return Number.isFinite(metres) && metres > 0 && metres <= MAX_DIAMETER_M;
+  }, { error: `A diameter must be a number of metres between 0 and ${MAX_DIAMETER_M}, or left blank` }),
+  material: optionalChoice(DRAIN_MATERIALS, "Choose what it is made of"),
+  barrels: z.string().trim().refine((value) => value === "" || (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= MAX_BARRELS), {
+    error: `Count the pipes side by side: 1 to ${MAX_BARRELS}, or leave it blank`,
+  }),
   note,
 });
 export type DrainFormValues = z.infer<typeof drainFormSchema>;
@@ -68,6 +87,10 @@ export function toDrainBody(values: DrainFormValues, walk: Pick<Walk, "points">,
   if (values.widthM.trim()) body.widthM = Number(values.widthM);
   if (values.depthM.trim()) body.depthM = Number(values.depthM);
   if (values.note.trim()) body.note = values.note.trim();
+  if (!spot && values.flowDirection) body.flowDirection = values.flowDirection as NonNullable<NewDrainageBody["flowDirection"]>;
+  if (spot && values.diameterM.trim()) body.diameterM = Number(values.diameterM);
+  if (spot && values.material) body.material = values.material as NonNullable<NewDrainageBody["material"]>;
+  if (spot && values.barrels.trim()) body.barrels = Number(values.barrels);
   return body;
 }
 
@@ -76,9 +99,16 @@ export function kindsFor(target: SurveyTarget): readonly DrainageKind[] {
   return DRAINAGE_KINDS.filter((kind) => isLineKind(kind) === (target === "drain-line"));
 }
 
-/** An inspection from a drain's popup: only the condition, and a note if one was written. */
-export function toInspection(condition: UpdateDrainageBody["condition"], note?: string): UpdateDrainageBody {
-  return note === undefined ? { condition } : { condition, note };
+/** An inspection from a drain's popup: the condition found, a note about this check, and where the inspector stood. */
+export function toInspection(
+  condition: UpdateDrainageBody["condition"],
+  inspectionNote?: string,
+  at?: { longitude: number; latitude: number; accuracyM?: number } | null,
+): UpdateDrainageBody {
+  const body: UpdateDrainageBody = { condition };
+  if (inspectionNote?.trim()) body.inspectionNote = inspectionNote.trim();
+  if (at) body.at = at;
+  return body;
 }
 
 /** What a popup shows for a saved flood right after it was saved. */
@@ -94,5 +124,5 @@ export function selectedFlood(saved: {
   latitude: number;
 }): Extract<SelectedSurvey, { type: "flood" }> {
   const { id, areaM2, depth, method, observedAt, lgaId, wardId, longitude, latitude } = saved;
-  return { type: "flood", point: [longitude, latitude], properties: { id, areaM2, depth, method, receded: false, observedAt, lgaId, wardId } };
+  return { type: "flood", point: [longitude, latitude], properties: { id, areaM2, depth, method, receded: false, observedAt, lgaId, wardId, photoCount: 0 } };
 }

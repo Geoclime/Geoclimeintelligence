@@ -178,6 +178,25 @@ Data source records are kept (other rows or history may still cite them), and se
 
 **Country delete.** `CountryRepository.deleteIfEmpty` ([`country.repository.ts`](../server/src/modules/admin-units/country.repository.ts)) already refused a country with areas. Now a foreign-key violation from `roads` or `waterways` also returns "not deleted", and `CountryService` answers `409` with "Nigeria now has areas or map layer data (roads, waterways), so it can't be deleted". Settlements don't block it: they hang off wards, not the country. Run `npm run layers:clear -- --country <code> --yes` first if a country that holds roads or waterways needs to be deleted.
 
+### 5a. Wetlands
+
+Mangrove, swamp, marsh and tidal flats: the low wet ground a flood spreads over first. Geofabrik's water areas file holds them beside open water. Of the 2026-10-29 handover's 1,840 water areas, about 1,090 are wetlands: 820 mangrove, 236 tidal flat, 27 swamp, a few marsh, reedbed and wet meadow.
+
+- **Table** `wetlands` ([`1792800000000-CreateWetlands.ts`](../server/src/migrations/1792800000000-CreateWetlands.ts)). Its columns are `osm_id` (unique), `name`, `wetland_class` (`mangrove`, `swamp`, `marsh`, `tidal_flat`, `wet_meadow`, `wetland`) and `osm_class`. `geom` is a MultiPolygon, with the same two pre-simplified copies as waterways (`geom_z8`, `geom_z10`).
+- **Loading:** `npm run layers:load -- --wetlands <extract zip or water_a .gpkg> --wetlands-source <id>`, or **Imports → New import → Map layer: Wetlands**. Only the water areas file (`rivers_water_a.gpkg`, `gis_osm_water_a_free_1_rivers.gpkg`) is read. Open water (`water`, `riverbank`, `reservoir`) is counted as "open water, not a wetland" and left out, because the waterways layer already has it. Clear it with `npm run layers:clear -- --layers wetlands`.
+- **Read:** `GET /api/v1/wetlands/geojson?bbox=&zoom=`. Properties are `id`, `name` and `wetlandClass`. The cap is 3,000, largest first.
+- **On the map**, wetlands are a faint green under the waterways, and tidal flats a sea green. The layer is in the Water group of the layer list.
+
+### 5b. How the client draws water and facilities
+
+- **Waterways** use the `waterwayType` and `tunnel` the endpoint already sent ([`map-style.ts`](../client/src/components/map/map-style.ts)):
+  - Canals, drains and ditches mapped in OpenStreetMap get a colour of their own.
+  - Any stretch through a culvert or underground is dashed.
+  - Named rivers and creeks are labelled along their line from zoom 11.
+- **Clicking the map.** Waterways and roads can be clicked: the "click anywhere" popup now says what is at the spot ("Bonny River · River", "Aba Road · Highway · bridge").
+- **Facilities.** Each facility has a letter in its dot from street level (H health, P police and fire, S school, G government, M market, T transport, C community and worship, W water), so the kind reads without the colour. Any facility can now be clicked to see what it is and where it came from. Edit and Delete are still only for places saved by hand, and need `places.manage`.
+- **Satellite.** The main map has a **Map / Satellite** switch, kept in the address (`base=satellite`), for tracing floods and drains against imagery.
+
 ### 6. Tests
 
 | File | Covers |

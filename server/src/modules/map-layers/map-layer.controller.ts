@@ -84,6 +84,14 @@ export class MapLayerController {
     }
   }
 
+  static async wetlands(req: Request, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await MapLayerService.Instance.wetlandsGeoJson(req.query as unknown as LayerGeoJsonQueryInput)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async searchInfrastructure(req: Request, res: Response, next: NextFunction) {
     try {
       return res.json(ok(await MapLayerService.Instance.searchFacilities(req.query as unknown as FacilitySearchQuery)));

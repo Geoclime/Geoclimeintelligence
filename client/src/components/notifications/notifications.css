@@ -64,6 +64,21 @@
   box-shadow: var(--shadow-lg);
 }
 
+/* On a phone the bell sits mid-bar, so a bell-anchored panel runs off the left edge. Anchor it to
+   the (positioned, full-width) top bar instead and pin it to the screen gutters. */
+@media (max-width: 599px) {
+  .notification-bell {
+    position: static;
+  }
+
+  .notification-panel {
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+    max-height: calc(100dvh - var(--header-height) - var(--space-6));
+  }
+}
+
 .notification-panel__header,
 .notification-panel__footer {
   display: flex;

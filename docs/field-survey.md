@@ -130,11 +130,33 @@ The PostGIS SQL is not run by the test suite. **Apply the migration and try a fl
 - **A flood can't be reshaped.** Delete it and record it again. (A figure-of-eight walk is repaired into two loops; the live estimate on screen takes the difference of the loops, so it's a guide, and the saved figure is the true one.)
 - **GPS indoors or under cover is poor**, and a phone browser only shares its location over HTTPS (`localhost` is fine). A browser without the Wake Lock (some older iPhones) lets the screen sleep, which pauses the walk: the panel tells people to keep the screen open.
 - **A drain with no loaded ward** is stored without one and is never relinked.
-- **Who can record is one line in two places**: `authorise(...)` in [`field-survey.routes.ts`](../server/src/modules/field-survey/field-survey.routes.ts) and `canRecordSurvey` in [`client/src/utils/field-survey.ts`](../client/src/utils/field-survey.ts).
+- **Who can record is a permission** (`survey.record_flood`, `survey.record_drain`...) that the Roles screen sets, checked by `requirePermission` on [`field-survey.routes.ts`](../server/src/modules/field-survey/field-survey.routes.ts) and mirrored for the screen by [`client/src/utils/permissions.ts`](../client/src/utils/permissions.ts). See [audit-and-permissions.md](audit-and-permissions.md).
+
+### 9. Drainage, drawn and described in more detail
+
+Migration [`1792900000000-AddDrainageDetails.ts`](../server/src/migrations/1792900000000-AddDrainageDetails.ts) adds what a drain needs to be worth more than a coloured line.
+
+- **Which way the water flows.** `flow_direction` applies to lines only. `with_line` means from the first point to the last, the way it was walked; `against_line` means the other way. The form asks for it, and the map turns `against_line` drains round and draws chevrons downstream along them (from zoom 14).
+- **A culvert's pipe.** `diameter_m` (up to 20 m), `material` (concrete, masonry, plastic, metal, earth, other) and `barrels` (pipes side by side, 1 to 20).
+- **How it was drawn** ([`survey-style.ts`](../client/src/components/map/survey-style.ts)):
+  - Every drain sits on a casing that roads don't have.
+  - A covered drain is dashed.
+  - A blocked, overflowing or damaged drain is drawn wider, so the worst stand out without relying on colour.
+  - A drain nobody has checked in 90 days is drawn faded.
+  - Spots are shapes, not dots: a pipe for a culvert, a triangle for an outfall, a grate for an inlet and a circle with a wave for a pond ([`drain-icons.ts`](../client/src/components/map/drain-icons.ts)). Zoomed out, spots gather into clusters coloured by the worst among them, and a tap zooms in.
+  - Drain colours are their own, never a facility's or a road's.
+- **Inspections are kept**, with who checked, from where, and photos. See [audit-and-permissions.md](audit-and-permissions.md).
+- **Importing a drainage plan.** `POST /api/v1/drainage/import` (`drainage.import`; multipart `file`, `countryCode`, `planDate`) loads a GeoJSON plan of drains and culverts from a ministry or consultant survey ([`drainage-import.ts`](../server/src/modules/field-survey/drainage-import.ts)).
+  - Column names are matched by their usual words: `kind`/`type`, `condition`/`status`, `width`, `diameter`, `flow`, `ref`/`id`...
+  - Each drain is built, measured and filed under the ward where it starts in PostGIS, like one recorded by hand. Anything that starts outside every ward is left out and counted.
+  - Each feature keeps the plan's own id, or a hash of what and where it is (`source_ref`), so loading the same plan again adds nothing twice.
+  - A drain the plan gives no condition for is stored as clear but dated by the plan (`planDate`), so the map draws it faded until someone checks it, and its note says so.
+  - It is offered as **Import a drainage plan** in the Field survey menu.
+- **What a flood reaches, on the map.** `GET /api/v1/flood-extents/:id/impact/features` returns the shapes behind the impact counts: the buildings it touches, the stretches of road under it (clipped to it) and the facilities inside, up to 1,500 of each. **Show what it reaches on the map** in the flood's popup draws them in amber ([`FloodImpactLayer.tsx`](../client/src/components/map/FloodImpactLayer.tsx)).
 
 ## Not built yet
 
-Ideas that follow naturally, left out to keep this change reviewable: attaching a flood to the community report that prompted it; telling the wards a flood touches; photos on a drain; exporting extents as GeoJSON or KML for planners; a queue that saves recordings made with no signal and sends them when it returns; a "drains needing attention" list for maintenance crews.
+Ideas that follow naturally, left out to keep this change reviewable: attaching a flood to the community report that prompted it; telling the wards a flood touches; exporting extents as GeoJSON or KML for planners; a queue that saves recordings made with no signal and sends them when it returns; a "drains needing attention" list for maintenance crews; drawing which drain feeds which (a network), rather than each on its own.
 
 ## Resources to read
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorise } from "../../middleware/authorise.middleware";
+import { requirePermission } from "../../middleware/require-permission.middleware";
 import { requireCompleteProfile } from "../../middleware/profile.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { AlertController } from "./alert.controller";
@@ -11,7 +11,7 @@ import { alertIdSchema, createAlertSchema, listAlertsSchema, updateAlertSchema }
 export const alertsRouter = Router();
 
 alertsRouter.get("/", validate(listAlertsSchema), AlertController.list);
-alertsRouter.post("/", authorise("government_official"), requireCompleteProfile, validate(createAlertSchema), AlertController.create);
-alertsRouter.patch("/:id", authorise("government_official"), requireCompleteProfile, validate(updateAlertSchema), AlertController.update);
-alertsRouter.post("/:id/end", authorise("government_official"), validate(alertIdSchema), AlertController.end);
-alertsRouter.delete("/:id", authorise("government_official"), validate(alertIdSchema), AlertController.remove);
+alertsRouter.post("/", requirePermission("alerts.issue"), requireCompleteProfile, validate(createAlertSchema), AlertController.create);
+alertsRouter.patch("/:id", requirePermission("alerts.issue"), requireCompleteProfile, validate(updateAlertSchema), AlertController.update);
+alertsRouter.post("/:id/end", requirePermission("alerts.issue"), validate(alertIdSchema), AlertController.end);
+alertsRouter.delete("/:id", requirePermission("alerts.issue"), validate(alertIdSchema), AlertController.remove);

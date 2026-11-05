@@ -12,7 +12,8 @@ import { isGeoPackage } from "./gpkg-reader";
  * Each loader reads only the files it needs and leaves the rest packed:
  *  - infrastructure: points of interest, places of worship and transport, each as points and as
  *    areas (an `_a` suffix), about a megabyte in all;
- *  - buildings: the building outlines, in one file or several parts.
+ *  - buildings: the building outlines, in one file or several parts;
+ *  - wetlands: the water areas file, of which only the wetland classes are kept.
  */
 const OSM_FILES = {
   infrastructure: {
@@ -22,6 +23,11 @@ const OSM_FILES = {
   buildings: {
     pattern: /(?:^|_)buildings(?:_a)?(?:_[^.]*)?\.gpkg$/i,
     description: "building files (buildings .gpkg files, e.g. rivers_buildings_a.gpkg or gis_osm_buildings_a_free_1.gpkg)",
+  },
+  // The water areas, where OSM keeps mangrove, swamp, marsh and tidal flats. Never the waterways (lines) file.
+  wetlands: {
+    pattern: /(?:^|_)water_a(?:_[^.]*)?\.gpkg$/i,
+    description: "water area file (a water_a .gpkg file, e.g. rivers_water_a.gpkg or gis_osm_water_a_free_1.gpkg)",
   },
 } as const;
 export type OsmLayer = keyof typeof OSM_FILES;

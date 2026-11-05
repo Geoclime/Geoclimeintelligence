@@ -12,6 +12,7 @@ export const REPORT_STATUSES = ["pending", "published", "rejected"] as const;
 export type ReportStatus = (typeof REPORT_STATUSES)[number];
 
 /** Who reviews reports (administrators always may), inside their region scope. */
+/** The built-in roles that review reports as seeded. Who may review is the reports.review permission; this is only its default. */
 export const REVIEWER_ROLES: readonly UserRole[] = ["emergency_responder", "government_official", "administrator"];
 
 /** Photos, voice notes, short videos and documents (PDF). Videos and documents need Cloudinary. */

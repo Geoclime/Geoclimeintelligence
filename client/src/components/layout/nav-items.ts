@@ -1,4 +1,4 @@
-import type { UserRole } from "../../types/auth.types";
+import type { Permission, UserRole } from "../../types/auth.types";
 import { MAP_PATH } from "../../utils/map-url";
 import type { IconName } from "../shared/Icon";
 
@@ -6,8 +6,10 @@ export interface NavItem {
   to: string;
   label: string;
   icon: IconName;
-  /** Roles that see the link; administrators always do. Empty = every signed-in user. */
+  /** Roles that see the link; administrators always do. Empty = every signed-in user (unless `permission` says otherwise). */
   roles: readonly UserRole[];
+  /** When set, the link shows to whoever's role holds this permission (the Roles screen), instead of by role. */
+  permission?: Permission;
   /** One-line description shown under the page title in the top bar. */
   description: string;
 }
@@ -36,8 +38,17 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/reports/review",
         label: "Review reports",
         icon: "inbox",
-        roles: ["emergency_responder", "government_official"],
+        roles: [],
+        permission: "reports.review",
         description: "Check community reports before they go public",
+      },
+      {
+        to: "/activity",
+        label: "Activity log",
+        icon: "history",
+        roles: [],
+        permission: "audit.view",
+        description: "Who recorded, inspected, changed or deleted what",
       },
     ],
   },
@@ -45,6 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Administration",
     items: [
       { to: "/admin/users", label: "Users", icon: "users", roles: ["administrator"], description: "Roles and region scopes" },
+      { to: "/admin/roles", label: "Roles", icon: "shield", roles: ["administrator"], description: "What each role may do, and new roles" },
       { to: "/admin/countries", label: "Countries", icon: "globe", roles: ["administrator"], description: "Countries and their levels" },
       { to: "/admin/imports", label: "Imports", icon: "upload", roles: ["administrator"], description: "Load boundary data through staging and review" },
       { to: "/admin/configuration", label: "Configuration", icon: "database", roles: ["administrator"], description: "Data sources and platform settings" },

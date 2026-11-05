@@ -1,8 +1,8 @@
 import type { Geometry } from "geojson";
 import { ValidationError } from "../../common/errors/app-error";
 import { assertWgs84Crs } from "../data-sources/imports/readers/geojson-reader";
-import { facilityTypeOf, isWaterClass, roadClassRank } from "./layer-rules";
-import type { BuildingRow, InfrastructureRow, PreparedRows, RejectCounts, RoadRow, SettlementRow, WaterwayRow } from "./map-layer-loader.types";
+import { facilityTypeOf, isWaterClass, roadClassRank, wetlandClassOf } from "./layer-rules";
+import type { BuildingRow, InfrastructureRow, PreparedRows, RejectCounts, RoadRow, SettlementRow, WaterwayRow, WetlandRow } from "./map-layer-loader.types";
 
 /** One GeoJSON feature, reduced to what the loader needs. */
 export interface LayerFeature {
@@ -216,7 +216,29 @@ function buildBuilding({ properties: p, geometry }: LayerFeature): Built<Buildin
   return fits ? { row, key: osmId } : { reject: TOO_LONG };
 }
 
-export const NOT_A_FACILITY = "not a facility type the layer keeps (shops, kiosks, sports pitches, hotels...)";
+export const NOT_A_WETLAND = "open water, not a wetland (the waterways layer already has rivers, lakes and reservoirs)";
+
+/**
+ * Wetlands from Geofabrik's water areas GeoPackage: mangrove, swamp, marsh, tidal flats. Open water
+ * in the same file is counted under one reason and left out, since the waterways layer has it.
+ */
+export function prepareWetlands(features: LayerFeature[]): PreparedRows<WetlandRow> {
+  return prepare<WetlandRow>(features, ({ properties: p, geometry }) => {
+    const osmId = text(p.osm_id);
+    const osmClass = text(p.fclass);
+    if (!osmId) return { reject: "no osm_id" };
+    if (!osmClass) return { reject: "no fclass" };
+    const wetlandClass = wetlandClassOf(osmClass);
+    if (!wetlandClass) return { reject: NOT_A_WETLAND };
+    if (!geometry) return { reject: "no shape" };
+
+    const row: WetlandRow = { osmId, name: text(p.name), wetlandClass, osmClass, shape: JSON.stringify(geometry) };
+    const fits = fitsColumns([row.osmId, 40], [row.name, 200], [row.osmClass, 40]);
+    return fits ? { row, key: osmId } : { reject: TOO_LONG };
+  });
+}
+
+export const NOT_A_FACILITY ="not a facility type the layer keeps (shops, kiosks, sports pitches, hotels...)";
 
 /**
  * Facilities from Geofabrik's pois, pofw and transport GeoPackages. Only the classes in

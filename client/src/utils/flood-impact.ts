@@ -17,6 +17,7 @@ const count = (n: number, one: string, many: string) => `${n.toLocaleString("en"
 export function impactHeadline(impact: FloodImpact): string {
   const parts: string[] = [];
   if (impact.buildings > 0) parts.push(count(impact.buildings, "building", "buildings"));
+  if (impact.households) parts.push(count(impact.households, "registered household", "registered households"));
   if (impact.facilities.total > 0) parts.push(count(impact.facilities.total, "facility", "facilities"));
   if (impact.roadMetres > 0) parts.push(`${formatDistance(impact.roadMetres)} of road`);
   return parts.length > 0 ? `Reaches ${joinList(parts)}` : "No buildings, facilities or roads found inside it";

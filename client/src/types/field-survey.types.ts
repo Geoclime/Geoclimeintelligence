@@ -1,4 +1,4 @@
-import type { LineString, MultiPolygon, Point } from "geojson";
+import type { LineString, MultiLineString, MultiPolygon, Point } from "geojson";
 import type { LonLat } from "./admin-unit.types";
 import type { WaterDepth } from "./flood-report.types";
 import type { FacilityType, LayerFeatureCollection } from "./map-layer.types";
@@ -7,6 +7,15 @@ import type { FacilityType, LayerFeatureCollection } from "./map-layer.types";
 
 /** How a shape was captured: GPS fixes while walking, or points tapped on the map. */
 export type SurveyMethod = "walked" | "drawn";
+/** How a drain came to be on the map: by hand, or from a drainage plan file. */
+export type RecordMethod = SurveyMethod | "import";
+
+/** Which way water runs along a drain's line: from its first point to its last, or the other way. */
+export const FLOW_DIRECTIONS = ["with_line", "against_line"] as const;
+export type FlowDirection = (typeof FLOW_DIRECTIONS)[number];
+
+export const DRAIN_MATERIALS = ["concrete", "masonry", "plastic", "metal", "earth", "other"] as const;
+export type DrainMaterial = (typeof DRAIN_MATERIALS)[number];
 
 export const DRAINAGE_KINDS = ["open_drain", "covered_drain", "culvert", "outfall", "inlet", "retention_pond"] as const;
 export type DrainageKind = (typeof DRAINAGE_KINDS)[number];
@@ -49,6 +58,8 @@ export interface NearbyDrain {
 export interface FloodImpact {
   areaM2: number;
   buildings: number;
+  /** Households people marked inside the flood: a count only. Absent from an older backend. */
+  households?: number;
   roadMetres: number;
   facilities: { total: number; items: { name: string | null; facilityType: FacilityType; osmClass: string }[] };
   settlements: string[];
@@ -94,7 +105,11 @@ export interface Drainage {
   depthM: number | null;
   lengthM: number | null;
   note: string | null;
-  method: SurveyMethod;
+  method: RecordMethod;
+  flowDirection: FlowDirection | null;
+  diameterM: number | null;
+  material: DrainMaterial | null;
+  barrels: number | null;
   wardId: string | null;
   lgaId: string | null;
   lastCheckedAt: string;
@@ -109,6 +124,8 @@ export interface FloodExtentFeatureProperties {
   method: SurveyMethod;
   receded: boolean;
   observedAt: string;
+  /** Photos on it (seen only by staff with photos.view). Absent from an older backend. */
+  photoCount?: number;
   /** The LGA and ward it is filed under, so a place's page can draw only its own floods. */
   lgaId: string | null;
   wardId: string | null;
@@ -124,6 +141,13 @@ export interface DrainageFeatureProperties {
   lengthM: number | null;
   note: string | null;
   lastCheckedAt: string;
+  /** Absent from an older backend (and on a drain just drawn before the layer is fetched again). */
+  method?: RecordMethod;
+  flowDirection?: FlowDirection | null;
+  diameterM?: number | null;
+  material?: DrainMaterial | null;
+  barrels?: number | null;
+  photoCount?: number;
   /** The LGA and ward it is filed under, so a place's page can draw only its own drains. */
   lgaId: string | null;
   wardId: string | null;
@@ -175,6 +199,10 @@ export interface NewDrainageBody {
   widthM?: number;
   depthM?: number;
   note?: string;
+  flowDirection?: FlowDirection;
+  diameterM?: number;
+  material?: DrainMaterial;
+  barrels?: number;
   method: SurveyMethod;
   points: LonLat[];
 }
@@ -186,6 +214,67 @@ export interface UpdateDrainageBody {
   widthM?: number | null;
   depthM?: number | null;
   note?: string;
+  flowDirection?: FlowDirection | null;
+  diameterM?: number | null;
+  material?: DrainMaterial | null;
+  barrels?: number | null;
+  /** What the inspector wants kept about this check (the drain's own note is `note`). */
+  inspectionNote?: string;
+  /** Where they stood, if the phone shared it: the log says how far from the drain the check was made. */
+  at?: { longitude: number; latitude: number; accuracyM?: number };
+}
+
+/** PATCH /drainage/:id replies with the drain and the id of the inspection just logged (for its photos). */
+export type InspectedDrainage = Drainage & { inspectionId: string };
+
+/** One "I checked it", for staff (survey.view_people). Mirrors DrainInspectionDto on the server. */
+export interface DrainInspection {
+  id: string;
+  inspectedAt: string;
+  inspectedBy: string | null;
+  inspectorName: string | null;
+  inspectorRole: string;
+  conditionBefore: DrainageCondition;
+  conditionAfter: DrainageCondition;
+  note: string | null;
+  distanceM: number | null;
+  accuracyM: number | null;
+  photoCount: number;
+}
+
+/** A person on a record, as staff see them: a name and a role, never an email. */
+export interface PersonRef {
+  id: string | null;
+  name: string | null;
+  role: string | null;
+}
+
+export interface DrainPeople {
+  recordedBy: PersonRef | null;
+  lastCheckedBy: PersonRef | null;
+  lastCheckedAt: string;
+}
+
+export interface FloodPeople {
+  recordedBy: PersonRef | null;
+  recededBy: PersonRef | null;
+  recededAt: string | null;
+  reopenedBy: PersonRef | null;
+  reopenedAt: string | null;
+}
+
+/** What a flood reaches, as shapes to draw over it. */
+export type FloodImpactFeatureCollection = LayerFeatureCollection<
+  MultiPolygon | Point | MultiLineString,
+  { kind: "building" | "road" | "facility"; name: string | null }
+>;
+
+/** POST /drainage/import: what happened to each feature of the plan. */
+export interface DrainageImportReport {
+  featuresInFile: number;
+  inserted: number;
+  alreadyPresent: number;
+  rejected: Record<string, number>;
 }
 
 /**

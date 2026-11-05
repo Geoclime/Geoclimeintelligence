@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import { AppError, ValidationError } from "../../common/errors/app-error";
-import { authorise } from "../../middleware/authorise.middleware";
+import { requirePermission } from "../../middleware/require-permission.middleware";
 import { requireCompleteProfile } from "../../middleware/profile.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { FloodReportController } from "./flood-report.controller";
@@ -48,14 +48,14 @@ export const floodReportsRouter = Router();
 floodReportsRouter.post("/", requireCompleteProfile, uploadMedia, validate(createReportSchema), FloodReportController.create);
 floodReportsRouter.get("/options", FloodReportController.options);
 floodReportsRouter.get("/mine", validate(myReportsSchema), FloodReportController.mine);
-floodReportsRouter.get("/", authorise("emergency_responder", "government_official"), validate(listReportsSchema), FloodReportController.list);
+floodReportsRouter.get("/", requirePermission("reports.review"), validate(listReportsSchema), FloodReportController.list);
 floodReportsRouter.get("/:id", validate(reportIdSchema), FloodReportController.getById);
 floodReportsRouter.get("/:id/media/:mediaId", validate(reportMediaSchema), FloodReportController.media);
 floodReportsRouter.patch("/:id", requireCompleteProfile, validate(updateReportSchema), FloodReportController.update);
 floodReportsRouter.delete("/:id", validate(reportIdSchema), FloodReportController.remove);
 floodReportsRouter.post(
   "/:id/review",
-  authorise("emergency_responder", "government_official"),
+  requirePermission("reports.review"),
   validate(reviewReportSchema),
   FloodReportController.review,
 );

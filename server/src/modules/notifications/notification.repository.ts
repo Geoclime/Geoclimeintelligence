@@ -8,7 +8,11 @@ const DTO_COLUMNS = `id, category, title, body, link,
   to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt"`;
 
 /** Staff roles that review reports and watch alerts in their region. */
-const STAFF = `('emergency_responder', 'government_official', 'administrator')`;
+/**
+ * Staff, for alerts and the review queue: administrators, and every role holding reports.review (the
+ * built-in responders and officials as seeded, and any role an administrator gave it). Fixed SQL text.
+ */
+const IS_STAFF = `(u.role = 'administrator' OR u.role IN (SELECT rp.role_code FROM role_permissions rp WHERE rp.permission = 'reports.review'))`;
 
 export class NotificationRepository extends BaseRepository<Notification> implements INotificationRepository {
   private static _instance?: NotificationRepository;
@@ -108,7 +112,8 @@ export class NotificationRepository extends BaseRepository<Notification> impleme
   }
 
   /**
-   * People an alert for these LGAs reaches: everyone whose home is one of them, and staff whose
+   * People an alert for these LGAs reaches: everyone whose home area is one of them, everyone with a
+   * household marked in one of them, and staff whose
    * region overlaps them (the LGA itself, its state, or one of its wards) or who have no region.
    */
   async findAlertRecipients(lgaIds: string[], excludeUserId: string | null): Promise<string[]> {
@@ -121,7 +126,8 @@ export class NotificationRepository extends BaseRepository<Notification> impleme
        SELECT u.id FROM users u
         WHERE ($2::uuid IS NULL OR u.id <> $2)
           AND (u.home_admin_unit_id IN (SELECT id FROM lgas)
-               OR (u.role IN ${STAFF} AND (u.scope_admin_unit_id IS NULL OR u.scope_admin_unit_id IN (SELECT id FROM area))))`,
+               OR EXISTS (SELECT 1 FROM households h WHERE h.owner_id = u.id AND h.lga_id IN (SELECT id FROM lgas))
+               OR (${IS_STAFF} AND (u.scope_admin_unit_id IS NULL OR u.scope_admin_unit_id IN (SELECT id FROM area))))`,
       [lgaIds, excludeUserId],
     );
     return rows.map((row) => row.id);
@@ -131,7 +137,7 @@ export class NotificationRepository extends BaseRepository<Notification> impleme
   async findReviewers(lgaId: string | null, wardId: string | null, excludeUserId: string | null): Promise<string[]> {
     const rows: { id: string }[] = await this.repo.query(
       `SELECT u.id FROM users u
-        WHERE u.role IN ${STAFF}
+        WHERE ${IS_STAFF}
           AND ($3::uuid IS NULL OR u.id <> $3)
           AND (u.scope_admin_unit_id IS NULL
                OR u.scope_admin_unit_id IN ($1::uuid, $2::uuid, (SELECT parent_id FROM admin_units WHERE id = $1::uuid)))`,

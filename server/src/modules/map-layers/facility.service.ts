@@ -3,6 +3,8 @@ import { ForbiddenError, NotFoundError, ValidationError } from "../../common/err
 import { env } from "../../config/env";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
+import { AuditService } from "../audit/audit.service";
+import { PhotoService } from "../photos/photo.service";
 import type { CreateFacilityBody, UpdateFacilityBody } from "./facility.validation";
 import { FacilityRepository } from "./facility.repository";
 import { DEFAULT_WARD_LEVEL, facilityTypeOf, type FacilityType } from "./layer-rules";
@@ -31,13 +33,14 @@ function typeOfKind(kind: string): FacilityType {
  * hospital they visited), and correct or remove it later. It goes in the same table as the imported
  * facilities, so the map draws it and ward counts include it, but it is marked 'manual': reloading or
  * clearing the import never touches it, and an imported facility can't be changed through here.
- * Administrator-only (authorise on the route); like the rest of the map, places are shared reference
- * data, not region-owned records, so no region check applies.
+ * It needs the places.manage permission (on the route; administrators only as seeded). Like the rest of
+ * the map, places are shared reference data, not region-owned records, so no region check applies. Every
+ * save, change and delete is in the activity log.
  */
 export class FacilityService {
   private static _instance?: FacilityService;
   static get Instance(): FacilityService {
-    return (this._instance ??= new FacilityService(FacilityRepository.Instance, AdminUnitRepository.Instance, env.APP_URL));
+    return (this._instance ??= new FacilityService(FacilityRepository.Instance, AdminUnitRepository.Instance, env.APP_URL, AuditService.Instance, PhotoService.Instance));
   }
 
   // Public so tests can inject fakes; application code always uses .Instance.
@@ -46,6 +49,8 @@ export class FacilityService {
     private readonly units: Pick<IAdminUnitRepository, "findContaining">,
     /** Where the web app lives: the standing data source needs a link, and this is the platform itself. */
     private readonly appUrl: string,
+    private readonly audit: Pick<AuditService, "record">,
+    private readonly photos: Pick<PhotoService, "removeAllFor">,
   ) {}
 
   async create(input: CreateFacilityBody, actor: AuthUser): Promise<FacilityDto> {
@@ -57,7 +62,9 @@ export class FacilityService {
     }
 
     const sourceId = await this.facilities.ensureManualSource({ ...MANUAL_SOURCE, url: this.appUrl, createdBy: actor.id });
-    return this.facilities.create({
+    const ward = containing.find((unit) => unit.level === DEFAULT_WARD_LEVEL) ?? null;
+    const lga = containing.find((unit) => unit.level === 2) ?? null;
+    const place = await this.facilities.create({
       countryCode: country.countryCode,
       // The ward, when the spot is inside a loaded one. Unlike an import it is not relinked later.
       adminUnitId: containing.find((unit) => unit.level === DEFAULT_WARD_LEVEL)?.id ?? null,
@@ -70,10 +77,20 @@ export class FacilityService {
       sourceId,
       createdBy: actor.id,
     });
+    await this.audit.record(actor, {
+      action: "place.saved",
+      entityType: "place",
+      entityId: place.id,
+      lgaId: lga?.id ?? null,
+      wardId: ward?.id ?? null,
+      summary: `Saved the place ${place.name ?? input.kind}`,
+      details: { kind: input.kind, longitude: input.longitude, latitude: input.latitude },
+    });
+    return place;
   }
 
   /** Changes the name, kind or note. The point stays where it was saved. */
-  async update(id: string, input: UpdateFacilityBody): Promise<FacilityDto> {
+  async update(id: string, input: UpdateFacilityBody, actor: AuthUser): Promise<FacilityDto> {
     const existing = await this.requireHandSaved(id);
     const kind = input.kind ?? existing.osmClass;
     const updated = await this.facilities.update(id, {
@@ -84,12 +101,29 @@ export class FacilityService {
     });
     // Deleted by someone else between the read and the write.
     if (!updated) throw new NotFoundError("Place");
+    await this.audit.record(actor, {
+      action: "place.updated",
+      entityType: "place",
+      entityId: id,
+      wardId: updated.adminUnitId,
+      summary: `Changed the place ${updated.name ?? kind}`,
+      details: { before: { name: existing.name, kind: existing.osmClass, note: existing.note }, after: { name: updated.name, kind: updated.osmClass, note: updated.note } },
+    });
     return updated;
   }
 
-  async remove(id: string): Promise<void> {
-    await this.requireHandSaved(id);
+  async remove(id: string, actor: AuthUser): Promise<void> {
+    const existing = await this.requireHandSaved(id);
+    // Its photos' files go first: the rows go with the place.
+    await this.photos.removeAllFor({ facilityId: id });
     if (!(await this.facilities.delete(id))) throw new NotFoundError("Place");
+    await this.audit.record(actor, {
+      action: "place.deleted",
+      entityType: "place",
+      entityId: id,
+      summary: `Deleted the place ${existing.name ?? existing.osmClass}`,
+      details: { name: existing.name, kind: existing.osmClass, note: existing.note },
+    });
   }
 
   private async requireHandSaved(id: string) {

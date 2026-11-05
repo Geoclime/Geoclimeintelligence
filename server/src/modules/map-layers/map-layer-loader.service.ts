@@ -10,6 +10,7 @@ import {
   prepareRoads,
   prepareSettlements,
   prepareWaterways,
+  prepareWetlands,
   type LayerFeature,
 } from "./map-layer-rows";
 import { findEntry, openLayerZip, sourceFromEntry } from "./map-layer-provenance";
@@ -53,6 +54,11 @@ export interface LoadRequest {
    */
   buildings?: { fileName: string; buffer: Buffer; sourceId: string };
   /**
+   * The same extract (or one water areas .gpkg), with its data source. Only the water areas file is
+   * read, and only its wetland classes (mangrove, swamp, marsh, tidal flat) are kept.
+   */
+  wetlands?: { fileName: string; buffer: Buffer; sourceId: string };
+  /**
    * Load a GeoPackage that was cut short in transit even when some of its rows are missing. A
    * cut-short file whose rows all arrived loads without it; the report says so either way.
    */
@@ -62,7 +68,7 @@ export interface LoadRequest {
 }
 
 export interface LayerReport {
-  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure" | "buildings";
+  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure" | "buildings" | "wetlands";
   /** What the person loading should know about the file, e.g. that it was recovered from a cut-short copy. */
   notes: string[];
   file: string;
@@ -84,7 +90,7 @@ export interface LoadReport {
 }
 
 /** The layers layers:clear can remove. */
-export const CLEARABLE_LAYERS = ["roads", "waterways", "settlements", "infrastructure", "buildings"] as const;
+export const CLEARABLE_LAYERS = ["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"] as const;
 export type ClearableLayer = (typeof CLEARABLE_LAYERS)[number];
 
 export interface ClearRequest {
@@ -136,11 +142,11 @@ export class MapLayerLoaderService {
   ) {}
 
   async load(request: LoadRequest): Promise<LoadReport> {
-    if (!request.zip && !request.roads && !request.waterways && !request.settlements && !request.infrastructure && !request.buildings) {
+    if (!request.zip && !request.roads && !request.waterways && !request.settlements && !request.infrastructure && !request.buildings && !request.wetlands) {
       throw new ValidationError([
         {
           message:
-            "Nothing to load: give a delivery zip, a roads file, a waterways file, a settlements file, an OpenStreetMap extract for infrastructure or buildings, or a combination.",
+            "Nothing to load: give a delivery zip, a roads file, a waterways file, a settlements file, an OpenStreetMap extract for infrastructure, buildings or wetlands, or a combination.",
         },
       ]);
     }
@@ -160,6 +166,7 @@ export class MapLayerLoaderService {
       ...this.settlementPlans(request, country.countryCode, bbox),
       ...(await this.geoPackagePlans("infrastructure", request, country.countryCode, bbox)),
       ...(await this.geoPackagePlans("buildings", request, country.countryCode, bbox)),
+      ...(await this.geoPackagePlans("wetlands", request, country.countryCode, bbox)),
     ];
     const report: LoadReport = { dryRun: request.dryRun, layers: [] };
 
@@ -342,7 +349,18 @@ export class MapLayerLoaderService {
     const context = (sourceId: string): WardBatchContext => ({ countryCode, bbox, sourceId, wardLevel: request.wardLevel });
     for (const file of osmFiles(layer, upload.buffer, upload.fileName)) {
       const common = { layer, file: file.fileName, source: { existingId: upload.sourceId }, sourceField: `${layer}-source` };
-      if (layer === "infrastructure") {
+      if (layer === "wetlands") {
+        // About a thousand outlines for Rivers State: small enough to read whole, like the facilities.
+        const { features, notes } = await readGeoPackage(file.read(), file.fileName, options);
+        const prepared = prepareWetlands(features);
+        plans.push({
+          ...common,
+          featuresInFile: features.length,
+          notes,
+          prepared,
+          insert: (tx, sourceId) => inBatches(prepared.rows, (batch) => tx.insertWetlands(batch, { countryCode, bbox, sourceId })),
+        });
+      } else if (layer === "infrastructure") {
         const { features, notes } = await readGeoPackage(file.read(), file.fileName, options);
         const prepared = prepareInfrastructure(features);
         plans.push({
@@ -420,6 +438,8 @@ function deleteLayer(tx: LayerLoadTx, layer: ClearableLayer, countryCode: string
       return tx.deleteInfrastructure(countryCode);
     case "buildings":
       return tx.deleteBuildings(countryCode);
+    case "wetlands":
+      return tx.deleteWetlands(countryCode);
   }
 }
 

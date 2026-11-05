@@ -1,4 +1,4 @@
-import type { UserRole } from "../../common/access/roles";
+import type { Permission } from "../../common/access/permissions";
 import type { PageMeta } from "../../common/response/api-response";
 
 /** What a notification is about. Mirrored by the notifications CHECK constraints. */
@@ -9,17 +9,18 @@ export const CHANNELS = ["inApp", "email", "push"] as const;
 export type Channel = (typeof CHANNELS)[number];
 
 /** Each category: what it is called, why someone gets it, and who it applies to. */
-export const CATEGORY_INFO: Record<NotificationCategory, { label: string; reason: string; roles: readonly UserRole[] | "all" }> = {
-  flood_alerts: { label: "Flood alerts", reason: "a flood alert covers your area", roles: "all" },
-  my_reports: { label: "Your flood reports", reason: "a flood report you sent was reviewed", roles: "all" },
-  review_queue: { label: "Reports to review", reason: "a flood report in your region needs reviewing", roles: ["emergency_responder", "government_official", "administrator"] },
-  account: { label: "Account and access", reason: "of a change to your access, or a request an administrator answers", roles: "all" },
+export const CATEGORY_INFO: Record<NotificationCategory, { label: string; reason: string; needs: Permission | null }> = {
+  flood_alerts: { label: "Flood alerts", reason: "a flood alert covers your area", needs: null },
+  my_reports: { label: "Your flood reports", reason: "a flood report you sent was reviewed", needs: null },
+  review_queue: { label: "Reports to review", reason: "a flood report in your region needs reviewing", needs: "reports.review" },
+  account: { label: "Account and access", reason: "of a change to your access, or a request an administrator answers", needs: null },
 };
 
-export function categoriesFor(role: UserRole): NotificationCategory[] {
+/** The categories someone can receive: every category open to all, and those their role's permissions allow. */
+export function categoriesFor(permissions: readonly Permission[]): NotificationCategory[] {
   return NOTIFICATION_CATEGORIES.filter((category) => {
-    const roles = CATEGORY_INFO[category].roles;
-    return roles === "all" || roles.includes(role);
+    const needs = CATEGORY_INFO[category].needs;
+    return needs === null || permissions.includes(needs);
   });
 }
 

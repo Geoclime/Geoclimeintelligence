@@ -24,5 +24,6 @@ export function overlayHint(layer: OverlayLayerId, { zoom, truncated, featureCou
   if (layer === "infrastructure" && sentZoom < 12) return "Health and police first: more appear as you zoom in";
   // Not rounded: the map itself only draws buildings from zoom 15 (BUILDING_MIN_ZOOM), and fetches nothing before.
   if (layer === "buildings" && zoom < 15) return "Zoom in to street level to see them";
+  if (layer === "wetlands") return "Mangrove, swamp and tidal flats: where water spreads first";
   return undefined;
 }

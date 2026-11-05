@@ -19,8 +19,9 @@ export function useMapLayers(bbox: BBox | null, zoom: number, on: Record<MapLaye
   const settlements = useMapLayer("settlements", bbox, { enabled: on.settlements, zoom });
   const infrastructure = useMapLayer("infrastructure", bbox, { enabled: on.infrastructure, zoom, refreshKey: facilitiesRefresh });
   const buildings = useMapLayer("buildings", bbox, { enabled: on.buildings && zoom >= BUILDING_MIN_ZOOM, zoom });
+  const wetlands = useMapLayer("wetlands", bbox, { enabled: on.wetlands, zoom });
 
-  const all = [state, lga, ward, roads, waterways, settlements, infrastructure, buildings];
+  const all = [state, lga, ward, roads, waterways, settlements, infrastructure, buildings, wetlands];
   return {
     state,
     lga,
@@ -30,6 +31,7 @@ export function useMapLayers(bbox: BBox | null, zoom: number, on: Record<MapLaye
     settlements,
     infrastructure,
     buildings,
+    wetlands,
     loading: all.some((layer) => layer.loading),
     /** The first layer that failed, if any. */
     error: all.find((layer) => layer.error)?.error ?? null,

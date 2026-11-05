@@ -3,6 +3,8 @@ import { Link, NavLink } from "react-router";
 import type { UserRole } from "../../types/auth.types";
 import { MAP_PATH } from "../../utils/map-url";
 import { hasAnyRole } from "../../utils/roles";
+import { can } from "../../utils/permissions";
+import { useAuth } from "../../hooks/useAuth";
 import { BrandMark } from "../shared/BrandMark";
 import { Icon } from "../shared/Icon";
 import { NAV_GROUPS } from "./nav-items";
@@ -24,6 +26,8 @@ interface SidebarProps {
  * backend refuses them anyway).
  */
 export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: SidebarProps) {
+  // Links that need a permission (the Roles screen sets them) are shown by what the person's role holds.
+  const { user } = useAuth();
   const firstLink = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
@@ -38,7 +42,7 @@ export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: S
 
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => item.roles.length === 0 || hasAnyRole(role, item.roles)),
+    items: group.items.filter((item) => (item.permission ? can(user, item.permission) : item.roles.length === 0 || hasAnyRole(role, item.roles))),
   })).filter((group) => group.items.length > 0);
 
   const firstTo = groups[0]?.items[0]?.to;

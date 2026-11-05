@@ -29,6 +29,7 @@ export function handSavedPlaceIn(features: readonly ClickedFeature[]): PlaceOnMa
       osmClass: properties.osmClass,
       note: typeof properties.note === "string" && properties.note ? properties.note : null,
       point: coordinates,
+      origin: "manual",
     };
   }
   return null;
@@ -43,5 +44,6 @@ export function placeOnMapFrom(place: SavedPlace): PlaceOnMap {
     osmClass: place.osmClass,
     note: place.note,
     point: [place.longitude, place.latitude],
+    origin: place.origin,
   };
 }

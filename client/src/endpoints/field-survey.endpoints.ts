@@ -2,6 +2,7 @@ import { httpClient } from "../transport/http";
 import type { ApiResponse } from "../types/api.types";
 import type {
   Drainage,
+  InspectedDrainage,
   DrainageFeatureCollection,
   DrainageSummary,
   FloodExtent,
@@ -15,8 +16,8 @@ import type {
 } from "../types/field-survey.types";
 import type { OverlayLayerParams } from "../types/map-layer.types";
 
-// server/src/modules/field-survey/field-survey.routes.ts. Reading: any signed-in user. Recording,
-// re-inspecting and receding: responders, officials and administrators. Deleting: whoever recorded it, or an administrator.
+// server/src/modules/field-survey/field-survey.routes.ts. Reading the layers: any signed-in user. Everything
+// else needs a permission the Roles screen sets (utils/permissions.ts mirrors them for the screen).
 
 /** Saves the outline of a flood and returns it with what it reaches. */
 export async function saveFloodExtent(body: NewFloodExtentBody): Promise<ApiResponse<FloodExtentWithImpact>> {
@@ -63,9 +64,9 @@ export async function fetchDrainageSummary(areaId: string, limit = 20): Promise<
   return data;
 }
 
-/** An inspection: changes what was sent and moves "last checked" to now. */
-export async function updateDrainage(id: string, body: UpdateDrainageBody): Promise<ApiResponse<Drainage>> {
-  const { data } = await httpClient.patch<ApiResponse<Drainage>>(`/api/v1/drainage/${encodeURIComponent(id)}`, body);
+/** An inspection: changes what was sent, moves "last checked" to now and to you, and logs who checked and from where. */
+export async function updateDrainage(id: string, body: UpdateDrainageBody): Promise<ApiResponse<InspectedDrainage>> {
+  const { data } = await httpClient.patch<ApiResponse<InspectedDrainage>>(`/api/v1/drainage/${encodeURIComponent(id)}`, body);
   return data;
 }
 

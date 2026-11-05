@@ -67,6 +67,10 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 
 ## Flooding
 
+37. [audit-and-permissions.md](audit-and-permissions.md): the activity log (who did what, kept for good), every drain inspection with who checked and from where, roles an administrator can edit or create on the Roles screen, and photos on floods, drains, inspections and places saved by hand.
+
+37a. [households.md](households.md): marking your home on the map, private to you and staff, with alerts for floods near it and a count in flood impact.
+
 38. [flood-alerts-and-reports.md](flood-alerts-and-reports.md): flood alerts (watch, warning, severe) for LGAs and states, community flood reports with GPS, depth, photos and voice notes, the review queue, and the national alert map on the landing page.
 
 39. [features/installable-app.md](features/installable-app.md): the PWA: install on phones and computers, offline use, and update prompts.

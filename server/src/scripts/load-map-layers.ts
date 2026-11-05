@@ -13,6 +13,7 @@
  *   npm run layers:load -- --settlements ../rivers_state_settlement_names.geojson --settlements-source <data-source-uuid>
  *   npm run layers:load -- --infrastructure ../osm-20261027T194914Z-1-001.zip --infrastructure-source <data-source-uuid>
  *   npm run layers:load -- --buildings ../osm-20261027T194914Z-1-001.zip --buildings-source <data-source-uuid>
+ *   npm run layers:load -- --wetlands ../osm-20261027T194914Z-1-001.zip --wetlands-source <data-source-uuid>
  *
  * --zip                     the delivery zip (provenance.json + roads, waterways, waterway areas)
  * --settlements             the GRID3 settlement-names GeoJSON
@@ -21,6 +22,8 @@
  * --infrastructure-source   id of that extract's data source (add it on Imports > Add a source first)
  * --buildings               the same extract (or one gis_osm_buildings_a_free_<n>.gpkg): its building outlines
  * --buildings-source        id of that extract's data source
+ * --wetlands                the same extract (or one water_a .gpkg): its mangrove, swamp, marsh and tidal flats
+ * --wetlands-source         id of that extract's data source
  * --accept-partial          load a cut-short GeoPackage even when some of its rows are missing (they are reported)
  * --country              country code, default NGA
  * --ward-level           the admin level that holds wards, default 3
@@ -44,13 +47,18 @@ const argsSchema = z
     "infrastructure-source": z.uuid("--infrastructure-source must be a data source id (uuid)").optional(),
     buildings: z.string().min(1).optional(),
     "buildings-source": z.uuid("--buildings-source must be a data source id (uuid)").optional(),
+    wetlands: z.string().min(1).optional(),
+    "wetlands-source": z.uuid("--wetlands-source must be a data source id (uuid)").optional(),
     "accept-partial": z.boolean().default(false),
     country: z.string().length(3).default("NGA"),
     "ward-level": z.coerce.number().int().min(1).max(6).default(3),
     "dry-run": z.boolean().default(false),
   })
-  .refine((args) => args.zip || args.settlements || args.infrastructure || args.buildings, {
-    message: "Give --zip, --settlements, --infrastructure, --buildings, or a combination",
+  .refine((args) => args.zip || args.settlements || args.infrastructure || args.buildings || args.wetlands, {
+    message: "Give --zip, --settlements, --infrastructure, --buildings, --wetlands, or a combination",
+  })
+  .refine((args) => !args.wetlands || args["wetlands-source"], {
+    message: "--wetlands needs --wetlands-source <data-source-uuid>: record the extract's source first, so no wetland is unsourced",
   })
   .refine((args) => !args.settlements || args["settlements-source"], {
     message: "--settlements needs --settlements-source <data-source-uuid>: record the file's source first, so no point is unsourced",
@@ -94,6 +102,8 @@ async function main() {
       "infrastructure-source": { type: "string" },
       buildings: { type: "string" },
       "buildings-source": { type: "string" },
+      wetlands: { type: "string" },
+      "wetlands-source": { type: "string" },
       "accept-partial": { type: "boolean" },
       country: { type: "string" },
       "ward-level": { type: "string" },
@@ -123,6 +133,9 @@ async function main() {
       : undefined,
     buildings: args.buildings
       ? { fileName: path.basename(args.buildings), buffer: readFileSync(args.buildings), sourceId: args["buildings-source"]! }
+      : undefined,
+    wetlands: args.wetlands
+      ? { fileName: path.basename(args.wetlands), buffer: readFileSync(args.wetlands), sourceId: args["wetlands-source"]! }
       : undefined,
     acceptPartial: args["accept-partial"],
   };

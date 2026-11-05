@@ -1,4 +1,5 @@
 import type { AuthUser } from "../../common/access/auth-user";
+import { PermissionResolver } from "../../common/access/permission-resolver";
 import type { RegionAccess } from "../../common/access/region-access";
 import { ForbiddenError, ValidationError } from "../../common/errors/app-error";
 import type { LonLat } from "../../common/geo/geo";
@@ -45,9 +46,16 @@ export async function assertRecordInRegion(
   else if (actor.scopeAdminUnitId) throw new ForbiddenError();
 }
 
-/** The person who recorded something, or an administrator, may delete it: nobody else's work disappears by accident. */
-export function assertMayDelete(actor: AuthUser, recordedBy: string | null): void {
-  if (actor.role !== "administrator" && recordedBy !== actor.id) {
-    throw new ForbiddenError("Only the person who recorded this, or an administrator, can delete it");
-  }
+/**
+ * Who may delete a flood or drain: anyone whose role holds survey.delete_any (administrators always),
+ * or the person who recorded it, if their role holds survey.delete_own. Nobody else's work disappears by accident.
+ */
+export async function assertMayDelete(
+  actor: AuthUser,
+  recordedBy: string | null,
+  permissions: Pick<PermissionResolver, "has"> = PermissionResolver.Instance,
+): Promise<void> {
+  if (await permissions.has(actor, "survey.delete_any")) return;
+  if (recordedBy === actor.id && (await permissions.has(actor, "survey.delete_own"))) return;
+  throw new ForbiddenError("Only the person who recorded this, or someone allowed to delete anyone's records, can delete it");
 }

@@ -54,6 +54,9 @@ export const QUERY_KEYS = {
   notifications: ["notifications"],
   settings: ["settings"],
   users: ["users"],
+  roles: ["roles"],
+  audit: ["audit"],
+  photos: ["photos"],
 } as const satisfies Record<string, QueryKey>;
 
 /**

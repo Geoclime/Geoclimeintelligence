@@ -1,8 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { PlaceFormTarget } from "../../hooks/useSavedPlaces";
 import type { PlaceOnMap } from "../../types/map-layer.types";
+import type { PendingPhoto } from "../../types/photo.types";
+import { PhotoPicker } from "../photos/PhotoPicker";
+import { MAX_PHOTOS } from "../photos/PhotoSection";
 import { applySubmitError } from "../../utils/form-errors";
 import { formatCoordinates } from "../../utils/formatCoordinates";
 import { describeKind, FACILITY_KIND_GROUPS, isPickableKind } from "../../utils/facility-kinds";
@@ -18,8 +21,10 @@ import "../users/users.css";
 interface PlaceFormDialogProps {
   target: PlaceFormTarget;
   onClose: () => void;
-  /** Saves the form. Rejects with an ApiError so the form can show why. */
-  onSubmit: (values: PlaceFormValues) => Promise<PlaceOnMap | null>;
+  /** Saves the form, then sends the photos. Rejects with an ApiError so the form can show why. */
+  onSubmit: (values: PlaceFormValues, photos: PendingPhoto[]) => Promise<PlaceOnMap | null>;
+  /** Whether this person may add photos (photos.add). */
+  canAddPhotos?: boolean;
   onDone: (place: PlaceOnMap | null) => void;
 }
 
@@ -33,8 +38,9 @@ const defaultsFor = (target: PlaceFormTarget): PlaceFormValues =>
  * kind of place it is, and an optional note. The point is the spot they tapped and can't be moved
  * here. Render it with a fresh `key` each time it opens.
  */
-export function PlaceFormDialog({ target, onClose, onSubmit, onDone }: PlaceFormDialogProps) {
+export function PlaceFormDialog({ target, onClose, onSubmit, onDone, canAddPhotos = false }: PlaceFormDialogProps) {
   const formId = useId();
+  const [photos, setPhotos] = useState<PendingPhoto[]>([]);
   const editing = target.mode === "edit";
   const {
     register,
@@ -45,7 +51,7 @@ export function PlaceFormDialog({ target, onClose, onSubmit, onDone }: PlaceForm
 
   const onFormSubmit = handleSubmit(async (values) => {
     try {
-      onDone(await onSubmit(values));
+      onDone(await onSubmit(values, photos));
     } catch (error) {
       applySubmitError(error, setError, ["name", "kind", "note"]);
     }
@@ -113,6 +119,12 @@ export function PlaceFormDialog({ target, onClose, onSubmit, onDone }: PlaceForm
           {...register("note")}
         />
         {target.mode === "create" && <p className="access-form__note">{formatCoordinates(target.point)}</p>}
+        {canAddPhotos && target.mode === "create" && (
+          <fieldset className="role-picker">
+            <legend className="role-picker__legend">Photos (optional)</legend>
+            <PhotoPicker photos={photos} onChange={setPhotos} max={MAX_PHOTOS} of="the place" disabled={isSubmitting} />
+          </fieldset>
+        )}
       </form>
     </Modal>
   );
