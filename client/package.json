@@ -2,7 +2,7 @@
   "name": "climate-platform-client",
   "version": "0.1.0",
   "private": true,
-  "description": "Web client for the Climate Intelligence & Disaster Management Platform (Rivers State, Nigeria)",
+  "description": "Web client for the Climate Intelligence & Disaster Management Platform (Nigeria, expanding across Africa)",
   "license": "UNLICENSED",
   "type": "module",
   "engines": {
@@ -17,12 +17,13 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "cy:open": "cypress open",
-    "e2e": "start-server-and-test dev:e2e http://localhost:5174 \"cypress run\"",
-    "e2e:open": "start-server-and-test dev:e2e http://localhost:5174 \"cypress open\""
+    "cy:open": "node scripts/cypress.mjs open",
+    "e2e": "start-server-and-test dev:e2e http://localhost:5174 \"node scripts/cypress.mjs run\"",
+    "e2e:open": "start-server-and-test dev:e2e http://localhost:5174 \"node scripts/cypress.mjs open\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
+    "@tanstack/react-query": "^5.105.0",
     "axios": "^1.20.0",
     "firebase": "^12.19.0",
     "mapbox-gl": "^3.32.0",
@@ -31,6 +32,7 @@
     "react-hook-form": "^7.89.0",
     "react-map-gl": "^8.1.3",
     "react-router": "^7.18.4",
+    "socket.io-client": "4.8.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {

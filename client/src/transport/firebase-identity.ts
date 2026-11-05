@@ -27,6 +27,7 @@ export function createFirebaseIdentity(): IdentityClient {
     authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
     projectId: env.VITE_FIREBASE_PROJECT_ID,
     appId: env.VITE_FIREBASE_APP_ID,
+    messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   });
   const auth = getAuth(app);
   // Account emails always go out in English: the app and our customised email templates are

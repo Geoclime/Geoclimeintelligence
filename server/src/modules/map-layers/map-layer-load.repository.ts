@@ -3,6 +3,7 @@ import { AppDataSource } from "../../config/data-source";
 import type {
   BatchContext,
   BatchResult,
+  BuildingRow,
   EnsuredSource,
   ILayerLoadStore,
   InfrastructureRow,
@@ -13,14 +14,16 @@ import type {
   WardBatchContext,
   SettlementRow,
   WaterwayRow,
+  WetlandRow,
 } from "./map-layer-loader.types";
 
 /**
  * Every write the layers:load and layers:clear scripts make. Spatial checks run here in PostGIS (section 8), the
  * same rules as the import pipeline's: readable shape, the right type, EPSG:4326, real
  * coordinates, repaired if invalid, inside the country's rough box. Rows are never updated once
- * stored, except that a settlement or facility saved without a ward is linked when its ward later exists.
- * layers:clear deletes a country's roads, waterways or infrastructure, so they can be reloaded or the country deleted.
+ * stored, except that a settlement, facility or building saved without a ward is linked when its ward later exists.
+ * layers:clear deletes a country's roads, waterways, infrastructure or buildings, so they can be reloaded or the country deleted.
+ * It leaves facilities an administrator saved by hand (origin 'manual'): no import put them there.
  */
 
 /** Why PostGIS refuses a shape, as the keys of the check query and the words shown to the user. */
@@ -223,15 +226,16 @@ class PostgresLayerLoadTx implements LayerLoadTx {
       osm_class: row.osmClass, shape: row.shape,
     }));
     // An outline becomes a point inside it (ST_PointOnSurface, which unlike a centroid never falls
-    // outside an L-shaped site). The ward is the one at the ward level that covers that point; a
+    // outside an L-shaped site). Some deliveries wrap each point as a one-point MultiPoint; the same
+    // function returns that point. The ward is the one at the ward level that covers the point; a
     // point in no live ward is still stored (unlinked), and the next run links it, as for settlements.
     const result: CountRow[] = await this.manager.query(
       `${checkedRowsSql(
         `osm_id text, from_area boolean, name text, facility_type text, osm_class text, shape text`,
-        ["POINT", "POLYGON", "MULTIPOLYGON"],
+        ["POINT", "MULTIPOINT", "POLYGON", "MULTIPOLYGON"],
       )},
        located AS (
-         SELECT c.*, ST_Force2D(CASE WHEN GeometryType(c.g) LIKE '%POLYGON' THEN ST_PointOnSurface(c.g) ELSE c.g END) AS pt
+         SELECT c.*, ST_Force2D(CASE WHEN GeometryType(c.g) = 'POINT' THEN c.g ELSE ST_PointOnSurface(c.g) END) AS pt
            FROM checked c WHERE c.reject IS NULL
        ),
        ins AS (
@@ -260,30 +264,102 @@ class PostgresLayerLoadTx implements LayerLoadTx {
     return toResult(result[0], rows.length);
   }
 
-  async deleteRoads(countryCode: string): Promise<number> {
-    const rows: unknown[] = await this.manager.query(`DELETE FROM roads WHERE country_code = $1 RETURNING 1`, [countryCode]);
-    return rows.length;
+  async insertBuildings(rows: BuildingRow[], context: WardBatchContext): Promise<BatchResult> {
+    const payload = rows.map((row) => ({ osm_id: row.osmId, name: row.name, building_type: row.buildingType, shape: row.shape }));
+    // The outline is kept whole. Its ward is the one covering a point inside it (ST_PointOnSurface),
+    // so a building straddling a ward line counts once, in one ward. Unlinked rows are relinked on
+    // the next run, as for settlements and facilities.
+    const result: CountRow[] = await this.manager.query(
+      `${checkedRowsSql(`osm_id text, name text, building_type text, shape text`, ["POLYGON", "MULTIPOLYGON"])},
+       located AS (
+         SELECT c.*, ST_Multi(ST_Force2D(c.g)) AS shape_2d, ST_PointOnSurface(c.g) AS pt
+           FROM checked c WHERE c.reject IS NULL
+       ),
+       ins AS (
+         INSERT INTO buildings (country_code, admin_unit_id, osm_id, name, building_type, geom, source_id)
+         SELECT $3::char(3), w.id, l.osm_id, l.name, l.building_type, l.shape_2d, $4::uuid
+           FROM located l
+           LEFT JOIN LATERAL (
+             SELECT a.id FROM admin_units a
+              WHERE a.country_code = $3::char(3) AND a.level = $5::smallint
+                AND a.geom && l.pt AND ST_Covers(a.geom, l.pt)
+              ORDER BY a.id LIMIT 1) w ON true
+         ON CONFLICT (osm_id) DO UPDATE
+            SET admin_unit_id = EXCLUDED.admin_unit_id, updated_at = now()
+          WHERE buildings.admin_unit_id IS NULL AND EXCLUDED.admin_unit_id IS NOT NULL
+         RETURNING (xmax = 0) AS was_inserted, (admin_unit_id IS NULL) AS no_ward
+       )
+       SELECT count(*)::int AS received,
+              (SELECT count(*) FILTER (WHERE was_inserted) FROM ins)::int AS inserted,
+              (SELECT count(*) FILTER (WHERE NOT was_inserted) FROM ins)::int AS relinked,
+              (SELECT count(*) FILTER (WHERE no_ward) FROM ins)::int AS unlinked,
+              ${REJECT_COLUMNS}
+         FROM checked`,
+      [JSON.stringify(payload), box(context), context.countryCode, context.sourceId, context.wardLevel],
+    );
+    return toResult(result[0], rows.length);
   }
 
-  async deleteWaterways(countryCode: string): Promise<number> {
-    const rows: unknown[] = await this.manager.query(`DELETE FROM waterways WHERE country_code = $1 RETURNING 1`, [countryCode]);
-    return rows.length;
+  async insertWetlands(rows: WetlandRow[], context: BatchContext): Promise<BatchResult> {
+    const payload = rows.map((row) => ({ osm_id: row.osmId, name: row.name, wetland_class: row.wetlandClass, osm_class: row.osmClass, shape: row.shape }));
+    // Kept whole, like a waterway area; the simplified copies are generated by the table itself.
+    const result: CountRow[] = await this.manager.query(
+      `${checkedRowsSql(`osm_id text, name text, wetland_class text, osm_class text, shape text`, ["POLYGON", "MULTIPOLYGON"])},
+       ins AS (
+         INSERT INTO wetlands (country_code, osm_id, name, wetland_class, osm_class, geom, source_id)
+         SELECT $3::char(3), c.osm_id, c.name, c.wetland_class, c.osm_class, ST_Multi(ST_Force2D(c.g)), $4::uuid
+           FROM checked c WHERE c.reject IS NULL
+         ON CONFLICT (osm_id) DO NOTHING
+         RETURNING 1
+       )
+       SELECT count(*)::int AS received, (SELECT count(*) FROM ins)::int AS inserted,
+              ${REJECT_COLUMNS}
+         FROM checked`,
+      [JSON.stringify(payload), box(context), context.countryCode, context.sourceId],
+    );
+    return toResult(result[0], rows.length);
   }
 
-  async deleteSettlements(): Promise<number> {
-    const rows: unknown[] = await this.manager.query(`DELETE FROM settlement_points RETURNING 1`);
-    return rows.length;
+  /**
+   * Runs a DELETE and says how many rows it removed. A bare `DELETE ... RETURNING` comes back from TypeORM as
+   * [rows, rowCount], whose length is always 2, so the count is read from a SELECT over the deleted rows. It is
+   * also a count rather than the rows themselves: 400,000 returned buildings would all come back to Node.
+   * `statement` is fixed text in this file, never from a request.
+   */
+  private async deleteCount(statement: string, params: unknown[] = []): Promise<number> {
+    const [row]: { deleted: number }[] = await this.manager.query(`WITH gone AS (${statement} RETURNING 1) SELECT count(*)::int AS deleted FROM gone`, params);
+    return row?.deleted ?? 0;
   }
 
-  async deleteInfrastructure(countryCode: string): Promise<number> {
-    const rows: unknown[] = await this.manager.query(`DELETE FROM infrastructure WHERE country_code = $1 RETURNING 1`, [countryCode]);
-    return rows.length;
+  deleteRoads(countryCode: string): Promise<number> {
+    return this.deleteCount(`DELETE FROM roads WHERE country_code = $1`, [countryCode]);
+  }
+
+  deleteWaterways(countryCode: string): Promise<number> {
+    return this.deleteCount(`DELETE FROM waterways WHERE country_code = $1`, [countryCode]);
+  }
+
+  deleteSettlements(): Promise<number> {
+    return this.deleteCount(`DELETE FROM settlement_points`);
+  }
+
+  deleteInfrastructure(countryCode: string): Promise<number> {
+    // Only what an import put there: a place an administrator saved by hand from the map stays.
+    return this.deleteCount(`DELETE FROM infrastructure WHERE country_code = $1 AND origin = 'import'`, [countryCode]);
+  }
+
+  deleteBuildings(countryCode: string): Promise<number> {
+    return this.deleteCount(`DELETE FROM buildings WHERE country_code = $1`, [countryCode]);
+  }
+
+  deleteWetlands(countryCode: string): Promise<number> {
+    return this.deleteCount(`DELETE FROM wetlands WHERE country_code = $1`, [countryCode]);
   }
 }
 
 /**
  * Runs the loader's writes in one transaction. Not a BaseRepository: it owns no single table
- * (it writes five), so it opens the transaction itself, like the other repositories that need one.
+ * (it writes six), so it opens the transaction itself, like the other repositories that need one.
  */
 export class MapLayerLoadRepository implements ILayerLoadStore {
   private static _instance?: MapLayerLoadRepository;

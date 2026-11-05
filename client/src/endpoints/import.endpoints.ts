@@ -10,6 +10,7 @@ import type {
   PreviewImportInput,
   StagingFeatureCollection,
   StartImportInput,
+  StartRainfallImportInput,
   TemplateFormat,
 } from "../types/import.types";
 
@@ -36,6 +37,14 @@ export async function previewImportFile(input: PreviewImportInput): Promise<ApiR
 /** Creates a run: the server stages and checks every row. Nothing goes live until promote. */
 export async function startImport(input: StartImportInput): Promise<ApiResponse<ImportRun>> {
   const { data } = await httpClient.post<ApiResponse<ImportRun>>("/api/v1/imports", uploadForm({ ...input }), {
+    timeout: 180_000,
+  });
+  return data;
+}
+
+/** Creates a rainfall run: every row is matched to a live area and compared with the rainfall already live. */
+export async function startRainfallImport(input: StartRainfallImportInput): Promise<ApiResponse<ImportRun>> {
+  const { data } = await httpClient.post<ApiResponse<ImportRun>>("/api/v1/imports/rainfall", uploadForm({ ...input }), {
     timeout: 180_000,
   });
   return data;

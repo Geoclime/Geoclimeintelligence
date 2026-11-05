@@ -16,6 +16,10 @@ const firebaseSchema = z.object({
   VITE_FIREBASE_AUTH_DOMAIN: required("VITE_FIREBASE_AUTH_DOMAIN"),
   VITE_FIREBASE_PROJECT_ID: required("VITE_FIREBASE_PROJECT_ID"),
   VITE_FIREBASE_APP_ID: z.string().trim().optional(),
+  // Push notifications (Firebase Cloud Messaging). Optional: without both, push is simply not offered.
+  // Firebase console > Project settings > General (sender ID) and > Cloud Messaging > Web Push certificates (key pair).
+  VITE_FIREBASE_MESSAGING_SENDER_ID: z.string().trim().optional(),
+  VITE_FIREBASE_VAPID_KEY: z.string().trim().optional(),
 });
 
 const envSchema = z

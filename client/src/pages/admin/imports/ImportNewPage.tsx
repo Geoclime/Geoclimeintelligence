@@ -8,15 +8,21 @@ import { FilePreviewTable } from "../../../components/imports/FilePreviewTable";
 import { ImportGuide, levelAvailable, nextLevel } from "../../../components/imports/ImportGuide";
 import {
   detectLayerChoiceFromFileName,
+  isOsmLayer,
   EMPTY_MAPPING,
   importFormSchema,
+  isFloodRiskChoice,
   mappingToForm,
   parseLayerChoice,
+  parseRainfallChoice,
   toMapLayerUpload,
+  toStartFloodRiskImport,
   toStartImport,
+  toStartRainfallImport,
   type ImportFormValues,
 } from "../../../components/imports/import-form.schema";
 import "../../../components/imports/imports.css";
+import { RainfallMappingFields } from "../../../components/imports/RainfallMappingFields";
 import { Breadcrumbs } from "../../../components/shared/Breadcrumbs/Breadcrumbs";
 import { Button } from "../../../components/shared/Button";
 import { Callout } from "../../../components/shared/Callout";
@@ -36,32 +42,42 @@ import { errorMessage } from "../../../transport/api-error";
 import type { ImportFileType, ImportPreview, TemplateFormat } from "../../../types/import.types";
 import type { MapLayerLoadReport, OverlayLayerId } from "../../../types/map-layer.types";
 import { applySubmitError } from "../../../utils/form-errors";
+import { MAP_PATH } from "../../../utils/map-url";
 
 const FILE_TYPE_LABELS: Record<ImportFileType, string> = {
   xlsx: "Excel workbook",
   geojson: "GeoJSON",
   shapefile: "Shapefile",
   csv: "CSV file",
+  geotiff: "GeoTIFF",
 };
 
 const SERVER_FIELDS = [
   "countryCode", "level", "sourceId", "sheetName", "headerRow", "parentId",
   "columnMapping.unit_name", "columnMapping.unit_code", "columnMapping.parent_code", "columnMapping.geometry_wkt",
+  "columnMapping.area_code", "columnMapping.area_name", "columnMapping.year_month", "columnMapping.rainfall_mm",
 ] as const;
+
+/** CHIRPS from Earth Engine is averaged over ADM2 areas: LGAs in Nigeria. */
+const RAINFALL_LEVEL = 2;
 
 const LAYER_LABELS: Record<string, string> = {
   roads: "Roads",
   waterways: "Waterways",
   settlements: "Settlements",
   infrastructure: "Infrastructure",
+  buildings: "Buildings",
+  wetlands: "Wetlands",
   zip: "Map layers delivery zip",
 };
 
 /**
  * "Import data": choose the country, level (or map layer) and data source, download the matching
  * template if needed, upload the filled file (or a real file such as the lga_boundaries sheet or
- * rivers_roads.geojson), match its columns for boundaries, and check or load it.
- * ?country=NGA&level=2 presets the choice (the country page's "Import areas" button).
+ * rivers_roads.geojson), match its columns for boundaries, and check or load it. "Rainfall: monthly
+ * per LGA" takes a CHIRPS export (or the cleaned rainfall sheet) through the same check-then-promote steps.
+ * ?country=NGA&level=2 presets the choice (the country page's "Import areas" button); level=rainfall:2
+ * presets rainfall.
  */
 export function ImportNewPage() {
   useDocumentTitle("New import");
@@ -79,6 +95,7 @@ export function ImportNewPage() {
       parentMode: "column",
       parentId: "",
       fileType: "",
+      acceptPartial: false,
       columnMapping: EMPTY_MAPPING,
     },
   });
@@ -88,16 +105,22 @@ export function ImportNewPage() {
     name: ["countryCode", "level", "headerRow"],
   });
   const layerKind = parseLayerChoice(levelText);
-  const level = layerKind ? 0 : Number(levelText) || 0;
+  const rainfallLevel = parseRainfallChoice(levelText);
+  const floodRiskChoice = isFloodRiskChoice(levelText);
+  // 0 for map layers, rainfall and the flood risk map: none of the boundary-level steps apply to them.
+  const level = layerKind || rainfallLevel !== null || floodRiskChoice ? 0 : Number(levelText) || 0;
 
   const { countries } = useCountries();
   const { sources, addSource } = useDataSources();
-  const { preview, start, uploadLayer, clearLayer } = useImportUpload();
+  const { preview, start, startRainfall, startFloodRisk, uploadLayer, clearLayer } = useImportUpload();
   const { catalog: layerCatalog, refetch: refetchLayerCatalog } = useMapLayerCatalog();
   const template = useTemplateDownload();
   const country = countries.find((c) => c.countryCode === countryCode) ?? null;
   const levelName = level > 0 ? (country?.levels[level - 1]?.name ?? null) : null;
   const parentLevelName = level > 1 ? (country?.levels[level - 2]?.name ?? null) : null;
+  const rainfallLevelName = rainfallLevel !== null ? (country?.levels[rainfallLevel - 1]?.name ?? "area") : null;
+  /** The one level rainfall can be imported for: level 2, which the CHIRPS export (ADM2) covers. */
+  const rainfallChoice = country?.levels.find((l) => l.level === RAINFALL_LEVEL) ?? null;
   const parents = useAdminUnits({ countryCode, level: level - 1, pageSize: 100, enabled: Boolean(country) && level > 1 });
 
   const [file, setFile] = useState<File | null>(null);
@@ -108,9 +131,11 @@ export function ImportNewPage() {
   const [clearingLayers, setClearingLayers] = useState(false);
   const [sourceDialog, setSourceDialog] = useState(0);
 
-  const readFile = async (next: File, options: { sheetName?: string; headerRow?: number } = {}) => {
+  /** `choice` is the Level value the file is read for; it differs from the form's while a change is applied. */
+  const readFile = async (next: File, options: { sheetName?: string; headerRow?: number } = {}, choice = levelText) => {
     setPreviewing(true);
     setPreviewError(null);
+    const rainfallFor = parseRainfallChoice(choice);
     try {
       const result = await preview({
         file: next,
@@ -118,7 +143,8 @@ export function ImportNewPage() {
         countryCode: countryCode || undefined,
         // No parentId, even in "one parent" mode: the guess should still look for a parent column,
         // or a sheet without one would stop every later sheet from finding theirs.
-        level: level || undefined,
+        level: (rainfallFor ?? (parseLayerChoice(choice) ? 0 : Number(choice))) || undefined,
+        target: rainfallFor !== null ? "rainfall_observations" : undefined,
       });
       // The form values are applied in the effect below, once the new sheet's headings exist as
       // <option>s. Setting them here selected options that weren't rendered yet, so a guess that
@@ -171,17 +197,19 @@ export function ImportNewPage() {
     if (!next) return;
 
     const detectedLayer = detectLayerChoiceFromFileName(next.name);
-    if (detectedLayer && !layerKind) {
+    const applied = detectedLayer && !layerKind;
+    if (applied) {
       setValue("level", detectedLayer, { shouldValidate: true });
       clearErrors("columnMapping");
     }
     const effectiveLayer = parseLayerChoice(detectedLayer ?? levelText);
     // The delivery zip and the OpenStreetMap extract have no columns to match, so nothing to preview.
-    if (effectiveLayer === "zip" || effectiveLayer === "infrastructure") {
+    // Nor has the flood risk map: it is a grid of cells, not rows.
+    if (effectiveLayer === "zip" || isOsmLayer(effectiveLayer) || isFloodRiskChoice(detectedLayer ?? levelText)) {
       setPreviewError(null);
       return;
     }
-    void readFile(next);
+    void readFile(next, {}, applied ? detectedLayer : levelText);
   };
 
   const downloadTemplate = async (format: TemplateFormat) => {
@@ -192,11 +220,25 @@ export function ImportNewPage() {
 
   const onSubmit = handleSubmit(async (values) => {
     const chosenLayer = parseLayerChoice(values.level);
-    if (!file || (!chosenLayer && !filePreview)) {
+    const rainfallFor = parseRainfallChoice(values.level);
+    const floodRiskFor = isFloodRiskChoice(values.level);
+    if (!file || (!chosenLayer && !floodRiskFor && !filePreview)) {
       setError("root.server", { message: "Choose a file to upload first." });
       return;
     }
     try {
+      if (floodRiskFor) {
+        const run = await startFloodRisk(toStartFloodRiskImport(values, file));
+        showToast({ type: "success", message: `Measured ${run.rowCount} areas: ${run.passedCount} passed, ${run.errorCount} failed.` });
+        navigate(`/admin/imports/${run.id}`);
+        return;
+      }
+      if (rainfallFor !== null) {
+        const run = await startRainfall(toStartRainfallImport(values, file, filePreview!.fileType, rainfallFor));
+        showToast({ type: "success", message: `Checked ${run.rowCount} rows: ${run.passedCount} passed, ${run.errorCount} failed.` });
+        navigate(`/admin/imports/${run.id}`);
+        return;
+      }
       if (chosenLayer) {
         const report = await uploadLayer(toMapLayerUpload(values, file, chosenLayer));
         setLayerReport(report);
@@ -251,10 +293,14 @@ export function ImportNewPage() {
       <header className="page__header">
         <div>
           <p className="page__eyebrow">Administration</p>
-          <h1 className="page__title">Import areas</h1>
+          <h1 className="page__title">{floodRiskChoice ? "Import the flood risk map" : rainfallLevel !== null ? "Import rainfall" : "Import areas"}</h1>
           <p className="page__lead">
-            Every row is checked before anything goes live: the shape, where it sits, its name and its parent. You review
-            the results and promote them on the next screen.
+            {floodRiskChoice
+              ? "The map is checked before anything goes live: that it can be read, that it lines up with the boundaries, and how much of each LGA and ward falls in each class."
+              : rainfallLevel !== null
+                ? "Every row is checked before anything goes live: the area it's for, the month and the value, and how it compares with the rainfall already live."
+                : "Every row is checked before anything goes live: the shape, where it sits, its name and its parent."}{" "}
+            You review the results and promote them on the next screen.
           </p>
         </div>
       </header>
@@ -290,14 +336,23 @@ export function ImportNewPage() {
               </SelectField>
               <SelectField
                 label="Level"
-                hint={country ? "Choose an administrative boundary level, or a map feature layer (Roads, Waterways, Settlements, Infrastructure)." : undefined}
+                hint={
+                  country
+                    ? "Choose an administrative boundary level, a map feature layer (Roads, Waterways, Settlements, Infrastructure, Buildings), or monthly rainfall."
+                    : undefined
+                }
                 error={formState.errors.level?.message}
                 disabled={!country}
                 data-cy="import-level"
                 {...register("level", {
-                  onChange: () => {
+                  onChange: (event: ChangeEvent<HTMLSelectElement>) => {
                     clearErrors("columnMapping");
                     setLayerReport(null);
+                    // Areas and rainfall guess different columns (and may read different sheets): read again.
+                    const next = event.target.value;
+                    if (file && filePreview && !parseLayerChoice(next) && !isFloodRiskChoice(next) && (parseRainfallChoice(next) !== null) !== (rainfallLevel !== null)) {
+                      void readFile(file, {}, next);
+                    }
                   },
                 })}
               >
@@ -316,7 +371,27 @@ export function ImportNewPage() {
                     <option value="layer:waterways">Map layer: Waterways (GeoJSON)</option>
                     <option value="layer:settlements">Map layer: Settlements (GeoJSON)</option>
                     <option value="layer:infrastructure">Map layer: Infrastructure (OpenStreetMap extract, .zip or .gpkg)</option>
+                    <option value="layer:buildings">Map layer: Buildings (OpenStreetMap extract, .zip or .gpkg)</option>
+                    <option value="layer:wetlands">Map layer: Wetlands (OpenStreetMap extract, .zip or water_a .gpkg)</option>
                     <option value="layer:zip">Map layer: Delivery zip (provenance.json + layers)</option>
+                  </optgroup>
+                )}
+                {/* Rainfall per level 2 only (LGA in Nigeria): the CHIRPS export is one row per ADM2 area per
+                    month. Another level gets its own option once a rainfall file exists for it. */}
+                {rainfallChoice && (
+                  <optgroup label="Climate data">
+                    <option value={`rainfall:${rainfallChoice.level}`} disabled={rainfallChoice.unitCount === 0}>
+                      Rainfall: monthly per {rainfallChoice.name}{" "}
+                      {rainfallChoice.unitCount > 0 ? "(CHIRPS export, .xlsx or .csv)" : `(import ${rainfallChoice.name} areas first)`}
+                    </option>
+                  </optgroup>
+                )}
+                {/* The flood risk map is measured per LGA and ward, so the LGAs must be live first, as for rainfall. */}
+                {rainfallChoice && (
+                  <optgroup label="Hazard data">
+                    <option value="flood-risk" disabled={rainfallChoice.unitCount === 0}>
+                      Flood risk map {rainfallChoice.unitCount > 0 ? "(classified GeoTIFF, .tif)" : `(import ${rainfallChoice.name} areas first)`}
+                    </option>
                   </optgroup>
                 )}
               </SelectField>
@@ -393,17 +468,60 @@ export function ImportNewPage() {
                     ? "Who published this data? There are no sources yet: press Add a source and enter the publisher, dataset, licence and download date from the file's README."
                     : "Who published this data? It's recorded with every feature, for credit and licensing. Not listed? Add a source here, or remove old ones under Configuration."}
                 </p>
+                {floodRiskChoice && (
+                  <Callout tone="info" dataCy="flood-risk-note">
+                    The classified flood risk map as a GeoTIFF: one band, each cell 1 (very low) to 5 (very high), in a WGS 84 / UTM grid, such as
+                    the data team&apos;s <code>flood_risk_map.tif</code>. It is not the continuous index or a factor score. The map is checked
+                    against the live LGAs and wards, and nothing goes live until you promote it. The source is who made the map and under what
+                    licence, and the map is shown as <strong>derived</strong>: a modelled judgement of where it could flood, not an observation.
+                  </Callout>
+                )}
+                {rainfallLevel !== null && (
+                  <Callout tone="info" dataCy="rainfall-note">
+                    Monthly rainfall per {rainfallLevelName}, one row per {rainfallLevelName} per month: the CHIRPS export from Google
+                    Earth Engine as delivered, or the cleaned <code>rainfall</code> sheet. Each row is matched to a live {rainfallLevelName}{" "}
+                    by its code, or its name, and compared with the rainfall already live. Months already live with the same value are left
+                    alone, so you can upload the whole combined file again each month. The source is usually &quot;Climate Hazards Center,
+                    UC Santa Barbara: CHIRPS v2.0&quot;.
+                  </Callout>
+                )}
                 {layerKind === "infrastructure" && (
                   <Callout tone="info" dataCy="layer-infrastructure-note">
-                    Upload Geofabrik&apos;s OpenStreetMap extract as delivered (the zip of <code>gis_osm_*.gpkg</code> files), or one of its
+                    Upload Geofabrik&apos;s OpenStreetMap extract as delivered (the zip of GeoPackages, named <code>gis_osm_pois_free_1.gpkg</code> or <code>rivers_pois.gpkg</code>), or one of its
                     facility files. Only points of interest, places of worship and transport are read: clinics, schools, police, markets,
                     ferry terminals, water points and the like. Shops, kiosks and sports pitches are left out. The source is usually
                     &quot;OpenStreetMap contributors via Geofabrik&quot;, licence ODbL 1.0.
                   </Callout>
                 )}
+                {layerKind === "buildings" && (
+                  <Callout tone="info" dataCy="layer-buildings-note">
+                    Upload the same OpenStreetMap extract (the zip), or one buildings <code>.gpkg</code> file (<code>rivers_buildings_a.gpkg</code>, <code>gis_osm_buildings_a_free_1.gpkg</code>...). Only the building
+                    files are read. Rivers State has about 414,000 buildings, so loading takes a few minutes: keep this page open until the
+                    report appears. Use the same source as Infrastructure if it&apos;s the same extract.
+                  </Callout>
+                )}
+                {layerKind === "wetlands" && (
+                  <Callout tone="info" dataCy="layer-wetlands-note">
+                    Upload the same OpenStreetMap extract (the zip), or its water areas file (<code>rivers_water_a.gpkg</code>, <code>gis_osm_water_a_free_1.gpkg</code>). Only
+                    mangrove, swamp, marsh and tidal flats are kept: open water is already on the waterways layer. Use the same source as
+                    Infrastructure if it&apos;s the same extract.
+                  </Callout>
+                )}
+                {isOsmLayer(layerKind) && (
+                  <label className="check-field" data-cy="accept-partial">
+                    <input type="checkbox" {...register("acceptPartial")} />
+                    <span>
+                      Load even if rows are missing
+                      <span className="field__help">
+                        Only matters for a file that was cut short in transit. If every row still arrived it loads anyway, with a note in
+                        the report. Tick this to load what is there when some rows are gone.
+                      </span>
+                    </span>
+                  </label>
+                )}
               </>
             )}
-            {!layerKind && (
+            {!layerKind && rainfallLevel === null && !floodRiskChoice && (
               <div className="template-actions section-gap">
                 <span className="muted">Building a file by hand? Start from a blank one. Already have a file? Skip this and upload it below.</span>
                 <Button variant="ghost" size="sm" icon={<Icon name="download" size={16} />} disabled={!ready} loading={template.downloading} onClick={() => void downloadTemplate("xlsx")} data-cy="download-xlsx">
@@ -422,12 +540,13 @@ export function ImportNewPage() {
               <span className="import-step__number">2</span>Upload the file
             </h2>
             <p className="form-section__lead">
-              A shapefile (the .shp, or a .zip of its .shp, .dbf and .prj), a GeoJSON file, an Excel workbook (.xlsx) or a CSV file. Excel and
-              CSV hold shapes as WKT text. Up to {env.VITE_IMPORT_MAX_FILE_MB} MB.
+              {floodRiskChoice
+                ? `The classified flood risk map: a GeoTIFF (.tif). Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB.`
+                : `A shapefile (the .shp, or a .zip of its .shp, .dbf and .prj), a GeoJSON file, an Excel workbook (.xlsx) or a CSV file. Excel and CSV hold shapes as WKT text. Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB.`}
             </p>
             <label className="field">
               <span className="field__label">File</span>
-              <input type="file" accept=".shp,.zip,.geojson,.json,.xlsx,.csv,.tsv,.gpkg" className="field__input" onChange={onFileChange} data-cy="import-file" />
+              <input type="file" accept=".shp,.zip,.geojson,.json,.xlsx,.csv,.tsv,.gpkg,.tif,.tiff" className="field__input" onChange={onFileChange} data-cy="import-file" />
             </label>
             {previewing && <p className="muted section-gap">Reading the file…</p>}
             {previewError && (
@@ -452,7 +571,9 @@ export function ImportNewPage() {
                       label="Sheet"
                       hint={
                         filePreview.sheets.length > 1
-                          ? `This workbook has ${filePreview.sheets.length} sheets. Use the one that holds the areas and their shapes.`
+                          ? `This workbook has ${filePreview.sheets.length} sheets. Use the one that holds ${
+                              rainfallLevel !== null ? "the rainfall" : "the areas and their shapes"
+                            }.`
                           : undefined
                       }
                       data-cy="import-sheet"
@@ -484,6 +605,23 @@ export function ImportNewPage() {
               </div>
             )}
 
+            {floodRiskChoice && file && (
+              <div className="stack section-gap">
+                <Callout tone="info" dataCy="flood-risk-ready">
+                  Ready to measure <strong>{file.name}</strong> against every live LGA and ward. It can take a few seconds. Nothing goes live until you
+                  promote it on the next screen.
+                </Callout>
+                <div className="form-actions">
+                  <Button variant="secondary" onClick={() => navigate("/admin/imports")}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" icon={<Icon name="check" size={16} />} loading={formState.isSubmitting} loadingLabel="Measuring the map…" data-cy="start-import">
+                    Check the map
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {layerKind && file && (
               <div className="stack section-gap">
                 <Callout tone="info" dataCy="layer-upload-ready">
@@ -495,6 +633,7 @@ export function ImportNewPage() {
                       <div key={`${item.layer}-${item.file}`}>
                         <strong>{item.layer.toUpperCase()}</strong> ({item.file}): {item.inserted.toLocaleString("en")} added,{" "}
                         {item.alreadyPresent.toLocaleString("en")} already present
+                        {item.notes && item.notes.length > 0 && `. ${item.notes.join(" ")}`}
                         {Object.keys(item.rejected).length > 0 &&
                           `, left out: ${Object.entries(item.rejected)
                             .map(([reason, count]) => `${count} × ${reason}`)
@@ -504,7 +643,7 @@ export function ImportNewPage() {
                   </Callout>
                 )}
                 <div className="form-actions">
-                  <Button variant="secondary" onClick={() => navigate("/")}>
+                  <Button variant="secondary" onClick={() => navigate(MAP_PATH)}>
                     Open map
                   </Button>
                   <Button
@@ -527,15 +666,19 @@ export function ImportNewPage() {
                 <span className="import-step__number">3</span>Match the columns
               </h2>
               <p className="form-section__lead">Tell us which of the file's columns holds each piece. We've guessed from the headings.</p>
-              <ColumnMappingFields
-                headings={filePreview.headings}
-                fileType={filePreview.fileType}
-                level={level}
-                levelName={levelName ?? "area"}
-                parentLevelName={parentLevelName}
-                parents={parents.units}
-                sampleRow={filePreview.sampleRows[0]}
-              />
+              {rainfallLevel !== null ? (
+                <RainfallMappingFields headings={filePreview.headings} levelName={rainfallLevelName ?? "area"} sampleRow={filePreview.sampleRows[0]} />
+              ) : (
+                <ColumnMappingFields
+                  headings={filePreview.headings}
+                  fileType={filePreview.fileType}
+                  level={level}
+                  levelName={levelName ?? "area"}
+                  parentLevelName={parentLevelName}
+                  parents={parents.units}
+                  sampleRow={filePreview.sampleRows[0]}
+                />
+              )}
               <div className="form-actions">
                 <Button variant="secondary" onClick={() => navigate("/admin/imports")}>
                   Cancel

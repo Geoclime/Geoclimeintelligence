@@ -201,3 +201,20 @@
   gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
+
+/* A checkbox with its label and help text beside it (the Imports screen's "Load even if rows are missing"). */
+.check-field {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin-top: var(--space-3);
+  cursor: pointer;
+}
+
+.check-field input {
+  margin-top: 0.2em;
+}
+
+.check-field .field__help {
+  display: block;
+}

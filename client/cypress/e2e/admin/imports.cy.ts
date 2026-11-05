@@ -1,5 +1,5 @@
 import { stubId } from "../../support/factories";
-import { buildCountry, buildRun, buildStagingRow, featureCollection, SOURCE, STATE, buildUnit } from "../../support/geo-factories";
+import { buildCountry, buildFloodRiskLayer, buildRun, buildStagingRow, featureCollection, SOURCE, STATE, buildUnit } from "../../support/geo-factories";
 
 const RUN_ID = stubId(800);
 
@@ -132,6 +132,87 @@ describe("Administrator: imports", () => {
       cy.wait("@promote");
       cy.dataCy("toast-success").should("contain", "317 Ward areas are now live");
       cy.dataCy("promote").should("be.disabled").and("contain", "Promoted");
+    });
+
+    describe("the flood risk map", () => {
+      const floodRun = (overrides: Record<string, unknown> = {}) =>
+        buildRun({
+          target: "flood_risk_layers",
+          fileName: "flood_risk_map.tif",
+          fileType: "geotiff",
+          options: { countryCode: "NGA", dataType: "DERIVED", title: "flood_risk_map" },
+          columnMapping: {},
+          rowCount: 3,
+          passedCount: 3,
+          errorCount: 0,
+          promotableCount: 3,
+          warnings: ["Read a 1,323 x 1,558 map of 100 m cells (EPSG:32632): 10,341.4 km2 classified, measured in 3 areas."],
+          ...overrides,
+        });
+      const riskRow = (rowNumber: number, name: string, risk: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+        buildStagingRow(rowNumber, { unitName: name, unitCode: null, parentRef: null, parentName: null, hasShape: false, risk, ...extra });
+
+      it("is chosen on the import screen, and uploaded as a GeoTIFF with its country and source", () => {
+        // The LGAs have to be live first: the map is measured per LGA and ward.
+        cy.interceptApi("GET", "/countries", { data: [buildCountry()] });
+        cy.interceptApi("POST", "/imports/flood-risk", { statusCode: 201, data: floodRun() }).as("startFloodRisk");
+        cy.interceptApi("GET", `/imports/${RUN_ID}?*`, { data: { run: floodRun(), rows: [] }, meta: { total: 0 } });
+
+        cy.visit("/admin/imports/new?country=NGA&level=flood-risk");
+        cy.dataCy("flood-risk-note").should("contain", "classified flood risk map").and("contain", "derived");
+        cy.dataCy("import-source").select(SOURCE.id);
+        cy.dataCy("import-file").selectFile({ contents: Cypress.Buffer.from("II*"), fileName: "flood_risk_map.tif" });
+        cy.dataCy("flood-risk-ready").should("contain", "flood_risk_map.tif");
+        cy.dataCy("start-import").click();
+
+        cy.wait("@startFloodRisk").then(({ request }) => {
+          const body = request.body as string;
+          expect(request.headers["content-type"]).to.match(/multipart\/form-data/);
+          expect(body).to.contain('name="countryCode"').and.contain("NGA");
+          expect(body).to.contain('name="sourceId"').and.contain(SOURCE.id);
+          expect(body).to.contain('name="file"').and.contain("flood_risk_map.tif");
+        });
+        cy.location("pathname").should("eq", `/admin/imports/${RUN_ID}`);
+      });
+
+      it("is not offered until the LGAs are live", () => {
+        cy.visit("/admin/imports/new?country=NGA");
+        cy.dataCy("import-level").find("option[value='flood-risk']").should("be.disabled");
+      });
+
+      it("is reviewed on its own map, with how each LGA and ward divides into classes, then promoted", () => {
+        const rows = [
+          riskRow(1, "Port Harcourt", { levelName: "LGA", areaKm2: 123.4, percentHigh: 97.1, meanClass: 4.2 }),
+          riskRow(2, "Obio-Akpor", { levelName: "LGA", areaKm2: 260.5, percentHigh: 12.3, meanClass: 2.9 }),
+          riskRow(3, "Rumuokoro", { levelName: "Ward", areaKm2: 8.1, percentHigh: null, meanClass: null }, { parentName: "Obio-Akpor", warnings: ["The map has no data inside this area (open water, or beyond the map's edge)."] }),
+        ];
+        cy.interceptApi("GET", `/imports/${RUN_ID}?*`, { data: { run: floodRun(), rows }, meta: { page: 1, pageSize: 50, total: 3 } });
+        cy.interceptApi("GET", `/imports/${RUN_ID}/flood-risk`, { data: buildFloodRiskLayer({ status: "staged", promotedAt: null }) }).as("runFloodRisk");
+        cy.interceptApi("GET", "/flood-risk/layers/*/image", { fixture: "map/flood-risk.png" });
+        cy.interceptApi("POST", `/imports/${RUN_ID}/promote`, { data: floodRun({ status: "promoted", promotedCount: 3 }) }).as("promote");
+
+        cy.visit(`/admin/imports/${RUN_ID}`);
+        cy.wait("@runFloodRisk");
+        cy.dataCy("import-preview-map").should("be.visible");
+        cy.dataCy("flood-risk-summary").should("contain", "Very high").and("contain", "1,606.52 km²").and("contain", "15.5%");
+        cy.dataCy("staging-table").should("contain", "High or very high").and("contain", "Mean class");
+        cy.dataCy("staging-row").first().should("contain", "Port Harcourt").and("contain", "97.1%");
+        cy.dataCy("staging-row").last().should("contain", "Rumuokoro").and("contain", "No data").and("contain", "no data inside this area");
+
+        cy.dataCy("promote").should("contain", "Promote the map").click();
+        cy.dataCy("promote-dialog").should("contain", "Make this flood risk map live?").and("contain", "replacing the current map");
+        cy.dataCy("confirm-promote").click();
+        cy.wait("@promote");
+        cy.dataCy("toast-success").should("contain", "The flood risk map is now live, with figures for 3 areas");
+        cy.dataCy("promote").should("be.disabled").and("contain", "Promoted");
+        cy.dataCy("promoted-next").should("contain", "Flood risk");
+      });
+
+      it("shows in the import history as a flood risk map", () => {
+        cy.interceptApi("GET", "/imports?*", { data: [floodRun()], meta: { page: 1, pageSize: 25, total: 1 } });
+        cy.visit("/admin/imports");
+        cy.dataCy("import-run-row").first().should("contain", "Flood risk map").and("contain", "NGA").and("contain", "3/3 passed");
+      });
     });
 
     it("shows the server's 409 when a run was already promoted elsewhere", () => {

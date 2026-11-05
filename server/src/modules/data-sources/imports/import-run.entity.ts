@@ -1,10 +1,11 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
 import type {
-  AdminUnitImportOptions,
   ColumnMapping,
   ImportFileType,
+  ImportOptions,
   ImportRunStatus,
   ImportTarget,
+  RainfallColumnMapping,
   StagingRowStatus,
 } from "./import.types";
 
@@ -27,10 +28,10 @@ export class ImportRun {
   sheetName!: string | null;
 
   @Column({ type: "jsonb" })
-  options!: AdminUnitImportOptions;
+  options!: ImportOptions;
 
   @Column({ name: "column_mapping", type: "jsonb" })
-  columnMapping!: ColumnMapping;
+  columnMapping!: ColumnMapping | RainfallColumnMapping;
 
   @Column({ name: "source_id", type: "uuid" })
   sourceId!: string;

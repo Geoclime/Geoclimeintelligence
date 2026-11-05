@@ -294,7 +294,7 @@ The stories are in the order you'd naturally go through them: set up, become the
 - [ ] The page shows the code `NG033022` and the centre coordinates.
 - [ ] The **Source** card (geoBoundaries, licence, download date) is shown.
 - [ ] The wards are listed as links.
-- [ ] A card honestly says rainfall and flood history arrive later, with no placeholder numbers.
+- [ ] The Flood history card lists the floods responders recorded in this LGA (newest first, with a link to each on the map), or honestly says none have been recorded, with no placeholder numbers.
 - [ ] **Show on the main map** opens the map with this LGA selected.
 
 ### 3.8 Open a ward

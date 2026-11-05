@@ -1,0 +1,232 @@
+/* ---------- Rainfall card (LGA profile) ---------- */
+
+.rainfall-card__delta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.rainfall-card__note {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.rainfall-card__table {
+  margin-top: var(--space-4);
+}
+
+.rainfall-card__table summary {
+  cursor: pointer;
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.rainfall-card__table[open] summary {
+  margin-bottom: var(--space-3);
+}
+
+.rainfall-card__sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* ---------- Chart: one series (columns) plus a neutral reference (the month's average) ---------- */
+
+.rainfall-chart {
+  margin: 0;
+}
+
+.rainfall-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.rainfall-chart__key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rainfall-chart__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--color-primary);
+}
+
+.rainfall-chart__line-key {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-text-subtle);
+}
+
+.rainfall-chart__plot {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+}
+
+.rainfall-chart__plot svg {
+  display: block;
+  overflow: visible;
+}
+
+.rainfall-chart__grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.rainfall-chart__baseline {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.rainfall-chart__tick {
+  fill: var(--color-text-subtle);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rainfall-chart__tick--year {
+  font-weight: 600;
+}
+
+.rainfall-chart__bar {
+  fill: var(--color-primary);
+  transition: opacity 120ms ease;
+}
+
+.rainfall-chart__month.is-active .rainfall-chart__bar {
+  opacity: 0.75;
+}
+
+.rainfall-chart__missing {
+  fill: var(--color-text-subtle);
+  font-size: 12px;
+}
+
+.rainfall-chart__average-ring {
+  stroke: var(--color-surface);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.rainfall-chart__average {
+  stroke: var(--color-text-subtle);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.rainfall-chart__hit {
+  fill: transparent;
+  outline: none;
+}
+
+.rainfall-chart__hit:focus-visible {
+  stroke: var(--color-focus);
+  stroke-width: 2;
+}
+
+.rainfall-chart__tooltip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  min-width: 140px;
+  padding: var(--space-2) var(--space-3);
+  transform: translate(-50%, -100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
+
+.rainfall-chart__tooltip strong {
+  color: var(--color-text);
+  font-size: var(--text-md);
+}
+
+.rainfall-chart__tooltip-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rainfall-chart__bar {
+    transition: none;
+  }
+}
+
+/* ---------- Choosing a period, and the year-by-year chart ---------- */
+
+.rainfall-card__period {
+  min-width: 180px;
+}
+
+.rainfall-card__section-title {
+  margin: var(--space-5) 0 var(--space-1);
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.rainfall-card__section-lead {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.rainfall-card__period-total {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+.rainfall-chart__hit--selectable {
+  cursor: pointer;
+}
+
+.rainfall-chart__month.is-selected .rainfall-chart__label {
+  fill: var(--color-text);
+  font-weight: 700;
+}
+
+.rainfall-chart__month.is-selected .rainfall-chart__bar {
+  fill: var(--color-brand-deep);
+}
+
+:root[data-theme="dark"] .rainfall-chart__month.is-selected .rainfall-chart__bar {
+  fill: var(--color-primary-hover);
+}
+
+.rainfall-chart__hint {
+  color: var(--color-text-subtle);
+  font-size: var(--text-2xs);
+}
+
+.rainfall-card__chart-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.rainfall-card__chart-header .rainfall-card__section-lead {
+  margin-bottom: 0;
+}

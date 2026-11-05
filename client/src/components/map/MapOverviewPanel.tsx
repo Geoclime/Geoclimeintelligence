@@ -3,6 +3,7 @@ import type { AdminUnitSummary } from "../../types/admin-unit.types";
 import type { Country } from "../../types/country.types";
 import { Button, buttonClassName } from "../shared/Button";
 import { Icon } from "../shared/Icon";
+import { areaTitle as formatAreaTitle } from "../../utils/area-title";
 
 interface MapOverviewPanelProps {
   country: Country | null;
@@ -14,9 +15,9 @@ interface MapOverviewPanelProps {
   geoError: string | null;
 }
 
-/** "Rivers" at level "State" reads as "Rivers State"; a name that already ends in it is left alone. */
+/** "Rivers" at level "State" reads as "Rivers State". */
 function areaTitle(unit: AdminUnitSummary): string {
-  return unit.unitName.toLowerCase().endsWith(unit.levelName.toLowerCase()) ? unit.unitName : `${unit.unitName} ${unit.levelName}`;
+  return formatAreaTitle(unit.unitName, unit.levelName);
 }
 
 /**

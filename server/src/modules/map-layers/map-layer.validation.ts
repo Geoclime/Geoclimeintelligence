@@ -17,16 +17,26 @@ export const layerGeoJsonSchema = z.object({
 });
 export type LayerGeoJsonQueryInput = z.infer<typeof layerGeoJsonSchema>["query"];
 
+/** GET /api/v1/infrastructure/search?q=: facilities by name, for the top bar's search. */
+export const facilitySearchSchema = z.object({
+  query: z.object({
+    q: z.string().trim().min(2, "Type at least 2 characters").max(60, "Keep the search under 60 characters"),
+  }),
+});
+export type FacilitySearchQuery = z.infer<typeof facilitySearchSchema>["query"];
+
 export const uploadMapLayerSchema = z.object({
   body: z
     .object({
       countryCode: countryCodeSchema,
       layer: z.enum(
-        ["roads", "waterways", "settlements", "infrastructure", "zip"],
-        "Choose roads, waterways, settlements, infrastructure or the delivery zip",
+        ["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands", "zip"],
+        "Choose roads, waterways, settlements, infrastructure, buildings, wetlands or the delivery zip",
       ),
       sourceId: optional(z.uuid("Choose the data source these features come from")),
       wardLevel: optional(z.coerce.number().int().min(1).max(6)),
+      // A form field, so it arrives as text. Only GeoPackages read it (a cut-short file with rows missing).
+      acceptPartial: optional(z.enum(["true", "false"]).transform((value) => value === "true")),
     })
     .superRefine((body, ctx) => {
       if (body.layer !== "zip" && !body.sourceId) {
@@ -44,7 +54,7 @@ export const clearMapLayerSchema = z.object({
   body: z.object({
     countryCode: countryCodeSchema,
     layers: z
-      .array(z.enum(["roads", "waterways", "settlements", "infrastructure"]))
+      .array(z.enum(["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"]))
       .min(1, "Choose at least one layer to clear"),
   }),
 });

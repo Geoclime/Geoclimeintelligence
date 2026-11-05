@@ -1,9 +1,10 @@
 import { Suspense } from "react";
-import { Outlet } from "react-router";
+import { Link, Outlet } from "react-router";
 import { BrandMark } from "../shared/BrandMark";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { ContourBackdrop } from "./ContourBackdrop";
 import { OfflineBanner } from "./OfflineBanner";
+import { PwaUpdateBanner } from "./PwaUpdateBanner";
 import { ThemeToggle } from "./ThemeToggle";
 import "./layout.css";
 
@@ -14,15 +15,17 @@ export function AuthLayout() {
       <aside className="auth-brand">
         <ContourBackdrop />
         <div className="auth-brand__content">
-          <BrandMark variant="light" />
+          <Link to="/" className="auth-brand__home" aria-label="GeoClime Intelligence, home">
+            <BrandMark variant="light" />
+          </Link>
           <div className="auth-brand__copy">
-            <h2 className="auth-brand__headline">Climate intelligence and disaster management for Rivers State.</h2>
+            <h2 className="auth-brand__headline">Climate intelligence and disaster management for Nigeria.</h2>
             <p className="auth-brand__sub">
-              One place for responders, officials and researchers to see flood risk, rainfall and disaster events.
+              One shared, sourced map of places, infrastructure and rainfall for responders, officials, researchers and residents.
             </p>
           </div>
-          <p className="auth-brand__coords mono" aria-label="Map centre: 4.85 degrees north, 7.00 degrees east">
-            4.85° N · 7.00° E
+          <p className="auth-brand__coords mono" aria-label="Centre of Nigeria: 9.08 degrees north, 8.68 degrees east">
+            9.08° N · 8.68° E
           </p>
         </div>
       </aside>
@@ -31,6 +34,7 @@ export function AuthLayout() {
           <ThemeToggle />
         </div>
         <OfflineBanner />
+      <PwaUpdateBanner />
         <main id="main" className="auth-main__content">
           <Suspense fallback={<LoadingSpinner />}>
             <Outlet />

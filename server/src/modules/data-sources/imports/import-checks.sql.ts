@@ -11,7 +11,7 @@ export interface GeometryCheck {
   withBBox?: boolean;
 }
 
-export const GEOMETRY_CHECKS: readonly GeometryCheck[] = [
+export const SHAPE_CHECKS: readonly GeometryCheck[] = [
   // 1. Read the text (WKT or GeoJSON). import_parse_geometry returns NULL instead of throwing.
   { sql: `UPDATE import_staging_rows SET geom = import_parse_geometry(geom_source, geom_format)
     WHERE run_id = $1 AND geom_source IS NOT NULL` },
@@ -66,8 +66,13 @@ export const GEOMETRY_CHECKS: readonly GeometryCheck[] = [
     WHERE s.run_id = $1 AND s.geom IS NOT NULL
       AND au.id = (s.fields->>'parentId')::uuid
       AND NOT ST_Intersects(au.geom, ST_PointOnSurface(s.geom))` },
+];
 
-  // 9. The verdict.
+/**
+ * 9. The verdict, for every run: shape checks or not (rainfall rows have no shape, so their
+ *    checks all ran in code before staging).
+ */
+export const VERDICT_CHECKS: readonly GeometryCheck[] = [
   { sql: `UPDATE import_staging_rows SET status = CASE WHEN cardinality(errors) = 0 THEN 'passed' ELSE 'failed' END
     WHERE run_id = $1` },
   { sql: `UPDATE import_runs r SET row_count = c.total, passed_count = c.passed, error_count = c.failed

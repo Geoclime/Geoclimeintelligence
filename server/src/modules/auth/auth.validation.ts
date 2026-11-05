@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REQUESTABLE_ROLES } from "../../common/access/roles";
 
 /** Trims; an empty string means "clear this field" and is stored as null. */
 const optionalText = (max: number, label: string) =>
@@ -27,10 +28,33 @@ export const updateProfileSchema = z.object({
       }),
       organisation: optionalText(200, "Organisation"),
       jobTitle: optionalText(120, "Job title"),
+      // The LGA they live or work in (checked to be an LGA in the service).
+      homeAdminUnitId: z.uuid("Choose your LGA").nullable().optional(),
     })
     .strict()
     .refine((body) => Object.values(body).some((value) => value !== undefined), {
-      message: "Provide at least one of displayName, phone, organisation or jobTitle",
+      message: "Provide at least one of displayName, phone, organisation, jobTitle or homeAdminUnitId",
     }),
 });
 export type UpdateProfileBody = z.infer<typeof updateProfileSchema>["body"];
+
+/**
+ * PUT /api/v1/auth/me/role-request: ask an administrator for a staff role. Only the requestable
+ * roles are accepted (never administrator). The organisation and job title, when given, are
+ * saved to the profile so the administrator sees who is asking.
+ */
+export const roleRequestSchema = z.object({
+  body: z
+    .object({
+      role: z.enum(REQUESTABLE_ROLES, { error: "Choose Emergency Responder, Government Official or Researcher" }),
+      reason: z
+        .string({ error: "Tell the administrator why you need this role" })
+        .trim()
+        .min(10, "Tell the administrator a little more (at least 10 characters)")
+        .max(500, "Keep the reason under 500 characters"),
+      organisation: optionalText(200, "Organisation"),
+      jobTitle: optionalText(120, "Job title"),
+    })
+    .strict(),
+});
+export type RoleRequestBody = z.infer<typeof roleRequestSchema>["body"];

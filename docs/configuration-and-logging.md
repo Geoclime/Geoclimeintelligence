@@ -22,8 +22,14 @@ All paths are relative to `server/`.
 | `DATABASE_SSL_CA` | no | – | Path to the database provider's CA certificate |
 | `FIREBASE_PROJECT_ID` | **yes** | – | The Firebase project whose ID tokens this API accepts |
 | `CORS_ORIGINS` | no | empty | Comma-separated browser origins allowed to call the API |
+| `CLOUDINARY_URL` | no | empty | `cloudinary://<api_key>:<api_secret>@<cloud_name>`, from the Cloudinary dashboard: where flood-report photos, voice notes, videos and documents are stored ([flood-alerts-and-reports.md](flood-alerts-and-reports.md)) |
+| `APP_URL` | no | `http://localhost:5173` | Where the web app lives: links in emails and push notifications |
+| `EMAIL_PROVIDER` | no | `none` | `smtp`, `apps_script` or `none`; with `EMAIL_FALLBACK`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`, `EMAIL_MAX_PER_TICK`, the `SMTP_*` settings, `EMAIL_FROM_ADDRESS`, `EMAIL_APPS_SCRIPT_URL` and `EMAIL_APPS_SCRIPT_TOKEN` ([email.md](email.md)) |
+| `FIREBASE_SERVICE_ACCOUNT` | no | empty | Service-account JSON (or base64) for push notifications ([notifications.md](notifications.md)) |
+| `TRUST_PROXY_HOPS` | no | `0` | Proxies in front of the API (Render: `1`), so `req.ip` is the visitor's address for the public routes' rate limit ([public-landing-api.md](public-landing-api.md)) |
 | `IMPORT_MAX_FILE_MB` | no | `60` | Maximum upload size in MB on the Imports routes (413 above it) |
 | `IMPORT_MAX_UNZIPPED_MB` | no | `100` | Maximum unpacked zip size in MB (zip-bomb guard) |
+| `IMPORT_MAX_GPKG_MB` | no | `200` | Largest single GeoPackage unpacked from an OpenStreetMap extract, in MB. Checked per file, since they are unpacked one at a time and streamed ([buildings-layer.md](buildings-layer.md)) |
 | `IMPORT_MAX_ROWS` | no | `100000` | Maximum rows or features in one imported file |
 
 Tests don't use `.env`. [`vitest.config.mts`](../server/vitest.config.mts) sets harmless dummy values, because the tests never touch a real database or Firebase.
@@ -35,6 +41,7 @@ Tests don't use `.env`. [`vitest.config.mts`](../server/vitest.config.mts) sets 
 **5. HTTP security basics.** These are set in [`src/app.ts`](../server/src/app.ts), before any route:
 - **helmet** adds standard security headers to every response, for example telling browsers not to guess content types.
 - **CORS** controls which websites' JavaScript may call this API from a browser. Only the origins in `CORS_ORIGINS` are allowed. If it's empty, no CORS headers are sent, so browsers block all cross-site calls. Postman and server-to-server calls aren't affected, because CORS is a browser rule.
+- **compression** gzips every reply over 1 KB. The map's shapes are by far the largest replies (a whole-state view is over a megabyte of GeoJSON) and compress about five-fold, which is most of the wait on a phone. Browsers ask for it automatically and unpack it themselves, so nothing else changes.
 - **JSON body limit**: request bodies over 1 MB are rejected with `413 Request body too large`. That stops someone from tying up the server with a huge upload.
 
 **Flagged for the team (NEEDS VERIFICATION):**

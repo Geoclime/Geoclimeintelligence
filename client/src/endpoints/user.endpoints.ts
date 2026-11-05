@@ -15,6 +15,12 @@ export async function fetchUserById(id: string): Promise<ApiResponse<ManagedUser
   return data;
 }
 
+/** Declines an account's open role request; its role stays as it is. Approving is updateUserAccess with that role. */
+export async function declineRoleRequest(id: string): Promise<ApiResponse<ManagedUser>> {
+  const { data } = await httpClient.delete<ApiResponse<ManagedUser>>(`/api/v1/users/${encodeURIComponent(id)}/role-request`);
+  return data;
+}
+
 export async function updateUserAccess(id: string, patch: UserAccessPatch): Promise<ApiResponse<ManagedUser>> {
   const { data } = await httpClient.patch<ApiResponse<ManagedUser>>(
     `/api/v1/users/${encodeURIComponent(id)}/access`,

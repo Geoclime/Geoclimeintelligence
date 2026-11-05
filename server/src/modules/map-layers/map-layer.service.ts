@@ -1,29 +1,42 @@
 import { DataSourceRepository } from "../data-sources/data-source.repository";
 import { toDataSourceDto, type DataSourceDto, type IDataSourceRepository } from "../data-sources/data-source.types";
+import { BuildingRepository } from "./building.repository";
 import { InfrastructureRepository } from "./infrastructure.repository";
 import type { MapLayerId } from "./layer-rules";
 import type {
+  BuildingFeatureCollection,
+  FacilityHit,
+  IBuildingRepository,
   IInfrastructureRepository,
   InfrastructureFeatureCollection,
   IRoadRepository,
   ISettlementRepository,
   IWaterwayRepository,
+  IWetlandRepository,
   LayerGeoJsonQuery,
   LayerSummary,
   MapLayerInfoDto,
   RoadFeatureCollection,
   SettlementFeatureCollection,
   WaterwayFeatureCollection,
+  WetlandFeatureCollection,
 } from "./map-layer.types";
+import type { FacilitySearchQuery } from "./map-layer.validation";
 import { RoadRepository } from "./road.repository";
 import { SettlementPointRepository } from "./settlement-point.repository";
 import { WaterwayRepository } from "./waterway.repository";
+import { WetlandRepository } from "./wetland.repository";
+
+/** How many facilities one search lists. */
+const FACILITY_HITS = 8;
 
 const LAYER_LABELS: Readonly<Record<MapLayerId, string>> = {
   roads: "Roads",
   waterways: "Waterways",
   settlements: "Settlements",
   infrastructure: "Infrastructure",
+  buildings: "Buildings",
+  wetlands: "Wetlands",
 };
 
 /** The repository behind each layer. */
@@ -32,11 +45,13 @@ export interface MapLayerRepositories {
   waterways: IWaterwayRepository;
   settlements: ISettlementRepository;
   infrastructure: IInfrastructureRepository;
+  buildings: IBuildingRepository;
+  wetlands: IWetlandRepository;
 }
 
 /**
- * Read-only map layers for every signed-in user. Like admin areas, roads, waterways, settlements
- * and infrastructure are shared reference data (the map itself), not region-owned records, so
+ * Read-only map layers for every signed-in user. Like admin areas, roads, waterways, settlements,
+ * infrastructure and buildings are shared reference data (the map itself), not region-owned records, so
  * reads are not narrowed by a user's region scope. They are written only by the loader, which is
  * Administrator-only (the script needs database credentials; the upload route needs the role).
  */
@@ -49,6 +64,8 @@ export class MapLayerService {
         waterways: WaterwayRepository.Instance,
         settlements: SettlementPointRepository.Instance,
         infrastructure: InfrastructureRepository.Instance,
+        buildings: BuildingRepository.Instance,
+        wetlands: WetlandRepository.Instance,
       },
       DataSourceRepository.Instance,
     ));
@@ -62,7 +79,7 @@ export class MapLayerService {
 
   /** Each layer with its size and the sources behind it: what the screen shows as provenance. */
   async catalog(): Promise<MapLayerInfoDto[]> {
-    const ids: MapLayerId[] = ["roads", "waterways", "settlements", "infrastructure"];
+    const ids: MapLayerId[] = ["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"];
     const summaries: LayerSummary[] = await Promise.all(ids.map((id) => this.layers[id].summarise()));
     return Promise.all(
       ids.map(async (id, index) => ({
@@ -88,6 +105,19 @@ export class MapLayerService {
 
   infrastructureGeoJson(query: LayerGeoJsonQuery): Promise<InfrastructureFeatureCollection> {
     return this.layers.infrastructure.findGeoJson(query);
+  }
+
+  /** Named facilities (hospitals, schools, places saved by hand...) whose name contains the search. */
+  searchFacilities({ q }: FacilitySearchQuery): Promise<FacilityHit[]> {
+    return this.layers.infrastructure.searchByName(q, FACILITY_HITS);
+  }
+
+  buildingsGeoJson(query: LayerGeoJsonQuery): Promise<BuildingFeatureCollection> {
+    return this.layers.buildings.findGeoJson(query);
+  }
+
+  wetlandsGeoJson(query: LayerGeoJsonQuery): Promise<WetlandFeatureCollection> {
+    return this.layers.wetlands.findGeoJson(query);
   }
 
   private async resolveSources(ids: string[]): Promise<DataSourceDto[]> {

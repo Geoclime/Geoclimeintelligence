@@ -1,70 +1,107 @@
 import { unzipSync } from "fflate";
 import { ValidationError } from "../../common/errors/app-error";
-import { MAX_UNZIPPED_BYTES } from "../data-sources/imports/readers/reader-limits";
+import { MAX_GEOPACKAGE_BYTES } from "../data-sources/imports/readers/reader-limits";
 import { isGeoPackage } from "./gpkg-reader";
 
 /**
- * Geofabrik's OpenStreetMap extract, as the data team delivers it: a folder of GeoPackages named
- * gis_osm_<layer>_free_<n>[_<area>].gpkg, zipped. The infrastructure layer reads the facility
- * files only: points of interest, places of worship and transport (each as points, and as areas
- * with an `_a` suffix). The rest (buildings, roads, land use...) are left packed, so a 60 MB
- * delivery unpacks to about a megabyte here.
+ * Geofabrik's OpenStreetMap extract, as the data team delivers it: a zipped folder of GeoPackages,
+ * one per theme. Two namings have arrived, and both are read:
+ *  - Geofabrik's own: gis_osm_<theme>[_a]_free_<n>[_<area>].gpkg (buildings split into parts _1, _2...);
+ *  - the team's clipped handover: <area>_<theme>[_a].gpkg, e.g. rivers_pois.gpkg, rivers_buildings_a.gpkg.
+ * The theme is a whole word between underscores, so "pois" never matches inside another name.
+ * Each loader reads only the files it needs and leaves the rest packed:
+ *  - infrastructure: points of interest, places of worship and transport, each as points and as
+ *    areas (an `_a` suffix), about a megabyte in all;
+ *  - buildings: the building outlines, in one file or several parts;
+ *  - wetlands: the water areas file, of which only the wetland classes are kept.
  */
-const FACILITY_FILE = /^gis_osm_(pois|pofw|transport)(_a)?_free_\d+.*\.gpkg$/i;
+const OSM_FILES = {
+  infrastructure: {
+    pattern: /(?:^|_)(?:pois|pofw|transport)(?:_a)?(?:_[^.]*)?\.gpkg$/i,
+    description: "facility files (pois, pofw or transport .gpkg files, e.g. rivers_pois.gpkg or gis_osm_pois_free_1.gpkg)",
+  },
+  buildings: {
+    pattern: /(?:^|_)buildings(?:_a)?(?:_[^.]*)?\.gpkg$/i,
+    description: "building files (buildings .gpkg files, e.g. rivers_buildings_a.gpkg or gis_osm_buildings_a_free_1.gpkg)",
+  },
+  // The water areas, where OSM keeps mangrove, swamp, marsh and tidal flats. Never the waterways (lines) file.
+  wetlands: {
+    pattern: /(?:^|_)water_a(?:_[^.]*)?\.gpkg$/i,
+    description: "water area file (a water_a .gpkg file, e.g. rivers_water_a.gpkg or gis_osm_water_a_free_1.gpkg)",
+  },
+} as const;
+export type OsmLayer = keyof typeof OSM_FILES;
 
 export interface OsmFile {
   fileName: string;
-  buffer: Buffer;
+  /**
+   * The file's bytes, unpacked on each call and not kept: buildings are read twice (checked,
+   * then loaded) one file at a time, so only one ~60 MB file is unpacked at once.
+   */
+  read(): Buffer;
 }
 
-export function isFacilityFile(fileName: string): boolean {
-  return FACILITY_FILE.test(baseName(fileName));
+export function isOsmFile(layer: OsmLayer, fileName: string): boolean {
+  return OSM_FILES[layer].pattern.test(baseName(fileName));
 }
 
 /**
- * The facility GeoPackages in an upload: every matching file of a zip, or the file itself when
- * a single .gpkg is given. Sorted by name, so the report reads the same on every run.
+ * The GeoPackages one layer needs from an upload: every matching file of a zip, or the file
+ * itself when a single .gpkg is given. Sorted by name, so the report reads the same on every run.
+ * Nothing is unpacked until a file's `read()` is called.
  */
-export function facilityFiles(buffer: Buffer, fileName: string): OsmFile[] {
-  if (isGeoPackage(buffer)) return [{ fileName: baseName(fileName), buffer }];
+export function osmFiles(layer: OsmLayer, buffer: Buffer, fileName: string, maxFileBytes = MAX_GEOPACKAGE_BYTES): OsmFile[] {
+  if (isGeoPackage(buffer)) return [{ fileName: baseName(fileName), read: () => buffer }];
   if (buffer.subarray(0, 2).toString("latin1") !== "PK") {
     throw new ValidationError([
       { field: fileName, message: `${fileName} is neither a GeoPackage (.gpkg) nor a zip of Geofabrik GeoPackages.` },
     ]);
   }
 
-  let unpacked: Record<string, Uint8Array>;
+  // List the matching entries from the zip's directory; the filter refuses them all, so nothing is unpacked yet.
+  const entries: string[] = [];
+  const tooLarge: string[] = [];
   try {
-    let claimed = 0;
-    unpacked = unzipSync(buffer, {
+    unzipSync(buffer, {
       filter: (entry) => {
-        const keep = isFacilityFile(entry.name);
-        if (keep) {
-          claimed += entry.originalSize;
-          // Guards against a zip bomb: stop before unpacking, whatever sizes the zip claims.
-          if (claimed > MAX_UNZIPPED_BYTES) throw new Error("too large");
+        if (isOsmFile(layer, entry.name)) {
+          entries.push(entry.name);
+          if (entry.originalSize > maxFileBytes) tooLarge.push(`${baseName(entry.name)} (${mb(entry.originalSize)} MB)`);
         }
-        return keep;
+        return false;
       },
     });
   } catch {
-    throw new ValidationError([
-      { field: fileName, message: `${fileName} could not be opened, or its facility files unpack to more than ${MAX_UNZIPPED_BYTES / (1024 * 1024)} MB.` },
-    ]);
+    throw new ValidationError([{ field: fileName, message: `${fileName} could not be opened as a zip.` }]);
   }
-
-  const files = Object.entries(unpacked)
-    .map(([name, bytes]) => ({ fileName: baseName(name), buffer: Buffer.from(bytes) }))
-    .sort((a, b) => a.fileName.localeCompare(b.fileName));
-  if (files.length === 0) {
+  // Guards against a zip bomb, before anything is unpacked. Files are unpacked one at a time and
+  // dropped after, so the limit applies to each file, not to their total.
+  if (tooLarge.length > 0) {
     throw new ValidationError([
       {
         field: fileName,
-        message: `${fileName} has no OpenStreetMap facility files (gis_osm_pois, gis_osm_pofw or gis_osm_transport .gpkg files, as Geofabrik names them).`,
+        message: `${tooLarge.join(", ")} would unpack to more than the ${mb(maxFileBytes)} MB allowed for one GeoPackage (IMPORT_MAX_GPKG_MB on the server).`,
       },
     ]);
   }
-  return files;
+  if (entries.length === 0) {
+    throw new ValidationError([{ field: fileName, message: `${fileName} has no OpenStreetMap ${OSM_FILES[layer].description}.` }]);
+  }
+
+  return entries
+    .map((entryName) => ({
+      fileName: baseName(entryName),
+      read: () => {
+        const unpacked = unzipSync(buffer, { filter: (entry) => entry.name === entryName })[entryName];
+        if (!unpacked) throw new ValidationError([{ field: fileName, message: `${fileName} could not unpack ${entryName}.` }]);
+        return Buffer.from(unpacked.buffer, unpacked.byteOffset, unpacked.byteLength);
+      },
+    }))
+    .sort((a, b) => a.fileName.localeCompare(b.fileName));
+}
+
+function mb(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(0);
 }
 
 function baseName(path: string): string {

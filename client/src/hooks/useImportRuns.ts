@@ -6,7 +6,7 @@ import { useLoader } from "./useLoader";
 
 /** The import history, newest first: who ran each import, when, row counts and status. */
 export function useImportRuns(page = 1, pageSize = 25) {
-  const { data, ...state } = useLoader(`import-runs:${page}:${pageSize}`, async () => {
+  const { data, ...state } = useLoader(["import-runs", page, pageSize], async () => {
     const response = await fetchImportRuns({ page, pageSize });
     return { items: response.data ?? [], meta: response.meta ?? {} };
   });

@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Link, NavLink } from "react-router";
 import type { UserRole } from "../../types/auth.types";
+import { MAP_PATH } from "../../utils/map-url";
 import { hasAnyRole } from "../../utils/roles";
+import { can } from "../../utils/permissions";
+import { useAuth } from "../../hooks/useAuth";
 import { BrandMark } from "../shared/BrandMark";
 import { Icon } from "../shared/Icon";
 import { NAV_GROUPS } from "./nav-items";
@@ -23,6 +26,8 @@ interface SidebarProps {
  * backend refuses them anyway).
  */
 export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: SidebarProps) {
+  // Links that need a permission (the Roles screen sets them) are shown by what the person's role holds.
+  const { user } = useAuth();
   const firstLink = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
@@ -37,7 +42,7 @@ export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: S
 
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => item.roles.length === 0 || hasAnyRole(role, item.roles)),
+    items: group.items.filter((item) => (item.permission ? can(user, item.permission) : item.roles.length === 0 || hasAnyRole(role, item.roles))),
   })).filter((group) => group.items.length > 0);
 
   const firstTo = groups[0]?.items[0]?.to;
@@ -51,7 +56,7 @@ export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: S
         data-cy="sidebar"
       >
         <div className="app-sidebar__brand">
-          <Link to="/" className="app-sidebar__home" aria-label="GeoClime Intelligence, map" onClick={onClose}>
+          <Link to={MAP_PATH} className="app-sidebar__home" aria-label="GeoClime Intelligence, map" onClick={onClose}>
             <BrandMark variant="light" />
           </Link>
           <button type="button" className="app-sidebar__close" onClick={onClose} aria-label="Close menu">
@@ -79,7 +84,6 @@ export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: S
                     <NavLink
                       ref={item.to === firstTo ? firstLink : undefined}
                       to={item.to}
-                      end={item.to === "/"}
                       className="app-sidebar__link"
                       onClick={onClose}
                       title={collapsed ? item.label : undefined}
@@ -98,7 +102,7 @@ export function Sidebar({ role, open, onClose, collapsed, onToggleCollapsed }: S
         <div className="app-sidebar__footer">
           <Icon name="pin" size={16} />
           <div className="app-sidebar__footer-text">
-            <p className="app-sidebar__region">Rivers State, Nigeria</p>
+            <p className="app-sidebar__region">Nigeria</p>
             <p className="app-sidebar__credit">Boundaries: geoBoundaries. Wards: GRID3 placeholders. CC BY 4.0</p>
           </div>
         </div>

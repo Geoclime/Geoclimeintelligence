@@ -160,6 +160,33 @@
   border: 3px solid #b54708;
 }
 
+/* The pinned place (amber) and the viewer (blue): round dots with a white edge, like on the map. */
+.map-legend__swatch--pin,
+.map-legend__swatch--you {
+  width: 10px;
+  height: 10px;
+  margin-inline: 4px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+.map-legend__swatch--pin {
+  background: #b54708;
+}
+
+.map-legend__swatch--you {
+  background: #1570ef;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--pin {
+  background: #fdb022;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--you {
+  background: #3b9cff;
+}
+
 /* Feature layers: a thick line, a thin line, an area and a dot, in the colours map-style.ts draws with. */
 .layer-toggle__swatch--roads,
 .map-legend__swatch--roads {
@@ -189,6 +216,18 @@
   border-radius: 50%;
   background: #6941c6;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+.layer-toggle__swatch--buildings,
+.map-legend__swatch--buildings {
+  border: 1px solid #9c7356;
+  background: #d6bfa9;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--buildings,
+:root[data-theme="dark"] .map-legend__swatch--buildings {
+  border-color: #c4a484;
+  background: #7a5c45;
 }
 
 /* Facilities: one dot per colour group (FACILITY_GROUP_OF in map-style.ts). The toggle shows the health colour. */
@@ -235,6 +274,17 @@
 .map-legend__swatch--failed {
   border: 2.5px solid #b42318;
   background: rgb(180 35 24 / 0.18);
+}
+
+/* Flood risk: the toggle shows the whole ramp; each legend row is painted inline with its class colour (data/flood-risk).
+   The ring keeps the palest class visible on a light panel. */
+.layer-toggle__swatch--floodRisk {
+  background: linear-gradient(90deg, #1a9641, #a6d96a, #ffffbf, #fdae61, #d7191c);
+}
+
+.layer-toggle__swatch--floodRisk,
+.map-legend__swatch--flood-risk {
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
 }
 
 :root[data-theme="dark"] .layer-toggle__swatch--state,
@@ -380,10 +430,31 @@
   font-size: var(--text-sm);
 }
 
+.location-summary__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
 .location-summary__point {
   color: var(--color-text-subtle);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+}
+
+/* The coordinates open the spot in Google Maps: underlined so they read as a link. */
+.location-summary__point a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.location-summary__point a:hover,
+.location-summary__point a:focus-visible {
+  color: var(--color-text);
+  text-decoration-style: solid;
 }
 
 .location-summary__status {
@@ -500,4 +571,391 @@
   .detail-map {
     height: 420px;
   }
+}
+
+/* ---------- Flood risk at a clicked spot ---------- */
+
+.admin-unit-popup__risk {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.admin-unit-popup__risk-dot {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+/* ---------- Places an administrator saved by hand ---------- */
+
+.admin-unit-popup__save {
+  margin-top: var(--space-3);
+}
+
+.saved-place {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 200px;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.saved-place__kind {
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+}
+
+.saved-place__note {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.saved-place__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/* ---------- Field survey layers: a flood, a recovered flood, and a drain by its condition ---------- */
+
+.layer-toggle__swatch--floodExtents,
+.map-legend__swatch--flood {
+  border: 1.5px solid #c026d3;
+  background: rgb(192 38 211 / 0.38);
+}
+
+.map-legend__swatch--flood-receded {
+  border: 1.5px dashed #667085;
+  background: rgb(102 112 133 / 0.14);
+}
+
+
+/* Drains: a coloured core on a casing (dark in the light theme, white in the dark), as survey-style.ts draws them. */
+.layer-toggle__swatch--drainage,
+.map-legend__swatch--drain-clear,
+.map-legend__swatch--drain-partly,
+.map-legend__swatch--drain-bad,
+.map-legend__swatch--drain-covered,
+.map-legend__swatch--drain-stale {
+  height: 6px;
+  border: 1.5px solid #101828;
+  border-radius: 3px;
+}
+
+.layer-toggle__swatch--drainage,
+.map-legend__swatch--drain-clear {
+  background: #16b364;
+}
+
+.map-legend__swatch--drain-partly {
+  background: #eaaa08;
+}
+
+.map-legend__swatch--drain-bad {
+  height: 9px;
+  background: #e31b54;
+}
+
+.map-legend__swatch--drain-covered {
+  background: repeating-linear-gradient(90deg, #16b364 0 5px, transparent 5px 8px);
+}
+
+.map-legend__swatch--drain-stale {
+  background: #16b364;
+  opacity: 0.45;
+}
+
+.map-legend__swatch--drain-flow {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: #16b364;
+  box-shadow: 0 0 0 1.5px #101828;
+}
+
+.map-legend__swatch--drain-flow::after {
+  content: "›";
+  position: absolute;
+  top: -7px;
+  left: 6px;
+  color: #101828;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Drainage spots: the shapes drain-icons.ts draws, in a neutral grey so the row is about the shape, not the condition. */
+.map-legend__swatch--drain-culvert,
+.map-legend__swatch--drain-outfall,
+.map-legend__swatch--drain-inlet,
+.map-legend__swatch--drain-pond,
+.map-legend__swatch--drain-cluster {
+  background: #98a2b3;
+  border: 1.5px solid #101828;
+}
+
+.map-legend__swatch--drain-culvert {
+  height: 9px;
+  border-radius: 5px;
+}
+
+.map-legend__swatch--drain-outfall {
+  width: 14px;
+  height: 12px;
+  margin-inline: 2px;
+  border: 0;
+  background: #101828;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.map-legend__swatch--drain-inlet {
+  width: 12px;
+  height: 12px;
+  margin-inline: 3px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, #98a2b3 0 2px, #101828 2px 3px);
+}
+
+.map-legend__swatch--drain-pond {
+  width: 13px;
+  height: 13px;
+  margin-inline: 2.5px;
+  border-radius: 50%;
+}
+
+.map-legend__swatch--drain-cluster {
+  width: 16px;
+  height: 16px;
+  margin-inline: 1px;
+  border-width: 2px;
+  border-radius: 50%;
+  background: #e31b54;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--floodExtents,
+:root[data-theme="dark"] .map-legend__swatch--flood {
+  border-color: #e879f9;
+  background: rgb(232 121 249 / 0.38);
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--drainage,
+:root[data-theme="dark"] .map-legend__swatch--drain-clear,
+:root[data-theme="dark"] .map-legend__swatch--drain-partly,
+:root[data-theme="dark"] .map-legend__swatch--drain-bad,
+:root[data-theme="dark"] .map-legend__swatch--drain-covered,
+:root[data-theme="dark"] .map-legend__swatch--drain-stale,
+:root[data-theme="dark"] .map-legend__swatch--drain-culvert,
+:root[data-theme="dark"] .map-legend__swatch--drain-pond,
+:root[data-theme="dark"] .map-legend__swatch--drain-inlet,
+:root[data-theme="dark"] .map-legend__swatch--drain-cluster {
+  border-color: #ffffff;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--drainage,
+:root[data-theme="dark"] .map-legend__swatch--drain-clear,
+:root[data-theme="dark"] .map-legend__swatch--drain-stale {
+  background: #3ccb7f;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--drain-partly {
+  background: #fde272;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--drain-bad,
+:root[data-theme="dark"] .map-legend__swatch--drain-cluster {
+  background: #fd6f8e;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--drain-covered {
+  background: repeating-linear-gradient(90deg, #3ccb7f 0 5px, transparent 5px 8px);
+}
+
+:root[data-theme="dark"] .map-legend__swatch--drain-flow {
+  background: #3ccb7f;
+  box-shadow: 0 0 0 1.5px #ffffff;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--drain-flow::after {
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--drain-outfall {
+  background: #ffffff;
+}
+
+/* Waterways OpenStreetMap already has as canals or drains, and water out of sight in a culvert. */
+.map-legend__swatch--water-channel {
+  height: 3px;
+  border-radius: 2px;
+  background: #0e7090;
+}
+
+.map-legend__swatch--water-underground {
+  height: 3px;
+  background: repeating-linear-gradient(90deg, #1570ef 0 4px, transparent 4px 7px);
+}
+
+:root[data-theme="dark"] .map-legend__swatch--water-channel {
+  background: #22ccee;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--water-underground {
+  background: repeating-linear-gradient(90deg, #53b1fd 0 4px, transparent 4px 7px);
+}
+
+/* Wetlands: mangrove, swamp, marsh and tidal flats, the low ground water spreads over first. */
+.layer-toggle__swatch--wetlands,
+.map-legend__swatch--wetlands {
+  border: 1px solid #3b7c0f;
+  background: repeating-linear-gradient(135deg, rgb(102 198 28 / 0.45) 0 2px, transparent 2px 5px);
+}
+
+.map-legend__swatch--wetland-tidal {
+  border: 1px solid #0e7090;
+  background: repeating-linear-gradient(135deg, rgb(34 204 238 / 0.45) 0 2px, transparent 2px 5px);
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--wetlands,
+:root[data-theme="dark"] .map-legend__swatch--wetlands {
+  border-color: #85e13a;
+  background: repeating-linear-gradient(135deg, rgb(133 225 58 / 0.4) 0 2px, transparent 2px 5px);
+}
+
+/* The letter drawn in a facility's dot from street level. */
+.map-legend__swatch--facility-letter {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  margin-inline: 2px;
+  border-radius: 50%;
+  background: #d92d20;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.map-legend__swatch--facility-letter::after {
+  content: "H";
+}
+
+:root[data-theme="dark"] .map-legend__swatch--facility-letter {
+  background: #f97066;
+  color: #101828;
+}
+
+/* What a selected flood reaches, drawn over the map while its popup is open. */
+.map-legend__swatch--impact {
+  border: 2px solid #f79009;
+  background: rgb(247 144 9 / 0.35);
+}
+
+/* ---------- Layer groups, the base map switch and a legend that folds away ---------- */
+
+.layer-toggle__base {
+  display: flex;
+  margin-bottom: var(--space-2);
+}
+
+.layer-toggle__base button {
+  flex: 1;
+}
+
+.layer-toggle__group + .layer-toggle__group {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.layer-toggle__group-title {
+  margin: 0 0 2px;
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+details.map-legend > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+details.map-legend > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.map-legend > summary::after {
+  content: "▾";
+  font-size: var(--text-sm);
+  transition: transform 0.15s ease;
+}
+
+details.map-legend:not([open]) > summary::after {
+  transform: rotate(-90deg);
+}
+
+details.map-legend[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+/* ---------- "What is here" in the click-anywhere popup ---------- */
+
+.admin-unit-popup__here {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) 0 0;
+  border-top: 1px solid var(--color-border);
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.admin-unit-popup__here li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.admin-unit-popup__here-detail {
+  color: var(--color-text-muted);
+}
+
+/* ---------- The context switch on an LGA's or ward's map ---------- */
+
+.area-map__context {
+  margin-top: var(--space-2);
+}
+
+/* Households: a house shape, teal for your own, slate for other people's (staff only). */
+.layer-toggle__swatch--households,
+.map-legend__swatch--household-mine,
+.map-legend__swatch--household-other {
+  width: 14px;
+  height: 14px;
+  margin-inline: 2px;
+  border-radius: 0;
+  background: #0e6b6f;
+  clip-path: polygon(50% 0, 100% 45%, 88% 45%, 88% 100%, 12% 100%, 12% 45%, 0 45%);
+}
+
+.map-legend__swatch--household-other {
+  background: #475467;
+}
+
+:root[data-theme="dark"] .layer-toggle__swatch--households,
+:root[data-theme="dark"] .map-legend__swatch--household-mine {
+  background: #3fb5b9;
+}
+
+:root[data-theme="dark"] .map-legend__swatch--household-other {
+  background: #98a2b3;
 }

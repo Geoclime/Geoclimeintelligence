@@ -2,6 +2,7 @@ import { httpClient } from "../transport/http";
 import type { ApiResponse } from "../types/api.types";
 import type {
   ClearMapLayerInput,
+  FacilityHit,
   MapLayerClearReport,
   MapLayerInfo,
   MapLayerLoadReport,
@@ -33,7 +34,16 @@ export async function fetchLayerGeoJson<L extends OverlayLayerId>(
   return data;
 }
 
-/** Uploads a map-layer file (roads, waterways, settlements or the delivery zip) into PostGIS. */
+/** Facilities (hospitals, schools, places saved by hand...) whose name contains `q` (at least 2 characters). */
+export async function searchFacilities(q: string): Promise<ApiResponse<FacilityHit[]>> {
+  const { data } = await httpClient.get<ApiResponse<FacilityHit[]>>("/api/v1/infrastructure/search", { params: { q } });
+  return data;
+}
+
+/** Buildings stream about 414,000 outlines into PostGIS, which takes minutes, not seconds. */
+const BUILDINGS_UPLOAD_TIMEOUT_MS = 20 * 60_000;
+
+/** Uploads a map-layer file (roads, waterways, settlements, infrastructure, buildings or the delivery zip) into PostGIS. */
 export async function uploadMapLayer(input: UploadMapLayerInput): Promise<ApiResponse<MapLayerLoadReport>> {
   const form = new FormData();
   form.append("file", input.file, input.file.name);
@@ -41,8 +51,9 @@ export async function uploadMapLayer(input: UploadMapLayerInput): Promise<ApiRes
   form.append("layer", input.layer);
   if (input.sourceId) form.append("sourceId", input.sourceId);
   if (input.wardLevel !== undefined) form.append("wardLevel", String(input.wardLevel));
+  if (input.acceptPartial) form.append("acceptPartial", "true");
   const { data } = await httpClient.post<ApiResponse<MapLayerLoadReport>>("/api/v1/map-layers/upload", form, {
-    timeout: 180_000,
+    timeout: input.layer === "buildings" ? BUILDINGS_UPLOAD_TIMEOUT_MS : 180_000,
   });
   return data;
 }

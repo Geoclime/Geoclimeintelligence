@@ -1,9 +1,9 @@
 import type { FeatureCollection, Geometry, MultiLineString, MultiPolygon, Point } from "geojson";
-import type { BBox } from "./admin-unit.types";
+import type { BBox, LonLat } from "./admin-unit.types";
 import type { DataSource } from "./data-source.types";
 
 /** The feature layers drawn over the boundaries. Mirrors MapLayerId in server/src/modules/map-layers/layer-rules.ts. */
-export type OverlayLayerId = "roads" | "waterways" | "settlements" | "infrastructure";
+export type OverlayLayerId = "roads" | "waterways" | "settlements" | "infrastructure" | "buildings" | "wetlands";
 
 /** Mirrors FACILITY_TYPES in server/src/modules/map-layers/layer-rules.ts. */
 export type FacilityType =
@@ -54,15 +54,103 @@ export type RoadFeatureCollection = LayerFeatureCollection<MultiLineString, Road
 export type WaterwayFeatureCollection = LayerFeatureCollection<MultiLineString | MultiPolygon, WaterwayFeatureProperties>;
 export type SettlementFeatureCollection = LayerFeatureCollection<Point, SettlementFeatureProperties>;
 
+/** Where a facility came from: the OpenStreetMap import, or an administrator saving it from the map. */
+export type FacilityOrigin = "import" | "manual";
+
 export interface InfrastructureFeatureProperties {
   id: string;
   name: string | null;
   facilityType: FacilityType;
-  /** The OSM class as delivered, e.g. "clinic" within "health". */
+  /** The OSM class as delivered, e.g. "clinic" within "health". For a place saved by hand, the kind chosen. */
   osmClass: string;
+  origin: FacilityOrigin;
+  /** What the administrator wrote about a place saved by hand; always null for an imported one. */
+  note: string | null;
 }
 
 export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
+
+/** A named facility that matched a search. Mirrors FacilityHit in server/src/modules/map-layers/map-layer.types.ts. */
+export interface FacilityHit {
+  id: string;
+  name: string;
+  facilityType: FacilityType;
+  osmClass: string;
+  origin: FacilityOrigin;
+  point: LonLat;
+}
+
+/** A place an administrator saved from the map. Mirrors FacilityDto in server/src/modules/map-layers/map-layer.types.ts. */
+export interface SavedPlace {
+  id: string;
+  name: string | null;
+  facilityType: FacilityType;
+  osmClass: string;
+  note: string | null;
+  origin: FacilityOrigin;
+  longitude: number;
+  latitude: number;
+  /** The ward the place sits in; null when the point is in no loaded ward. */
+  adminUnitId: string | null;
+  createdAt: string;
+}
+
+/** POST /api/v1/infrastructure. `kind` is a facility class such as "hospital" (utils/facility-kinds.ts). */
+export interface NewPlaceBody {
+  name: string;
+  kind: string;
+  note?: string;
+  longitude: number;
+  latitude: number;
+}
+
+/** PATCH /api/v1/infrastructure/:id. A blank note clears it. The point can't be moved. */
+export interface UpdatePlaceBody {
+  name?: string;
+  kind?: string;
+  note?: string;
+}
+
+/** A facility on the map: what its popup and (for a place saved by hand) the edit form need. */
+export interface PlaceOnMap {
+  id: string;
+  name: string | null;
+  facilityType: FacilityType;
+  osmClass: string;
+  note: string | null;
+  /** [longitude, latitude] */
+  point: [number, number];
+  /** Where it came from. Left out means saved by hand, as everything built before imported facilities could be opened. */
+  origin?: FacilityOrigin;
+}
+
+/** One drawn feature under a click: which layer, and the properties it was built from. */
+export interface ClickedFeature {
+  layerId: string;
+  properties: Record<string, unknown>;
+  /** [longitude, latitude] of a point feature; null for any other shape. */
+  coordinates: [number, number] | null;
+}
+
+export interface BuildingFeatureProperties {
+  id: string;
+  name: string | null;
+  /** The OSM building tag when it says more than "yes" (house, school, church...). */
+  buildingType: string | null;
+}
+
+export type BuildingFeatureCollection = LayerFeatureCollection<MultiPolygon, BuildingFeatureProperties>;
+
+/** Mirrors WETLAND_CLASSES in server/src/modules/map-layers/layer-rules.ts. */
+export type WetlandClass = "mangrove" | "swamp" | "marsh" | "tidal_flat" | "wet_meadow" | "wetland";
+
+export interface WetlandFeatureProperties {
+  id: string;
+  name: string | null;
+  wetlandClass: WetlandClass;
+}
+
+export type WetlandFeatureCollection = LayerFeatureCollection<MultiPolygon, WetlandFeatureProperties>;
 
 /** Which collection each layer's endpoint returns. */
 export interface OverlayCollections {
@@ -70,9 +158,11 @@ export interface OverlayCollections {
   waterways: WaterwayFeatureCollection;
   settlements: SettlementFeatureCollection;
   infrastructure: InfrastructureFeatureCollection;
+  buildings: BuildingFeatureCollection;
+  wetlands: WetlandFeatureCollection;
 }
 
-/** GET /api/v1/{roads,waterways,settlements,infrastructure}/geojson. bbox is required: the server refuses a request without one. */
+/** GET /api/v1/{roads,waterways,settlements,infrastructure,buildings}/geojson. bbox is required: the server refuses a request without one. */
 export interface OverlayLayerParams {
   bbox: BBox;
   zoom?: number;
@@ -94,10 +184,14 @@ export interface UploadMapLayerInput {
   layer: MapLayerUploadKind;
   sourceId?: string;
   wardLevel?: number;
+  /** Load a cut-short GeoPackage even if some of its rows are missing (OpenStreetMap layers only). */
+  acceptPartial?: boolean;
 }
 
 export interface MapLayerLoadItemReport {
-  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure";
+  layer: "roads" | "waterways" | "waterway areas" | "settlements" | "infrastructure" | "buildings" | "wetlands";
+  /** E.g. that the file was recovered from a cut-short copy. */
+  notes?: string[];
   file: string;
   sourceId: string | null;
   sourceCreated: boolean;

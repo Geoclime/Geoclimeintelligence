@@ -1,11 +1,20 @@
 import type { AuthUser, VerifiedIdentity } from "../../common/access/auth-user";
+import { domainEvents } from "../../common/events/domain-events";
 import { DEFAULT_ROLE } from "../../common/access/roles";
-import { NotFoundError, UnauthorizedError } from "../../common/errors/app-error";
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from "../../common/errors/app-error";
+import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
+import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
 import { env } from "../../config/env";
 import { logger } from "../../config/logger";
 import { UserRepository } from "../users/user.repository";
-import { toAuthUser, toUserDto, type IUserRepository, type UserDto, type UserProfilePatch } from "../users/user.types";
+import { toAuthUser, toUserDto, type IUserRepository, type RoleRequestInput, type UserDto, type UserProfilePatch } from "../users/user.types";
 import { FirebaseTokenVerifier, type TokenVerifier } from "./firebase-token-verifier";
+
+const REQUIRED_MESSAGES = {
+  displayName: "Enter your full name",
+  phone: "Enter a phone number we can reach you on",
+  homeAdminUnitId: "Choose the LGA you live or work in",
+} as const;
 
 export class AuthService {
   private static _instance?: AuthService;
@@ -23,6 +32,7 @@ export class AuthService {
     private readonly verifier: TokenVerifier,
     /** Lower-cased BOOTSTRAP_ADMIN_EMAIL; "" turns the bootstrap off. */
     private readonly bootstrapAdminEmail = "",
+    private readonly areas: Pick<IAdminUnitRepository, "findSummaryById"> = AdminUnitRepository.Instance,
   ) {}
 
   async verifyToken(idToken: string): Promise<VerifiedIdentity> {
@@ -74,7 +84,44 @@ export class AuthService {
    * and the route's schema is strict, so nobody can raise their own access through this.
    */
   async updateProfile(user: AuthUser, patch: UserProfilePatch): Promise<UserDto> {
+    // The details a complete profile needs can be changed, never cleared.
+    const cleared = (["displayName", "phone", "homeAdminUnitId"] as const).filter((field) => field in patch && !patch[field]);
+    if (cleared.length > 0) {
+      throw new ValidationError(cleared.map((field) => ({ field, message: REQUIRED_MESSAGES[field] })));
+    }
+    if (patch.displayName !== undefined && (patch.displayName?.trim().length ?? 0) < 2) {
+      throw new ValidationError([{ field: "displayName", message: REQUIRED_MESSAGES.displayName }]);
+    }
+    if (patch.homeAdminUnitId) {
+      const area = await this.areas.findSummaryById(patch.homeAdminUnitId);
+      if (!area || area.level !== 2) throw new ValidationError([{ field: "homeAdminUnitId", message: "Choose your LGA" }]);
+    }
     const row = await this.users.updateProfile(user.id, patch);
+    if (!row) throw new NotFoundError("User");
+    return toUserDto(row);
+  }
+
+  /**
+   * Opens (or replaces) the user's request for a staff role. It grants nothing: the role only
+   * changes when an administrator approves it (PATCH /users/:id/access with that role).
+   */
+  async requestRole(user: AuthUser, body: RoleRequestInput): Promise<UserDto> {
+    if (user.role === "administrator") throw new ConflictError("Administrators already have every permission");
+    if (user.role === body.role) throw new ConflictError("You already have this role");
+
+    const { organisation, jobTitle } = body;
+    if (organisation !== undefined || jobTitle !== undefined) {
+      await this.users.updateProfile(user.id, { ...(organisation !== undefined && { organisation }), ...(jobTitle !== undefined && { jobTitle }) });
+    }
+    const row = await this.users.setRoleRequest(user.id, { requestedRole: body.role, roleRequestReason: body.reason, roleRequestedAt: new Date() });
+    if (!row) throw new NotFoundError("User");
+    domainEvents.emit("role.requested", { userId: user.id });
+    return toUserDto(row);
+  }
+
+  /** Withdraws the user's open role request. Safe to repeat: with no request it changes nothing. */
+  async withdrawRoleRequest(user: AuthUser): Promise<UserDto> {
+    const row = await this.users.setRoleRequest(user.id, null);
     if (!row) throw new NotFoundError("User");
     return toUserDto(row);
   }

@@ -92,10 +92,10 @@ export const GEOFABRIK_SOURCE = {
   license: "ODbL 1.0",
 };
 
-/** GET /map-layers: what is loaded for roads, waterways, settlements and infrastructure, and from where. */
-export function buildMapLayers(counts: [number, number, number, number?] = [47507, 4033, 1149, 826]) {
-  const sources = [[OSM_SOURCE], [OSM_SOURCE], [GRID3_SETTLEMENT_SOURCE], [GEOFABRIK_SOURCE]];
-  return (["roads", "waterways", "settlements", "infrastructure"] as const).map((id, i) => {
+/** GET /map-layers: what is loaded for each feature layer, and from where. */
+export function buildMapLayers(counts: [number, number, number, number?, number?] = [47507, 4033, 1149, 826, 414556]) {
+  const sources = [[OSM_SOURCE], [OSM_SOURCE], [GRID3_SETTLEMENT_SOURCE], [GEOFABRIK_SOURCE], [GEOFABRIK_SOURCE]];
+  return (["roads", "waterways", "settlements", "infrastructure", "buildings"] as const).map((id, i) => {
     const featureCount = counts[i] ?? 0;
     return {
       id,
@@ -109,6 +109,34 @@ export function buildMapLayers(counts: [number, number, number, number?] = [4750
 /** A roads/waterways/settlements/infrastructure reply with nothing in view. `truncated` is the server's "cut short" flag. */
 export function emptyLayer(truncated = false) {
   return { type: "FeatureCollection", features: [], truncated };
+}
+
+/** The imported flood risk map as GET /flood-risk sends it: five classes (Rivers State's real areas), a source and the picture's corners. */
+export function buildFloodRiskLayer(overrides: Record<string, unknown> = {}) {
+  const classes = [
+    { value: 1, label: "Very low", color: "#1a9641", areaKm2: 27.42 },
+    { value: 2, label: "Low", color: "#a6d96a", areaKm2: 1648.2 },
+    { value: 3, label: "Moderate", color: "#ffffbf", areaKm2: 4158.89 },
+    { value: 4, label: "High", color: "#fdae61", areaKm2: 2900.41 },
+    { value: 5, label: "Very high", color: "#d7191c", areaKm2: 1606.52 },
+  ];
+  return {
+    id: stubId(900),
+    countryCode: "NGA",
+    status: "live",
+    dataType: "DERIVED",
+    title: "flood_risk_map",
+    coordinates: [[6.394325, 5.733634], [7.592677, 5.733634], [7.592677, 4.320239], [6.394325, 4.320239]],
+    image: { width: 2668, height: 3159 },
+    cellSizeMetres: 100,
+    sourceCrs: "EPSG:32632",
+    classes,
+    totalAreaKm2: 10341.44,
+    source: { ...SOURCE, provider: "Rivers State data team", datasetName: "Flood risk map 2026" },
+    promotedAt: "2026-11-03T11:00:00.000Z",
+    createdAt: "2026-11-03T10:00:00.000Z",
+    ...overrides,
+  };
 }
 
 export function detail(unit: StubUnit, parent: StubUnit | null = null) {
@@ -204,4 +232,19 @@ export function stubGeography() {
   cy.interceptApi("GET", "/waterways/geojson?*", { data: emptyLayer() }).as("waterwaysLayer");
   cy.interceptApi("GET", "/settlements/geojson?*", { data: emptyLayer() }).as("settlementsLayer");
   cy.interceptApi("GET", "/infrastructure/geojson?*", { data: emptyLayer() }).as("infrastructureLayer");
+  cy.interceptApi("GET", "/buildings/geojson?*", { data: emptyLayer() }).as("buildingsLayer");
+  stubFloodRisk();
+}
+
+/**
+ * The reads the home map makes for the flood risk layer: the live map, its picture and what a click says.
+ * Pass `null` for a country where no map has been promoted yet.
+ */
+export function stubFloodRisk(layer: ReturnType<typeof buildFloodRiskLayer> | null = buildFloodRiskLayer()) {
+  cy.interceptApi("GET", "/flood-risk?*", { data: layer }).as("getFloodRisk");
+  cy.interceptApi("GET", "/flood-risk/layers/*/image", { fixture: "map/flood-risk.png" }).as("floodRiskImage");
+  cy.interceptApi("GET", "/flood-risk/at?*", {
+    data: { layerId: stubId(900), class: { value: 4, label: "High", color: "#fdae61" } },
+  }).as("floodRiskAt");
+  cy.interceptApi("GET", "/flood-risk/areas/*", { data: null }).as("areaFloodRisk");
 }

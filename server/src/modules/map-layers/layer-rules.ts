@@ -8,7 +8,7 @@
  * the loader uses roadClassRank to fill roads.class_rank when it stores a road.
  */
 
-export const MAP_LAYER_IDS = ["roads", "waterways", "settlements", "infrastructure"] as const;
+export const MAP_LAYER_IDS = ["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"] as const;
 export type MapLayerId = (typeof MAP_LAYER_IDS)[number];
 
 /** Lower = more important. Anything not listed (track, path, footway, construction...) is minor. */
@@ -129,6 +129,16 @@ export function facilityTypeOf(osmClass: string): FacilityType | null {
   return FACILITY_CLASSES[normalised] ?? (WORSHIP_CLASS.test(normalised) ? "worship" : null);
 }
 
+/** Where a facility came from: the OpenStreetMap loader, or an administrator saving a place from the map. */
+export type FacilityOrigin = "import" | "manual";
+
+/** The level a facility is linked to (State, LGA, Ward), as the loader's own default. */
+export const DEFAULT_WARD_LEVEL = 3;
+
+/** Mirrors infrastructure.name (varchar 200) and infrastructure.note (varchar 500). */
+export const MAX_FACILITY_NAME_LENGTH = 200;
+export const MAX_FACILITY_NOTE_LENGTH = 500;
+
 /** Health and emergency from the start, then services people travel to, then everything up close. */
 export function facilityTypesAtZoom(zoom?: number): FacilityType[] {
   if (zoom === undefined || zoom >= 12) return [...FACILITY_TYPES];
@@ -136,12 +146,21 @@ export function facilityTypesAtZoom(zoom?: number): FacilityType[] {
   return zoom >= 10 ? [...nearby, "education", "government", "market", "transport"] : nearby;
 }
 
+/**
+ * Buildings are only drawn from this zoom. Rivers State has about 414,000 outlines; below street
+ * level they would be a solid smear, and a reply would be tens of megabytes. Below it the server
+ * sends an empty layer without touching the database.
+ */
+export const BUILDING_MIN_ZOOM = 15;
+
 /** The most features one map-layer response may hold. Past it, `truncated` is true. */
 export const LAYER_FEATURE_LIMIT: Readonly<Record<MapLayerId, number>> = {
   roads: 12_000,
   waterways: 6_000,
   settlements: 5_000,
   infrastructure: 5_000,
+  buildings: 10_000,
+  wetlands: 3_000,
 };
 
 /**
@@ -151,3 +170,46 @@ export const LAYER_FEATURE_LIMIT: Readonly<Record<MapLayerId, number>> = {
 export function simplifyTolerance(zoom?: number): number {
   return zoom === undefined ? 0 : 180 / (512 * 2 ** zoom);
 }
+
+/**
+ * Where a waterways reply takes each shape from. Wide rivers are outlines of hundreds of thousands
+ * of vertices, and simplifying them live for a zoomed-out view took over a second per request, so
+ * the table keeps two simplified copies (migration AddSimplifiedWaterways): `geom_z8` for zoom 8
+ * and below, `geom_z10` for 10 and 11. From zoom 12 the view is small, so the full `geom` is
+ * simplified live. A copy is read as it is, never simplified again.
+ */
+export type WaterwayGeometryColumn = "geom" | "geom_z8" | "geom_z10";
+
+export function waterwayGeometryColumn(zoom?: number): WaterwayGeometryColumn {
+  if (zoom === undefined || zoom >= 12) return "geom";
+  return zoom >= 10 ? "geom_z10" : "geom_z8";
+}
+
+/**
+ * Wetlands: the low, wet ground a flood spreads over first. Geofabrik's water areas file
+ * (gis_osm_water_a_free_1, or the handover's rivers_water_a.gpkg) holds them beside open water;
+ * the open water (`water`, `riverbank`, `reservoir`...) is already on the waterways layer, so only
+ * the wetland classes are kept, each filed under a plain class.
+ */
+export const WETLAND_CLASSES = ["mangrove", "swamp", "marsh", "tidal_flat", "wet_meadow", "wetland"] as const;
+export type WetlandClass = (typeof WETLAND_CLASSES)[number];
+
+const WETLAND_FCLASS: Readonly<Record<string, WetlandClass>> = {
+  wetland_mangrove: "mangrove",
+  wetland_swamp: "swamp",
+  wetland_marsh: "marsh",
+  wetland_reedbed: "marsh",
+  wetland_bog: "marsh",
+  wetland_tidalflat: "tidal_flat",
+  wetland_saltmarsh: "tidal_flat",
+  wetland_wet_meadow: "wet_meadow",
+  wetland: "wetland",
+};
+
+/** The wetland class of a Geofabrik water-area `fclass`, or null for open water (the waterways layer has that). */
+export function wetlandClassOf(fclass: string): WetlandClass | null {
+  return WETLAND_FCLASS[fclass.trim().toLowerCase()] ?? null;
+}
+
+/** Wetlands keep the same two simplified copies as waterways (migration CreateWetlands), read the same way. */
+export const wetlandGeometryColumn = waterwayGeometryColumn;

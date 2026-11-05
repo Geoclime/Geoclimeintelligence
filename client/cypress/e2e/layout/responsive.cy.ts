@@ -31,7 +31,7 @@ describe("Small screens", () => {
   it("fits the home map, with the layers panel behind a button", () => {
     cy.login("general_public");
     stubGeography();
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("map-overview").should("be.visible");
     cy.dataCy("layer-toggle").should("not.be.visible");
     cy.dataCy("toggle-map-panels").click();

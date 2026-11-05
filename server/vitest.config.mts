@@ -21,6 +21,12 @@ export default defineConfig({
       IMPORT_MAX_FILE_MB: "60",
       IMPORT_MAX_UNZIPPED_MB: "100",
       IMPORT_MAX_ROWS: "100000",
+      IMPORT_MAX_GPKG_MB: "200",
+      // Never a real media account from a developer's .env: tests use an in-memory storage fake.
+      CLOUDINARY_URL: "",
+      // Nor real email or push accounts: no test ever sends a message.
+      EMAIL_PROVIDER: "none",
+      FIREBASE_SERVICE_ACCOUNT: "",
     },
   },
 });

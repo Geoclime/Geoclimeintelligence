@@ -2,6 +2,7 @@ import { ValidationError } from "../src/common/errors/app-error";
 import type {
   BatchContext,
   BatchResult,
+  BuildingRow,
   EnsuredSource,
   ILayerLoadStore,
   InfrastructureRow,
@@ -12,7 +13,14 @@ import type {
   SettlementRow,
   WaterwayRow,
 } from "../src/modules/map-layers/map-layer-loader.types";
+import type { FacilityOrigin } from "../src/modules/map-layers/layer-rules";
 import type {
+  BuildingFeatureCollection,
+  FacilityChanges,
+  FacilityDto,
+  FacilityHit,
+  IBuildingRepository,
+  IFacilityRepository,
   IInfrastructureRepository,
   InfrastructureFeatureCollection,
   IRoadRepository,
@@ -20,6 +28,8 @@ import type {
   IWaterwayRepository,
   LayerGeoJsonQuery,
   LayerSummary,
+  ManualFacilitySource,
+  NewFacility,
   RoadFeatureCollection,
   SettlementFeatureCollection,
   WaterwayFeatureCollection,
@@ -28,9 +38,11 @@ import type {
 // In-memory stand-ins for the map-layer repositories, so services run with no database. Shapes
 // and SQL are never computed here; the spatial SQL is verified against PostGIS, not faked.
 
-/** Remembers the query it was given and returns an empty, untruncated layer. */
-export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepository, ISettlementRepository, IInfrastructureRepository {
+/** Remembers the query it was given and returns an empty, untruncated layer. A name search returns `facilityHits`, and is remembered too. */
+export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepository, ISettlementRepository, IInfrastructureRepository, IBuildingRepository {
   queries: LayerGeoJsonQuery[] = [];
+  facilityHits: FacilityHit[] = [];
+  searches: { q: string; limit: number }[] = [];
 
   constructor(private summary: LayerSummary = { featureCount: 0, sourceIds: [] }) {}
 
@@ -39,7 +51,13 @@ export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepos
     return { type: "FeatureCollection", features: [], truncated: false } as RoadFeatureCollection &
       WaterwayFeatureCollection &
       SettlementFeatureCollection &
-      InfrastructureFeatureCollection;
+      InfrastructureFeatureCollection &
+      BuildingFeatureCollection;
+  }
+
+  async searchByName(q: string, limit: number) {
+    this.searches.push({ q, limit });
+    return this.facilityHits;
   }
 
   async summarise() {
@@ -47,7 +65,72 @@ export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepos
   }
 }
 
-type StoredLayer = "roads" | "waterways" | "settlements" | "infrastructure";
+/**
+ * Places saved by hand, kept in memory. `seed` adds a row as if it were already stored, which is how
+ * a test gets an imported facility (origin "import") to refuse a change to.
+ */
+export class InMemoryFacilityRepository implements IFacilityRepository {
+  rows = new Map<string, FacilityDto & { origin: FacilityOrigin }>();
+  sources: ManualFacilitySource[] = [];
+  created: NewFacility[] = [];
+  private sequence = 0;
+
+  seed(overrides: Partial<FacilityDto> = {}): FacilityDto {
+    this.sequence += 1;
+    const row: FacilityDto = {
+      id: `50000000-0000-4000-8000-${String(this.sequence).padStart(12, "0")}`,
+      name: "Seeded clinic",
+      facilityType: "health",
+      osmClass: "clinic",
+      note: null,
+      origin: "manual",
+      longitude: 7,
+      latitude: 4.8,
+      adminUnitId: null,
+      createdAt: "2026-10-30T00:00:00.000Z",
+      ...overrides,
+    };
+    this.rows.set(row.id, row);
+    return row;
+  }
+
+  async findById(id: string) {
+    return this.rows.get(id) ?? null;
+  }
+
+  async ensureManualSource(input: ManualFacilitySource) {
+    if (!this.sources.some((source) => source.datasetName === input.datasetName)) this.sources.push(input);
+    return "60000000-0000-4000-8000-000000000001";
+  }
+
+  async create(input: NewFacility) {
+    this.created.push(input);
+    return this.seed({
+      name: input.name,
+      facilityType: input.facilityType,
+      osmClass: input.osmClass,
+      note: input.note,
+      longitude: input.longitude,
+      latitude: input.latitude,
+      adminUnitId: input.adminUnitId,
+    });
+  }
+
+  async update(id: string, changes: FacilityChanges) {
+    const row = this.rows.get(id);
+    if (!row || row.origin !== "manual") return null;
+    Object.assign(row, changes);
+    return row;
+  }
+
+  async delete(id: string) {
+    const row = this.rows.get(id);
+    if (!row || row.origin !== "manual") return false;
+    return this.rows.delete(id);
+  }
+}
+
+type StoredLayer = "roads" | "waterways" | "settlements" | "infrastructure" | "buildings";
 
 export const EMPTY_BATCH: BatchResult = { received: 0, inserted: 0, alreadyPresent: 0, relinked: 0, unlinked: 0, rejected: {} };
 
@@ -63,6 +146,7 @@ export class FakeLoadTx implements LayerLoadTx {
   waterways: { rows: WaterwayRow[]; context: BatchContext }[] = [];
   settlements: { rows: SettlementRow[]; context: WardBatchContext }[] = [];
   infrastructure: { rows: InfrastructureRow[]; context: WardBatchContext }[] = [];
+  buildings: { rows: BuildingRow[]; context: WardBatchContext }[] = [];
 
   async ensureSource(input: NewLayerSource): Promise<EnsuredSource> {
     const index = this.sources.findIndex((source) => JSON.stringify(source) === JSON.stringify(input));
@@ -100,8 +184,13 @@ export class FakeLoadTx implements LayerLoadTx {
     return this.result(rows.map((row) => row.osmId));
   }
 
+  async insertBuildings(rows: BuildingRow[], context: WardBatchContext) {
+    this.buildings.push({ rows, context });
+    return this.result(rows.map((row) => row.osmId));
+  }
+
   /** Rows each country "holds", for the clear tests; deleting empties the country's count. */
-  stored: Record<StoredLayer, Record<string, number>> = { roads: {}, waterways: {}, settlements: {}, infrastructure: {} };
+  stored: Record<StoredLayer, Record<string, number>> = { roads: {}, waterways: {}, settlements: {}, infrastructure: {}, buildings: {} };
 
   async deleteRoads(countryCode: string) {
     return this.take("roads", countryCode);
@@ -117,6 +206,10 @@ export class FakeLoadTx implements LayerLoadTx {
 
   async deleteInfrastructure(countryCode: string) {
     return this.take("infrastructure", countryCode);
+  }
+
+  async deleteBuildings(countryCode: string) {
+    return this.take("buildings", countryCode);
   }
 
   private take(layer: StoredLayer, countryCode: string): number {

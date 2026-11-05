@@ -7,7 +7,7 @@ describe("Session and account", () => {
     cy.wait("@getMe");
     cy.dataCy("access-summary").within(() => {
       cy.dataCy("role-badge").should("have.text", "Researcher");
-      cy.dataCy("access-region").should("contain", "All of Rivers State");
+      cy.dataCy("access-region").should("contain", "All regions");
     });
     cy.dataCy("nav-users").should("not.exist");
   });
@@ -25,7 +25,7 @@ describe("Session and account", () => {
   it("offers a retry, not a guessed role, when the backend is unavailable", () => {
     cy.login("general_public");
     cy.interceptApi("GET", "/auth/me", { statusCode: 500, message: "Something went wrong" }).as("getMeFailed");
-    cy.visit("/");
+    cy.visit("/map");
     cy.wait("@getMeFailed");
     cy.dataCy("error-state").should("contain", "We couldn't load your account");
     cy.dataCy("map-page").should("not.exist");
@@ -39,7 +39,7 @@ describe("Session and account", () => {
   it("signs the user out when the backend rejects their token even after a refresh", () => {
     cy.login("general_public");
     cy.interceptApi("GET", "/auth/me", { statusCode: 401, message: "Invalid or expired token" }).as("getMe401");
-    cy.visit("/");
+    cy.visit("/map");
     // One original request plus exactly one retry after the forced token refresh.
     cy.wait("@getMe401");
     cy.wait("@getMe401");
@@ -48,7 +48,7 @@ describe("Session and account", () => {
 
   it("signs out from the account menu", () => {
     cy.login("government_official");
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("user-menu-trigger").click();
     cy.dataCy("user-menu").should("be.visible");
     cy.dataCy("sign-out").click();
@@ -58,7 +58,7 @@ describe("Session and account", () => {
 
   it("remembers the chosen colour theme across reloads", () => {
     cy.login("general_public");
-    cy.visit("/");
+    cy.visit("/map");
     cy.dataCy("user-menu-trigger").click();
     cy.dataCy("theme-toggle").find('input[value="dark"]').check({ force: true });
     cy.get("html").should("have.attr", "data-theme", "dark");

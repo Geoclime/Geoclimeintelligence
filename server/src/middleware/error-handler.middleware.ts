@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../common/errors/app-error";
+import { isDatabaseUnreachable, unreachableHost, unreachableReason } from "../common/errors/database-unreachable";
 import { fail } from "../common/response/api-response";
 import { logger } from "../config/logger";
 
@@ -10,8 +11,9 @@ export function notFoundHandler(req: Request, res: Response) {
 
 /**
  * The single global error handler, mounted last (section 5). Known AppErrors map to their
- * own status; anything else is logged in full and returned as a generic 500 -- stack traces
- * and internals never reach the client.
+ * own status; a service the server needs that can't be reached (the database host not resolving, a dropped
+ * connection) is a 503, logged as a warning, which the web app retries for reads; anything else is logged in
+ * full and returned as a generic 500 -- stack traces and internals never reach the client.
  */
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
@@ -24,6 +26,12 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return res
       .status(bodyStatus)
       .json(fail(bodyStatus === 413 ? "Request body too large" : "Malformed request body"));
+  }
+
+  if (isDatabaseUnreachable(err)) {
+    logger.warn({ reason: unreachableReason(err), host: unreachableHost(err), ...requestContext(req) }, "A service the server needs couldn't be reached");
+    res.setHeader("Retry-After", "5");
+    return res.status(503).json(fail("The server can't reach a service it depends on, such as the database, right now. Please try again in a moment."));
   }
 
   logger.error({ err, ...requestContext(req) }, "Unhandled error");

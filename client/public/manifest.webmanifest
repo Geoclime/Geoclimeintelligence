@@ -1,0 +1,44 @@
+{
+  "id": "/",
+  "name": "GeoClime Intelligence",
+  "short_name": "GeoClime",
+  "description": "Flood alerts, community flood reports, places, infrastructure and rainfall for Nigeria, on one shared, sourced map.",
+  "lang": "en-NG",
+  "dir": "ltr",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "theme_color": "#063C3E",
+  "background_color": "#061819",
+  "categories": ["weather", "utilities", "government"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Flood alerts",
+      "short_name": "Alerts",
+      "description": "Flood alerts in force and the alert map",
+      "url": "/alerts",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Report flooding",
+      "short_name": "Report",
+      "description": "Tell coordinators what you see",
+      "url": "/report",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Map",
+      "short_name": "Map",
+      "url": "/map",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

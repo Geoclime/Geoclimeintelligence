@@ -35,27 +35,62 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 
 **Phase 3: Map layers**
 17. [map-layers.md](map-layers.md): roads, waterways and settlements: the tables, the four read endpoints, thinning by zoom and the cap, the `npm run layers:load` and `npm run layers:clear` scripts, and the country-delete `409`.
-18. [infrastructure-layer.md](infrastructure-layer.md): facilities from the Geofabrik OpenStreetMap extract: the `infrastructure` table, the GeoPackage reader, `GET /api/v1/infrastructure/geojson`, loading and clearing, and what else the extract holds (including the broken buildings file).
+18. [infrastructure-layer.md](infrastructure-layer.md): facilities from the Geofabrik OpenStreetMap extract: the `infrastructure` table, the GeoPackage reader, `GET /api/v1/infrastructure/geojson`, loading and clearing, and what else the extract holds.
+19. [buildings-layer.md](buildings-layer.md): building outlines from the same extract: the `buildings` table, recovering a GeoPackage that was cut short in transit, `GET /api/v1/buildings/geojson` (street level only), and streaming the load so the Imports screen can take it.
 
 **Deployment**
-19. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
+20. [deployment-render.md](deployment-render.md): running the API on Render, with first-time setup steps.
 
 ## Web client ([`client/`](../client/))
 
 Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engineering Standards*. They use the same four parts.
 
-20. [features/phase-1-client.md](features/phase-1-client.md): the client's Phase 1 overview. Start here for the frontend.
-21. [features/client-architecture.md](features/client-architecture.md): layers, folders, configuration, and the lint rules that enforce the standard.
-22. [features/signing-in-with-firebase.md](features/signing-in-with-firebase.md): sign-in, sign-up, password reset, `AuthContext` and the route guards.
-23. [features/ui-foundations.md](features/ui-foundations.md): design tokens, light/dark theme, shared components, Modal and toasts.
-24. [features/admin-user-management-ui.md](features/admin-user-management-ui.md): the Administrator Users page.
-25. [features/client-testing.md](features/client-testing.md): unit tests and the offline Cypress suite.
-26. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
-27. [features/auth-email-templates.md](features/auth-email-templates.md): the verification and password-reset emails, and the Firebase console settings behind them.
-28. [features/admin-geography.md](features/admin-geography.md): Phase 2 on the client: the dashboard sidebar and top bar, the home map, Places, and the admin Countries and Imports screens.
-29. [features/email-verification-before-sign-in.md](features/email-verification-before-sign-in.md): new accounts aren't signed in until their email is verified.
-30. [features/usability-and-profile.md](features/usability-and-profile.md): the compact layout, the profile page, name at sign-up, quick search (Ctrl+K), the Help page, the admin setup checklist, and user search on the Users page.
-31. [features/map-layers.md](features/map-layers.md): the Roads, Waterways and Settlements toggles, their legend rows, the Data sources panel, and the layer-toggle fix on the home map.
+21. [features/phase-1-client.md](features/phase-1-client.md): the client's Phase 1 overview. Start here for the frontend.
+22. [features/client-architecture.md](features/client-architecture.md): layers, folders, configuration, and the lint rules that enforce the standard.
+23. [features/signing-in-with-firebase.md](features/signing-in-with-firebase.md): sign-in, sign-up, password reset, `AuthContext` and the route guards.
+24. [features/ui-foundations.md](features/ui-foundations.md): design tokens, light/dark theme, shared components, Modal and toasts.
+25. [features/admin-user-management-ui.md](features/admin-user-management-ui.md): the Administrator Users page.
+26. [features/client-testing.md](features/client-testing.md): unit tests and the offline Cypress suite.
+27. [features/client-deployment-vercel.md](features/client-deployment-vercel.md): putting the client on Vercel.
+28. [features/auth-email-templates.md](features/auth-email-templates.md): the verification and password-reset emails, and the Firebase console settings behind them.
+29. [features/admin-geography.md](features/admin-geography.md): Phase 2 on the client: the dashboard sidebar and top bar, the home map, Places, and the admin Countries and Imports screens.
+30. [features/email-verification-before-sign-in.md](features/email-verification-before-sign-in.md): new accounts aren't signed in until their email is verified.
+31. [features/usability-and-profile.md](features/usability-and-profile.md): the compact layout, the profile page, name at sign-up, quick search (Ctrl+K), the Help page, the admin setup checklist, and user search on the Users page.
+32. [features/map-layers.md](features/map-layers.md): the Roads, Waterways and Settlements toggles, their legend rows, the Data sources panel, and the layer-toggle fix on the home map.
+
+## Phase 5: Rainfall
+
+33. [rainfall.md](rainfall.md): why the platform needs rainfall, what "mm" means, how to tell a high month or year from a low one, why no single mm value means "flood" and what it would take to find one, with the loading steps in [data-import.md](data-import.md), section 8.
+34. [rainfall-automation.md](rainfall-automation.md): the plan (not built yet) for fetching rainfall on a schedule instead of by hand, plus daily rainfall and the other data to get (gauges, river levels, a longer baseline) and where to find flood-zone data (NIHSA's Annual Flood Outlook, HDX, the Global Flood Database), as a checklist.
+
+## Public landing page
+
+35. [public-landing-api.md](public-landing-api.md): the five `/api/v1/public` routes that need no sign-in, how they are mounted before auth, rate limited per IP and cached, and `TRUST_PROXY_HOPS`.
+36. [features/landing-page.md](features/landing-page.md): the landing page at `/`, the map's move to `/map` (old links still forward), the place finder, the SVG state outline, and the About, Contact, Accessibility, Privacy and Terms pages (placeholder contact details in `client/src/config/site.ts`).
+
+## Flooding
+
+37. [audit-and-permissions.md](audit-and-permissions.md): the activity log (who did what, kept for good), every drain inspection with who checked and from where, roles an administrator can edit or create on the Roles screen, and photos on floods, drains, inspections and places saved by hand.
+
+37a. [households.md](households.md): marking your home on the map, private to you and staff, with alerts for floods near it and a count in flood impact.
+
+38. [flood-alerts-and-reports.md](flood-alerts-and-reports.md): flood alerts (watch, warning, severe) for LGAs and states, community flood reports with GPS, depth, photos and voice notes, the review queue, and the national alert map on the landing page.
+
+39. [features/installable-app.md](features/installable-app.md): the PWA: install on phones and computers, offline use, and update prompts.
+44. [field-survey.md](field-survey.md): a responder walking the edge of a flood (or tracing it on the map) to get its area and what it reaches, and recording drains and their condition: the `flood_extents` and `drainage_features` tables, measuring in PostGIS, the GPS rules, and who can record.
+
+## Notifications
+
+40. [notifications.md](notifications.md): in-app (Socket.IO), email and push (FCM) notifications: what triggers them, who receives them, per-person settings, and setting up push.
+41. [email.md](email.md): the email outbox and worker, SMTP or Google Apps Script, fallback, retries, and the Apps Script to deploy.
+42. [features/onboarding.md](features/onboarding.md): "Finish setting up": name, phone and home LGA before using the app.
+43. [features/client-data-caching.md](features/client-data-caching.md): how the app remembers what it has asked (TanStack Query): instant reopen, freshness windows, what clears it, and what is never cached.
+44. [features/flood-risk-overlay.md](features/flood-risk-overlay.md): the flood risk map on the client: the "Flood risk map" choice on the import screen and its review, the "Flood risk" layer on the home map (credit line, click popup), and the flood risk card on LGA and ward pages.
+45. [flood-risk.md](flood-risk.md): importing the data team's classified GeoTIFF through the import pipeline: the two tables, the checks (CRS, classes, lining up with the LGAs), measuring every LGA and ward, drawing the picture, Promote, and the read endpoints.
+
+## Accounts
+
+37. [role-requests.md](role-requests.md): why nobody picks their own role; asking for a staff role at sign-up or on the profile page, and how administrators approve or decline it.
 
 ## Adding a new doc
 

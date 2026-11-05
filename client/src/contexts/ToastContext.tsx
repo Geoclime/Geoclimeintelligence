@@ -3,15 +3,23 @@ import { ToastViewport } from "../components/shared/Toast";
 
 export type ToastType = "success" | "error" | "info";
 
+/** A button on a toast, such as "Undo". Pressing it runs `onClick` and dismisses the toast. */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastInput {
   type: ToastType;
   message: string;
-  /** Milliseconds before it disappears on its own. Errors stay longer by default. */
+  /** Milliseconds before it disappears on its own. Errors stay longer by default, and so does a toast with a button. */
   durationMs?: number;
+  action?: ToastAction;
 }
 
-export interface Toast extends Required<ToastInput> {
+export interface Toast extends Required<Omit<ToastInput, "action">> {
   id: number;
+  action?: ToastAction;
 }
 
 export interface ToastContextValue {
@@ -34,12 +42,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
-  const showToast = useCallback(({ type, message, durationMs }: ToastInput) => {
+  const showToast = useCallback(({ type, message, durationMs, action }: ToastInput) => {
     const toast: Toast = {
       id: nextId.current++,
       type,
       message,
-      durationMs: durationMs ?? (type === "error" ? 8_000 : 5_000),
+      // Long enough to notice a slip and reach for the button.
+      durationMs: durationMs ?? (action ? 10_000 : type === "error" ? 8_000 : 5_000),
+      action,
     };
     setToasts((current) => [...current, toast].slice(-MAX_VISIBLE));
   }, []);

@@ -19,7 +19,8 @@ export const createDataSourceSchema = z.object({
       provider: text("Provider", 200),
       datasetName: text("Dataset name", 300),
       url: z.url({ protocol: /^https?$/, error: "Enter the provider's web address, starting with http:// or https://" }),
-      license: text("Licence", 200),
+      // Shown publicly on the landing page, so a stray trailing "," or ";" from a pasted list is dropped.
+      license: text("Licence", 200).transform((value) => value.replace(/[\s,;]+$/, "")).pipe(z.string().min(1, "Licence is required")),
       downloadedOn: z.iso.date("Enter the download date as YYYY-MM-DD"),
       notes: z.string().trim().max(2000).nullish().transform((value) => value || null),
     })

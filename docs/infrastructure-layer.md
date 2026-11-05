@@ -7,14 +7,18 @@ The map can now show the **facilities people depend on in an emergency**: hospit
 The backend part is:
 
 - **One table, `infrastructure`**, the Backlog2 ERD's INFRASTRUCTURE. Every row has a data source, a country, a facility type and a point, and is linked to the ward it sits in.
-- **A GeoPackage reader** (`.gpkg` files are SQLite databases). It runs on [sql.js](https://sql.js.org/), which is WebAssembly, so nothing native has to build on Render. It also spots a file that was cut short and says so plainly.
+- **A GeoPackage reader** (`.gpkg` files are SQLite databases). It runs on [sql.js](https://sql.js.org/), which is WebAssembly, so nothing native has to build on Render. It also reads files that were cut short in transit ([buildings-layer.md](buildings-layer.md) section 2).
 - **Loading through the existing loader:** `npm run layers:load -- --infrastructure <zip or .gpkg> --infrastructure-source <id>`, or **Imports → New import → Map layer: Infrastructure** in the web app.
 - **A read endpoint, `GET /api/v1/infrastructure/geojson?bbox=&zoom=`**, plus an `infrastructure` entry in `GET /api/v1/map-layers`.
 - **Clearing:** `npm run layers:clear -- --layers infrastructure`, or the Clear button on the Imports screen. A country that still has facilities can't be deleted (`409`), the same as for roads and waterways.
 
+- **Places saved by hand:** an administrator can click the map and save a facility the extract missed (a hospital they visited), then edit or delete it later. See [section 8](#8-places-saved-by-hand).
+
 On the client, the home map has a **Facilities** toggle and five legend rows. The facilities' source is listed in the Data sources panel.
 
 ### What's in the extract, and what this layer uses
+
+Both deliveries work: Geofabrik's own names (`gis_osm_pois_free_1_rivers.gpkg`...) and the team's 2026-10-29 handover (`rivers_pois.gpkg`, `rivers_pois_a.gpkg`...). The handover wraps each point as a one-point MultiPoint, which is stored as that point. From the handover the layer keeps **821** facilities; the figures below are from the first extract.
 
 Of the extract's 21 files, this layer reads six: points of interest, places of worship and transport, each as points and as areas (`gis_osm_{pois,pofw,transport}[_a]_free_1_rivers.gpkg`). From the current extract that gives **826 facilities out of 2,288 features**:
 
@@ -37,7 +41,7 @@ The rest of the extract isn't loaded by this layer:
 
 - **Roads and waterways** duplicate what is already loaded from HDX ([map-layers.md](map-layers.md)).
 - **Places and admin areas** are skipped: GRID3 settlements and the official boundaries are better sources.
-- **Buildings** are the next candidate (about 156,000 footprints in the readable file). **`gis_osm_buildings_a_free_1_rivers.gpkg` is cut short:** it should be 64.4 MB but is 59.9 MB, so it can't be read. Ask the data team for a fresh copy before buildings are built.
+- **Buildings** (414,556 outlines) are their own layer: see [buildings-layer.md](buildings-layer.md).
 
 ## How it works
 
@@ -57,14 +61,19 @@ Paths are relative to `server/` unless they start with `client/`. The module is 
 | `osm_class` | Geofabrik's `fclass` as delivered (`clinic`, `ferry_terminal`...) |
 | `geom` | `Point`, 4326. An outline is stored as a point inside it (`ST_PointOnSurface`) |
 | `source_id` | Required, `ON DELETE RESTRICT` |
+| `origin` | `import` (the loader) or `manual` (saved by an administrator from the map). Added by [`1792300000000-AddAdminSavedFacilities.ts`](../server/src/migrations/1792300000000-AddAdminSavedFacilities.ts) |
+| `note` | Free text (up to 500 characters) from whoever saved a place by hand. Null for imports |
+| `created_by` | The administrator who saved it. `ON DELETE SET NULL` |
 
 It has the same validity `CHECK` and GiST index as the other layer tables, plus indexes on `(country_code, facility_type)` and `admin_unit_id`.
+
+That later migration also makes `osm_id` optional, since a place saved by hand has none. A `CHECK` keeps it required for every `import` row.
 
 ### 2. Reading the GeoPackages
 
 - [`osm-extract.ts`](../server/src/modules/map-layers/osm-extract.ts) takes the upload. For a zip, it unpacks only the six facility files, so a 60 MB delivery unpacks to about a megabyte, and the zip-bomb limit still applies. A single `.gpkg` is passed through as it is.
 - [`gpkg-reader.ts`](../server/src/modules/map-layers/gpkg-reader.ts) opens each file with sql.js, finds its one feature table, and refuses a CRS other than EPSG:4326 (rule 7). Each row becomes a feature: the columns are its properties, and the geometry is decoded to GeoJSON.
-  - Before opening a file, it compares the database size in the SQLite header with the file's real length. A truncated file fails with "*name* is cut short: it should be X MB but is Y MB", not SQLite's vague "malformed".
+  - Before opening a file, it compares the database size in the SQLite header with the file's real length. A file that was cut short is read page by page instead, and loaded only if all its rows arrived ([buildings-layer.md](buildings-layer.md) section 2).
 - [`gpkg-geometry.ts`](../server/src/modules/map-layers/gpkg-geometry.ts) decodes a GeoPackage geometry blob: the "GP" header, then standard WKB. It handles both byte orders, ISO and EWKB Z/M flags (the extra values are dropped), and empty shapes. A blob it can't read becomes "no shape", and that row alone is left out.
 
 ### 3. Rows, checks and inserts
@@ -105,7 +114,7 @@ npm run layers:load -- --infrastructure ../osm-20261027T194914Z-1-001.zip --infr
 
 or, in the app: **Imports → New import**, Level **Map layer: Infrastructure**, choose the source, then upload the zip (it fits under the 60 MB upload limit). The report lists each facility file with how many rows were added, already there, left out (by reason) and linked to no ward.
 
-To remove the layer: `npm run layers:clear -- --country NGA --layers infrastructure --yes`.
+To remove the layer: `npm run layers:clear -- --country NGA --layers infrastructure --yes`. This removes only imported facilities; places saved by hand stay (section 8).
 
 ### 6. The client
 
@@ -117,13 +126,47 @@ To remove the layer: `npm run layers:clear -- --country NGA --layers infrastruct
 
 | File | Covers |
 |---|---|
-| [`tests/unit/map-layer-infrastructure.test.ts`](../server/tests/unit/map-layer-infrastructure.test.ts) | Decoding blobs (byte order, Z values, empty and broken blobs), reading GeoPackages (CRS, not a GeoPackage, cut short), picking the facility files from a zip, the type mapping and zoom steps, row building and reject reasons, the loader end to end against fakes |
+| [`tests/unit/map-layer-infrastructure.test.ts`](../server/tests/unit/map-layer-infrastructure.test.ts) | Decoding blobs (byte order, Z values, empty and broken blobs), reading GeoPackages (CRS, not a GeoPackage), picking the facility files from a zip, the type mapping and zoom steps, row building and reject reasons, the loader end to end against fakes |
 | [`tests/gpkg-fixtures.ts`](../server/tests/gpkg-fixtures.ts) | Builds real GeoPackages in memory for those tests |
 | [`tests/integration/map-layers.test.ts`](../server/tests/integration/map-layers.test.ts) | `GET /infrastructure/geojson`: bbox and zoom validation, sign-in required. The catalogue lists four layers |
 | [`tests/unit/map-layer-loader.test.ts`](../server/tests/unit/map-layer-loader.test.ts), [`map-layer.service.test.ts`](../server/tests/unit/map-layer.service.test.ts) | Clearing infrastructure; the catalogue entry and its source |
 | `client/src/utils/*.test.ts`, [`cypress/e2e/geography/map.cy.ts`](../client/cypress/e2e/geography/map.cy.ts) | The hint, the layer in the address, and the toggle, legend and source on the map |
 
 As with the other layers, the PostGIS SQL is not run by the test suite, which never touches a database. Before using it in production, run `--dry-run` against a database with the migration applied, and check the counts against the table above.
+
+### 8. Places saved by hand
+
+The extract can miss a place: a hospital that is real but not in OpenStreetMap. An administrator who visits it can save it from the map, without an import.
+
+**Using it** (Administrator only, on the home map):
+
+1. Click the spot. The usual popup shows its state, LGA and ward, and an administrator also sees **Save this place**. It appears only inside a mapped area, because every facility needs a country.
+2. Give it a name, pick what it is (a grouped list of the classes the import understands: hospital, clinic, school, ferry terminal...), and optionally add a note.
+3. It is saved, the Facilities layer switches on if it was off, and the new dot appears. Saved places have a darker ring.
+4. Click a ringed dot to see its name, kind and note, with **Edit** and **Delete**. Edit changes the name, kind or note. To move a place, delete it and save it again.
+
+**How it works.** Places go in the same `infrastructure` table as imported facilities, so the map draws them the same way and ward counts include them. Four things set them apart:
+
+- **`origin = 'manual'`.** Only these rows can be edited or deleted through the API. An imported facility is refused with `403`, even with its id in hand, because its data belongs to its source.
+- **`layers:clear` and re-imports leave them alone.** `deleteInfrastructure` deletes `origin = 'import'` rows only. The consequence is that a country holding saved places can't be deleted (`409`) even after `layers:clear`: delete those places from the map first.
+- **One standing data source.** Every saved place points at "GeoClime Intelligence administrators: Places saved by hand on the map", created the first time one is saved (its link is `APP_URL`). It shows under Facilities in the Data sources panel like any other source, so provenance still reaches every row.
+- **Ward link.** The ward is found at save time (level 3, like the loader's default). Unlike an import, a place saved with no ward is not relinked later.
+
+**API**, all Administrator-only, on the existing infrastructure router ([`map-layer.routes.ts`](../server/src/modules/map-layers/map-layer.routes.ts)):
+
+| Route | Body | Does |
+|---|---|---|
+| `POST /api/v1/infrastructure` | `name`, `kind`, `longitude`, `latitude`, optional `note` | Saves a place. `400` outside every mapped area or for an unknown kind |
+| `PATCH /api/v1/infrastructure/:id` | any of `name`, `kind`, `note` (blank `note` clears it) | Edits one. `403` for an imported facility |
+| `DELETE /api/v1/infrastructure/:id` | none | Deletes one. `403` for an imported facility |
+
+`kind` is a Geofabrik class (`hospital`, `clinic`...). The server files it under the right facility type with the same `facilityTypeOf` the import uses. `GET /api/v1/infrastructure/geojson` now also returns `origin` and `note` on each feature.
+
+**Code.** Server: [`facility.service.ts`](../server/src/modules/map-layers/facility.service.ts), [`facility.repository.ts`](../server/src/modules/map-layers/facility.repository.ts), [`facility.validation.ts`](../server/src/modules/map-layers/facility.validation.ts), [`facility.controller.ts`](../server/src/modules/map-layers/facility.controller.ts). Client: [`useSavedPlaces.ts`](../client/src/hooks/useSavedPlaces.ts), [`PlaceFormDialog.tsx`](../client/src/components/map/PlaceFormDialog.tsx), [`SavedPlacePopup.tsx`](../client/src/components/map/SavedPlacePopup.tsx), [`DeletePlaceDialog.tsx`](../client/src/components/map/DeletePlaceDialog.tsx), and the kind list in [`facility-kinds.ts`](../client/src/utils/facility-kinds.ts).
+
+**Tests.** [`tests/unit/facility.service.test.ts`](../server/tests/unit/facility.service.test.ts) (the service against fakes, and the validation), the "saving a place by hand" block in [`tests/integration/map-layers.test.ts`](../server/tests/integration/map-layers.test.ts) (roles, bodies, imported rows refused), and on the client `facility-kinds.test.ts`, `saved-places.test.ts` and `place-form.schema.test.ts`. As above, the SQL is not run by the suite: apply the migration and try a save against a real database before relying on it.
+
+**Rough edges.** The Clear button on the Imports screen shows the layer's full count, which includes saved places, but clearing removes only imported ones, so the "Cleared N" figure can be lower. Saved places follow the same zoom thinning as other facilities (below zoom 12 only some types show), so a saved school is hidden when zoomed far out.
 
 ## Resources to read
 
@@ -141,4 +184,6 @@ The OpenStreetMap extract is like a phone directory for the whole state. It list
 
 Some entries in the directory are a single address (a point). Others are a whole compound drawn as an outline, like a hospital's grounds. We store the outline as one pin dropped inside it, so every facility is one dot on the map.
 
-The directory arrives as GeoPackage files, which are small databases. If a file was cut off while being copied, like one of the buildings files, the loader checks the size written on its first page against what actually arrived, and tells you the file is incomplete instead of loading half of it.
+The directory arrives as GeoPackage files, which are small databases. The loader opens each one and reads only the pages it needs.
+
+A place saved by hand is a sticky note added to that directory: an administrator who finds a hospital missing from it writes it in themselves. Reprinting the directory (a re-import) never throws the sticky notes away.

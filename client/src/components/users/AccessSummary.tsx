@@ -1,6 +1,7 @@
 import type { AdminUnitRef } from "../../types/admin-unit.types";
 import type { AuthUser } from "../../types/auth.types";
-import { ROLE_INFO, isRegionScopable } from "../../utils/roles";
+import { useRoles } from "../../hooks/useRoles";
+import { isRegionScopable, roleDescription } from "../../utils/roles";
 import { Icon } from "../shared/Icon";
 import { RoleBadge } from "./RoleBadge";
 import "./users.css";
@@ -14,6 +15,7 @@ interface AccessSummaryProps {
 
 /** "What can I do, and where?" for the signed-in user, straight from GET /api/v1/auth/me. */
 export function AccessSummary({ user, region = null, regionLoading = false }: AccessSummaryProps) {
+  const { roles } = useRoles();
   return (
     <section className="card access-summary" aria-labelledby="access-summary-title" data-cy="access-summary">
       <header className="access-summary__header">
@@ -30,7 +32,7 @@ export function AccessSummary({ user, region = null, regionLoading = false }: Ac
           <dt>Role</dt>
           <dd>
             <RoleBadge role={user.role} />
-            <p className="access-summary__note">{ROLE_INFO[user.role].description}</p>
+            <p className="access-summary__note">{roleDescription(user.role, roles)}</p>
           </dd>
         </div>
         <div>
@@ -52,8 +54,8 @@ export function AccessSummary({ user, region = null, regionLoading = false }: Ac
               </>
             ) : (
               <>
-                <span className="access-summary__value">All of Rivers State</span>
-                {isRegionScopable(user.role) && (
+                <span className="access-summary__value">All regions</span>
+                {isRegionScopable(user.role, roles) && (
                   <p className="access-summary__note">No region restriction has been set for this account.</p>
                 )}
               </>

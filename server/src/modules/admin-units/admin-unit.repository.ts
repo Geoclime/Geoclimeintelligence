@@ -2,6 +2,7 @@ import type { MultiPolygon } from "geojson";
 import type { BBox, LonLat } from "../../common/geo/geo";
 import { BaseRepository } from "../../common/repository/base.repository";
 import type { PageMeta } from "../../common/response/api-response";
+import type { AreaLevelSummary, IAreaStatistics } from "../public/public.types";
 import { AdminUnit } from "./admin-unit.entity";
 import type {
   AdminUnitFeatureCollection,
@@ -42,7 +43,7 @@ function likePattern(q: string): string {
   return `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
 }
 
-export class AdminUnitRepository extends BaseRepository<AdminUnit> implements IAdminUnitRepository {
+export class AdminUnitRepository extends BaseRepository<AdminUnit> implements IAdminUnitRepository, IAreaStatistics {
   private static _instance?: AdminUnitRepository;
   static get Instance(): AdminUnitRepository {
     return (this._instance ??= new AdminUnitRepository());
@@ -152,6 +153,17 @@ export class AdminUnitRepository extends BaseRepository<AdminUnit> implements IA
 
   async exists(id: string): Promise<boolean> {
     return this.repo.existsBy({ id });
+  }
+
+  /** How many areas each level holds and which sources they came from, for the landing page's counters. */
+  summariseLevels(): Promise<AreaLevelSummary[]> {
+    return this.repo.query(
+      `SELECT level, min(level_name) AS "levelName", count(*)::int AS count,
+              array_agg(DISTINCT source_id::text) AS "sourceIds"
+         FROM admin_units
+        GROUP BY level
+        ORDER BY level`,
+    );
   }
 
   /** Region scoping (section 7): walks parent_id upwards from the target. */

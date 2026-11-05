@@ -1,21 +1,28 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Link } from "react-router";
+import { InstallAppButton } from "../../components/layout/InstallAppButton";
 import { ThemeToggle } from "../../components/layout/ThemeToggle";
 import { Button } from "../../components/shared/Button";
 import { Callout } from "../../components/shared/Callout";
 import { Icon, type IconName } from "../../components/shared/Icon";
+import { PhoneField } from "../../components/shared/PhoneField";
 import { TextField } from "../../components/shared/TextField";
 import { AccessSummary } from "../../components/users/AccessSummary";
+import { HomeAreaFields } from "../../components/users/HomeAreaFields";
+import { RoleRequestCard } from "../../components/users/RoleRequestCard";
 import { RoleBadge } from "../../components/users/RoleBadge";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { usePwa } from "../../hooks/usePwa";
 import { useToast } from "../../hooks/useToast";
 import type { AuthUser } from "../../types/auth.types";
 import { applySubmitError } from "../../utils/form-errors";
 import { formatDate } from "../../utils/formatDate";
+import { MAP_PATH } from "../../utils/map-url";
+import { normalisePhone } from "../../utils/phone";
 import { initials, profileChecklist } from "../../utils/profile";
 import { hasAnyRole } from "../../utils/roles";
 import { SetupChecklist } from "./SetupChecklist";
@@ -59,7 +66,7 @@ export function AccountPage() {
             <RoleBadge role={user.role} />
             <span className="profile-chip">
               <Icon name="pin" size={13} />
-              {user.scopeAdminUnitId ? (region?.unitName ?? "One region") : "All of Rivers State"}
+              {user.scopeAdminUnitId ? (region?.unitName ?? "One region") : "All regions"}
             </span>
             {user.createdAt && (
               <span className="profile-chip">
@@ -95,6 +102,7 @@ export function AccountPage() {
         <div className="account-page__main">
           <ProfileForm user={user} />
           <AccessSummary user={user} region={region} regionLoading={regionLoading} />
+          <RoleRequestCard user={user} />
         </div>
 
         <div className="account-page__side">
@@ -111,6 +119,7 @@ export function AccountPage() {
               </div>
               <ThemeToggle />
             </div>
+            <InstallRow />
           </section>
           <QuickLinks isAdmin={isAdmin} />
         </div>
@@ -122,13 +131,14 @@ export function AccountPage() {
 function toFormValues(user: AuthUser): ProfileInput {
   return {
     displayName: user.displayName ?? "",
-    phone: user.phone ?? "",
+    phone: normalisePhone(user.phone ?? ""),
+    homeAdminUnitId: user.homeAdminUnitId ?? "",
     organisation: user.organisation ?? "",
     jobTitle: user.jobTitle ?? "",
   };
 }
 
-/** Name and contact details. Only changed fields are sent; an emptied field is cleared. */
+/** Name, contact details and home area. Only changed fields are sent; an emptied optional field is cleared. */
 function ProfileForm({ user }: { user: AuthUser }) {
   const { updateProfile } = useAuth();
   const { showToast } = useToast();
@@ -137,6 +147,7 @@ function ProfileForm({ user }: { user: AuthUser }) {
     handleSubmit,
     reset,
     setError,
+    control,
     formState: { errors, isSubmitting, isDirty, dirtyFields },
   } = useForm<ProfileInput>({ resolver: zodResolver(profileSchema), mode: "onTouched", values: toFormValues(user) });
 
@@ -179,21 +190,33 @@ function ProfileForm({ user }: { user: AuthUser }) {
             {...register("displayName")}
           />
           <TextField label="Email" value={user.email ?? "Not available"} disabled readOnly hint="Used to sign in." />
-          <TextField
-            label="Phone number"
-            type="tel"
-            autoComplete="tel"
-            inputMode="tel"
-            placeholder="+234 803 123 4567"
-            hint="So responders and administrators can reach you."
-            error={errors.phone?.message}
-            data-cy="profile-phone"
-            {...register("phone")}
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field, fieldState }) => (
+              <PhoneField
+                label="Phone number"
+                hint="So responders and administrators can reach you."
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                error={fieldState.error?.message}
+                data-cy="profile-phone"
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="homeAdminUnitId"
+            render={({ field, fieldState }) => (
+              <HomeAreaFields value={field.value} onChange={(id) => field.onChange(id)} error={fieldState.error?.message} />
+            )}
           />
           <TextField
             label="Organisation"
             autoComplete="organization"
-            placeholder="e.g. Rivers State Emergency Management Agency"
+            placeholder="e.g. National Emergency Management Agency"
             error={errors.organisation?.message}
             data-cy="profile-organisation"
             {...register("organisation")}
@@ -276,9 +299,24 @@ function SecurityCard({ user }: { user: AuthUser }) {
   );
 }
 
+/** "Install the app", shown only where the browser offers installation and it isn't installed yet. */
+function InstallRow() {
+  const { canInstall, standalone } = usePwa();
+  if (!canInstall || standalone) return null;
+  return (
+    <div className="account-row">
+      <div>
+        <p className="account-row__label">App</p>
+        <p className="account-row__hint">Install it for quick access from your home screen, and for use on a poor connection.</p>
+      </div>
+      <InstallAppButton />
+    </div>
+  );
+}
+
 function QuickLinks({ isAdmin }: { isAdmin: boolean }) {
   const links: { to: string; icon: IconName; title: string; text: string }[] = [
-    { to: "/", icon: "map", title: "Explore the map", text: "Rivers State, its LGAs and wards." },
+    { to: MAP_PATH, icon: "map", title: "Explore the map", text: "States, LGAs and wards." },
     { to: "/places", icon: "pin", title: "Browse places", text: "Every LGA with its wards." },
     { to: "/help", icon: "info", title: "Help and guides", text: "How each part of the platform works." },
   ];

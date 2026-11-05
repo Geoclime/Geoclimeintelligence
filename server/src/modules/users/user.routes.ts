@@ -16,3 +16,5 @@ usersRouter.patch(
   validate(updateUserAccessSchema),
   UserController.updateAccess,
 );
+// Approving a request is PATCH /:id/access with the requested role; declining closes it unchanged.
+usersRouter.delete("/:id/role-request", authorise("administrator"), validate(getUserSchema), UserController.declineRoleRequest);

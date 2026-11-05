@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { USER_ROLES } from "../../types/auth.types";
 import type { UserAccessPatch } from "../../types/user.types";
 import { isRegionScopable } from "../../utils/roles";
 
@@ -10,16 +9,17 @@ import { isRegionScopable } from "../../utils/roles";
  */
 export const userAccessSchema = z
   .object({
-    role: z.enum(USER_ROLES, { error: "Choose a role" }),
+    // Any role on the Roles screen, built-in or made by an administrator; the server checks it exists.
+    role: z.string().trim().min(1, { error: "Choose a role" }),
     scopeAdminUnitId: z.string().trim(),
   })
   .superRefine((values, ctx) => {
-    if (!isRegionScopable(values.role) || values.scopeAdminUnitId === "") return;
+    if (values.scopeAdminUnitId === "") return;
     if (!z.uuid().safeParse(values.scopeAdminUnitId).success) {
       ctx.addIssue({
         code: "custom",
         path: ["scopeAdminUnitId"],
-        message: "Enter a valid region ID (a UUID), or leave it blank for all of Rivers State",
+        message: "Enter a valid region ID (a UUID), or leave it blank for all regions",
       });
     }
   });
@@ -30,9 +30,9 @@ export type UserAccessFormValues = z.infer<typeof userAccessSchema>;
  * Always sends both fields. A role that can't carry a scope must send `null`: the backend keeps
  * the old scope when the field is omitted, then rejects that combination.
  */
-export function toAccessPatch(values: UserAccessFormValues): UserAccessPatch {
+export function toAccessPatch(values: UserAccessFormValues, roles?: readonly { code: string; canBeScoped: boolean }[]): UserAccessPatch {
   return {
     role: values.role,
-    scopeAdminUnitId: isRegionScopable(values.role) && values.scopeAdminUnitId ? values.scopeAdminUnitId : null,
+    scopeAdminUnitId: isRegionScopable(values.role, roles) && values.scopeAdminUnitId ? values.scopeAdminUnitId : null,
   };
 }

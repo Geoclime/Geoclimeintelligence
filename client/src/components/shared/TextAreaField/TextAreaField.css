@@ -1,0 +1,8 @@
+/* A textarea takes .field__input's border and focus ring, but grows with its rows instead of a fixed height. */
+.field__input.text-area-field__input {
+  height: auto;
+  min-height: 84px;
+  padding: var(--space-2) var(--space-3);
+  line-height: 1.5;
+  resize: vertical;
+}

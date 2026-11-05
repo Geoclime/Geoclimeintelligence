@@ -37,4 +37,13 @@ export class UserController {
       next(err);
     }
   }
+
+  static async declineRoleRequest(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      const user = await UserService.Instance.declineRoleRequest(req.params.id);
+      return res.json(ok(user, "Role request declined"));
+    } catch (err) {
+      next(err);
+    }
+  }
 }

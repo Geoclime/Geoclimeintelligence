@@ -10,7 +10,7 @@ The home map (`/`) can now draw roads, waterways and settlements over the State,
 - **Honest hints** under each toggle: "No data loaded yet", "Too many here to show: zoom in", "Smaller roads appear as you zoom in" or "Creeks and small water appear as you zoom in".
 - **A fix to the layer toggles**, which could be undone by the map's own address update (see section 5).
 
-The server side (tables, endpoints, zoom rules and the loader) is in [map-layers.md](../map-layers.md). A fourth toggle, **Facilities**, was added later with its five legend rows; it is covered, server and client, in [infrastructure-layer.md](../infrastructure-layer.md).
+The server side (tables, endpoints, zoom rules and the loader) is in [map-layers.md](../map-layers.md). A fourth toggle, **Facilities**, was added later with its five legend rows; it is covered, server and client, in [infrastructure-layer.md](../infrastructure-layer.md). The **Flood risk** surface drawn under all of these is covered in [flood-risk-overlay.md](flood-risk-overlay.md).
 
 ## How it works
 
@@ -32,7 +32,7 @@ All paths are relative to `client/src/`. It follows the standard's order: types 
   - It drops a reply that arrives for an older view.
   - Switched off, it fetches nothing and returns nothing.
   - It's never cached, because a bbox key would almost never repeat.
-- **`hooks/useMapLayerCatalog.ts`** loads the layer list through `cache/localCache.ts` under the new key `CACHE_KEYS.mapLayers`. The list only changes when an administrator runs the loader, so it can be cached. The cache lasts 15 minutes, or until the page is reloaded.
+- **`hooks/useMapLayerCatalog.ts`** loads the layer list through the shared loader under the key `QUERY_KEYS.mapLayers` ([client-data-caching.md](client-data-caching.md)). The list only changes when an administrator runs the loader, so it is remembered: fresh for 15 minutes, and cleared by a layer upload or clear, or when the page is reloaded.
 
 **3. Drawing the layers.**
 - `components/map/MapOverlayLayers.tsx` draws the three layers as native Mapbox sources and layers, never React markers (standard section 10). Bottom to top: waterways, roads, settlements, all **under** the boundary lines.

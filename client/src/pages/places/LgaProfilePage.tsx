@@ -1,6 +1,11 @@
 import { Link, useParams } from "react-router";
+import { DrainageCard } from "../../components/floods/DrainageCard";
+import { FloodHistoryCard } from "../../components/floods/FloodHistoryCard";
+import { FloodRiskCard } from "../../components/floods/FloodRiskCard";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
+import { AreaSurveyPopup } from "../../components/map/AreaSurveyPopup";
 import { SourceBadge } from "../../components/map/SourceBadge";
+import { RainfallCard } from "../../components/rainfall/RainfallCard";
 import { Breadcrumbs } from "../../components/shared/Breadcrumbs/Breadcrumbs";
 import { buttonClassName } from "../../components/shared/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
@@ -9,13 +14,16 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
 import { useAdminUnitChildren } from "../../hooks/useAdminUnitChildren";
 import { useAdminUnitLayer } from "../../hooks/useAdminUnitLayer";
+import { useAreaSurvey } from "../../hooks/useAreaSurvey";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useTheme } from "../../hooks/useTheme";
 import { formatCoordinates } from "../../utils/formatCoordinates";
+import { MAP_PATH } from "../../utils/map-url";
 
 /**
- * One LGA: outlined on a small map with its wards, its code, parent and source, and its wards as
- * a clickable list. Later phases add rainfall and flood history here.
+ * One LGA: outlined on a small map with its wards, its code, parent and source, its monthly
+ * rainfall, its flood history (the floods responders recorded there, listed and drawn on its map, where a
+ * click opens one), and its wards as a clickable list.
  */
 export function LgaProfilePage() {
   const { id } = useParams();
@@ -23,6 +31,7 @@ export function LgaProfilePage() {
   const { unit, loading, error, notFound, refetch } = useAdminUnit(id);
   const { children: wards, loading: wardsLoading, error: wardsError } = useAdminUnitChildren(unit?.id);
   const wardShapes = useAdminUnitLayer(unit?.bbox ?? null, 3, { enabled: Boolean(unit), parentId: unit?.id, zoom: 11 });
+  const area = useAreaSurvey(unit?.id, unit?.bbox ?? null);
   useDocumentTitle(unit?.unitName ?? "Place");
 
   if (loading && !unit) return <LoadingSpinner message="Loading the LGA…" />;
@@ -55,7 +64,7 @@ export function LgaProfilePage() {
             {unit.parent ? `${unit.levelName} in ${unit.parent.unitName} ${unit.parent.levelName}` : unit.levelName}
           </p>
         </div>
-        <Link to={`/?lga=${unit.id}`} className={buttonClassName({ variant: "secondary" })} data-cy="show-on-map">
+        <Link to={`${MAP_PATH}?lga=${unit.id}`} className={buttonClassName({ variant: "secondary" })} data-cy="show-on-map">
           Show on the main map
         </Link>
       </header>
@@ -81,13 +90,9 @@ export function LgaProfilePage() {
           <section className="card card__body">
             <SourceBadge source={unit.source} variant="full" />
           </section>
-          <section className="card card__body">
-            <EmptyState
-              icon="layers"
-              title="Rainfall and flood history"
-              message="These appear here once the rainfall and disaster-event datasets are connected. Nothing is shown until real data exists."
-            />
-          </section>
+          <FloodRiskCard areaId={unit.id} areaName={unit.unitName} />
+          <FloodHistoryCard areaId={unit.id} areaName={unit.unitName} />
+          <DrainageCard areaId={unit.id} areaName={unit.unitName} />
         </div>
 
         <AreaOutlineMap
@@ -96,8 +101,18 @@ export function LgaProfilePage() {
           geometry={unit.geometry}
           bbox={unit.bbox}
           innerAreas={wardShapes.data}
+          countryCode={unit.countryCode}
+          floods={area.floods}
+          drains={area.drains}
+          onSelect={area.select}
           dataCy="lga-map"
-        />
+        >
+          <AreaSurveyPopup selected={area.selected} onClose={area.close} />
+        </AreaOutlineMap>
+      </div>
+
+      <div className="section-gap">
+        <RainfallCard adminUnitId={unit.id} areaName={unit.unitName} />
       </div>
 
       <section className="card section-gap" aria-labelledby="wards-title">

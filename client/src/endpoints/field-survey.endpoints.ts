@@ -1,0 +1,89 @@
+import { httpClient } from "../transport/http";
+import type { ApiResponse } from "../types/api.types";
+import type {
+  Drainage,
+  InspectedDrainage,
+  DrainageFeatureCollection,
+  DrainageSummary,
+  FloodExtent,
+  FloodExtentFeatureCollection,
+  FloodExtentWithImpact,
+  FloodHistory,
+  FloodImpact,
+  NewDrainageBody,
+  NewFloodExtentBody,
+  UpdateDrainageBody,
+} from "../types/field-survey.types";
+import type { OverlayLayerParams } from "../types/map-layer.types";
+
+// server/src/modules/field-survey/field-survey.routes.ts. Reading the layers: any signed-in user. Everything
+// else needs a permission the Roles screen sets (utils/permissions.ts mirrors them for the screen).
+
+/** Saves the outline of a flood and returns it with what it reaches. */
+export async function saveFloodExtent(body: NewFloodExtentBody): Promise<ApiResponse<FloodExtentWithImpact>> {
+  const { data } = await httpClient.post<ApiResponse<FloodExtentWithImpact>>("/api/v1/flood-extents", body);
+  return data;
+}
+
+export async function fetchFloodImpact(id: string): Promise<ApiResponse<FloodImpact>> {
+  const { data } = await httpClient.get<ApiResponse<FloodImpact>>(`/api/v1/flood-extents/${encodeURIComponent(id)}/impact`);
+  return data;
+}
+
+/** Every flood recorded in an LGA or ward, newest first (the latest `limit`), with totals over all of them. */
+export async function fetchFloodHistory(areaId: string, limit = 20): Promise<ApiResponse<FloodHistory>> {
+  const { data } = await httpClient.get<ApiResponse<FloodHistory>>("/api/v1/flood-extents/history", { params: { areaId, limit } });
+  return data;
+}
+
+/** The water has gone down: the shape stays as a record and leaves the map after a week. */
+export async function recedeFloodExtent(id: string): Promise<ApiResponse<FloodExtent>> {
+  const { data } = await httpClient.post<ApiResponse<FloodExtent>>(`/api/v1/flood-extents/${encodeURIComponent(id)}/recede`);
+  return data;
+}
+
+/** Undoes "the water has gone down": the flood is shown as still going again. */
+export async function reopenFloodExtent(id: string): Promise<ApiResponse<FloodExtent>> {
+  const { data } = await httpClient.post<ApiResponse<FloodExtent>>(`/api/v1/flood-extents/${encodeURIComponent(id)}/reopen`);
+  return data;
+}
+
+export async function deleteFloodExtent(id: string): Promise<ApiResponse<null>> {
+  const { data } = await httpClient.delete<ApiResponse<null>>(`/api/v1/flood-extents/${encodeURIComponent(id)}`);
+  return data;
+}
+
+export async function saveDrainage(body: NewDrainageBody): Promise<ApiResponse<Drainage>> {
+  const { data } = await httpClient.post<ApiResponse<Drainage>>("/api/v1/drainage", body);
+  return data;
+}
+
+/** The drainage recorded in an LGA or ward: totals by condition, and the first `limit` drains, those needing attention first. */
+export async function fetchDrainageSummary(areaId: string, limit = 20): Promise<ApiResponse<DrainageSummary>> {
+  const { data } = await httpClient.get<ApiResponse<DrainageSummary>>("/api/v1/drainage/summary", { params: { areaId, limit } });
+  return data;
+}
+
+/** An inspection: changes what was sent, moves "last checked" to now and to you, and logs who checked and from where. */
+export async function updateDrainage(id: string, body: UpdateDrainageBody): Promise<ApiResponse<InspectedDrainage>> {
+  const { data } = await httpClient.patch<ApiResponse<InspectedDrainage>>(`/api/v1/drainage/${encodeURIComponent(id)}`, body);
+  return data;
+}
+
+export async function deleteDrainage(id: string): Promise<ApiResponse<null>> {
+  const { data } = await httpClient.delete<ApiResponse<null>>(`/api/v1/drainage/${encodeURIComponent(id)}`);
+  return data;
+}
+
+/** The two survey layers and their GeoJSON replies. bbox is required, as for every map layer. */
+export interface SurveyCollections {
+  "flood-extents": FloodExtentFeatureCollection;
+  drainage: DrainageFeatureCollection;
+}
+export type SurveyLayerPath = keyof SurveyCollections;
+
+export async function fetchSurveyGeoJson<L extends SurveyLayerPath>(layer: L, params: OverlayLayerParams): Promise<ApiResponse<SurveyCollections[L]>> {
+  const { bbox, ...rest } = params;
+  const { data } = await httpClient.get<ApiResponse<SurveyCollections[L]>>(`/api/v1/${layer}/geojson`, { params: { ...rest, bbox: bbox.join(",") } });
+  return data;
+}

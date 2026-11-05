@@ -5,6 +5,7 @@ import { RoleBadge } from "../../components/users/RoleBadge";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { USER_ROLES } from "../../types/auth.types";
+import { MAP_PATH } from "../../utils/map-url";
 import { ROLE_INFO, hasAnyRole } from "../../utils/roles";
 import "./HelpPage.css";
 
@@ -26,9 +27,10 @@ const TOPICS: Topic[] = [
         q: "What can I do here?",
         a: (
           <>
-            Explore Rivers State on the <Link to="/">map</Link>, look up any LGA or ward in{" "}
+            Explore Nigeria's states, LGAs and wards on the <Link to={MAP_PATH}>map</Link>, look up any LGA or ward in{" "}
             <Link to="/places">Places</Link>, and see what your account is allowed to do on your{" "}
-            <Link to="/account">profile</Link>. More data (rainfall, flood risk, alerts) appears as it is published.
+            <Link to="/account">profile</Link>. See flood <Link to="/alerts">alerts</Link> in force, and{" "}
+            <Link to="/report">report flooding</Link> you can see: a coordinator checks each report before it goes on the public map.
           </>
         ),
       },
@@ -37,7 +39,9 @@ const TOPICS: Topic[] = [
         a: (
           <>
             Use the search box in the top bar, or press <kbd>Ctrl</kbd> + <kbd>K</kbd> (<kbd>⌘</kbd> + <kbd>K</kbd> on a
-            Mac) or <kbd>/</kbd> from anywhere. Type part of an LGA or ward name and press Enter.
+            Mac) or <kbd>/</kbd> from anywhere. Type part of the name of an LGA, ward, community or facility (a hospital or
+            school, say) and press Enter: the map zooms to it and, for a community or facility, marks it and says which LGA and
+            ward it is in.
           </>
         ),
       },

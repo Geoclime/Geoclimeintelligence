@@ -30,6 +30,19 @@ function ToastItem({ toast, onDismiss }: { toast: ToastData; onDismiss: (id: num
         <Icon name={ICONS[toast.type]} size={18} />
       </span>
       <p className="toast__message">{toast.message}</p>
+      {toast.action && (
+        <button
+          type="button"
+          className="toast__action"
+          onClick={() => {
+            toast.action?.onClick();
+            onDismiss(toast.id);
+          }}
+          data-cy="toast-action"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button type="button" className="toast__dismiss" onClick={() => onDismiss(toast.id)} aria-label="Dismiss">
         <Icon name="close" size={16} />
       </button>

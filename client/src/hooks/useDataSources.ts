@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { QUERY_KEYS, SETTINGS_POLICY } from "../cache/queryClient";
 import { createDataSource, deleteDataSource, fetchDataSources } from "../endpoints/data-source.endpoints";
 import { errorMessage } from "../transport/api-error";
 import type { DataSource, NewDataSourceInput } from "../types/data-source.types";
@@ -15,10 +16,14 @@ export interface RemoveSourcesResult {
  * of 100: the platform will have a handful of sources, not hundreds.
  */
 export function useDataSources() {
-  const { data, setData, ...state } = useLoader("data-sources", async () => {
-    const response = await fetchDataSources({ page: 1, pageSize: 100 });
-    return response.data ?? [];
-  });
+  const { data, setData, ...state } = useLoader(
+    [...QUERY_KEYS.settings, "data-sources"],
+    async () => {
+      const response = await fetchDataSources({ page: 1, pageSize: 100 });
+      return response.data ?? [];
+    },
+    SETTINGS_POLICY,
+  );
 
   /** Rejects with an ApiError (field errors for the form); on success the new source is listed first. */
   const addSource = useCallback(

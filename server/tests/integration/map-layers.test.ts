@@ -2,10 +2,12 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../src/app";
 import { AuthService } from "../../src/modules/auth/auth.service";
+import { MapLayerLoaderService, type LoadReport } from "../../src/modules/map-layers/map-layer-loader.service";
+import { FacilityService } from "../../src/modules/map-layers/facility.service";
 import { MapLayerService } from "../../src/modules/map-layers/map-layer.service";
 import { FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
-import { InMemoryDataSourceRepository, makeSource } from "../geo-fakes";
-import { RecordingLayerRepository } from "../map-layer-fakes";
+import { InMemoryAdminUnitRepository, InMemoryDataSourceRepository, makeSource, makeUnit } from "../geo-fakes";
+import { InMemoryFacilityRepository, RecordingLayerRepository } from "../map-layer-fakes";
 
 // Drives the real Express app (middleware order, validation, error handler) with every
 // repository swapped for an in-memory fake. The layers' spatial SQL is not exercised here; it
@@ -16,16 +18,21 @@ let roads: RecordingLayerRepository;
 let waterways: RecordingLayerRepository;
 let settlements: RecordingLayerRepository;
 let infrastructure: RecordingLayerRepository;
+let buildings: RecordingLayerRepository;
 
 beforeEach(() => {
-  const users = new InMemoryUserRepository([makeUser({ firebaseUid: "member-uid" })]);
+  const users = new InMemoryUserRepository([
+    makeUser({ firebaseUid: "member-uid" }),
+    makeUser({ firebaseUid: "admin-uid", role: "administrator" }),
+  ]);
   roads = new RecordingLayerRepository({ featureCount: 47_507, sourceIds: [source.id] });
   waterways = new RecordingLayerRepository({ featureCount: 4_033, sourceIds: [source.id] });
   settlements = new RecordingLayerRepository();
   infrastructure = new RecordingLayerRepository();
+  buildings = new RecordingLayerRepository();
   vi.spyOn(AuthService, "Instance", "get").mockReturnValue(new AuthService(users, new FakeTokenVerifier()));
   vi.spyOn(MapLayerService, "Instance", "get").mockReturnValue(
-    new MapLayerService({ roads, waterways, settlements, infrastructure }, new InMemoryDataSourceRepository([source])),
+    new MapLayerService({ roads, waterways, settlements, infrastructure, buildings }, new InMemoryDataSourceRepository([source])),
   );
 });
 
@@ -35,13 +42,105 @@ afterEach(() => {
 
 const app = createApp();
 const asMember = { Authorization: "Bearer valid:member-uid" };
+const asAdmin = { Authorization: "Bearer valid:admin-uid" };
 const BBOX = "6.9,4.7,7.1,4.9";
+
+describe("POST /api/v1/map-layers/upload: buildings", () => {
+  const SOURCE = "40000000-0000-4000-8000-00000000000b";
+  const emptyReport: LoadReport = { dryRun: false, layers: [] };
+
+  it("hands an administrator's buildings upload to the loader, with 'load even if rows are missing'", async () => {
+    const load = vi.spyOn(MapLayerLoaderService.prototype, "load").mockResolvedValue(emptyReport);
+    const res = await request(app)
+      .post("/api/v1/map-layers/upload")
+      .set(asAdmin)
+      .field("countryCode", "NGA")
+      .field("layer", "buildings")
+      .field("sourceId", SOURCE)
+      .field("acceptPartial", "true")
+      .attach("file", Buffer.from("PK"), "osm.zip");
+
+    expect(res.status).toBe(201);
+    expect(load).toHaveBeenCalledWith(
+      expect.objectContaining({
+        countryCode: "NGA",
+        acceptPartial: true,
+        buildings: expect.objectContaining({ fileName: "osm.zip", sourceId: SOURCE }),
+      }),
+    );
+  });
+
+  it("leaves partial loads off unless asked, and needs a source and an administrator", async () => {
+    const load = vi.spyOn(MapLayerLoaderService.prototype, "load").mockResolvedValue(emptyReport);
+    const upload = (headers: Record<string, string>, fields: Record<string, string>) => {
+      const req = request(app).post("/api/v1/map-layers/upload").set(headers);
+      for (const [name, value] of Object.entries(fields)) req.field(name, value);
+      return req.attach("file", Buffer.from("PK"), "osm.zip");
+    };
+
+    expect((await upload(asAdmin, { countryCode: "NGA", layer: "buildings", sourceId: SOURCE })).status).toBe(201);
+    expect(load.mock.calls[0]![0]).toMatchObject({ acceptPartial: false });
+    expect((await upload(asAdmin, { countryCode: "NGA", layer: "buildings" })).status).toBe(400);
+    expect((await upload(asMember, { countryCode: "NGA", layer: "buildings", sourceId: SOURCE })).status).toBe(403);
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("saving a place by hand: /api/v1/infrastructure", () => {
+  const state = makeUnit({ level: 1, levelName: "State", unitName: "Rivers" });
+  const ward = makeUnit({ level: 3, levelName: "Ward", unitName: "Phward 2" });
+  const hospital = { name: "St. Mary's Hospital", kind: "hospital", longitude: 7.0123, latitude: 4.8156 };
+  let facilities: InMemoryFacilityRepository;
+
+  beforeEach(() => {
+    facilities = new InMemoryFacilityRepository();
+    const units = new InMemoryAdminUnitRepository([state, ward]);
+    units.containing = [state, ward];
+    vi.spyOn(FacilityService, "Instance", "get").mockReturnValue(new FacilityService(facilities, units, "https://geoclime.example.com"));
+  });
+
+  it("lets an administrator save a place and returns it", async () => {
+    const res = await request(app).post("/api/v1/infrastructure").set(asAdmin).send({ ...hospital, note: "24-hour emergency ward" });
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ name: "St. Mary's Hospital", facilityType: "health", osmClass: "hospital", origin: "manual", note: "24-hour emergency ward" });
+    expect(facilities.created[0]).toMatchObject({ countryCode: "NGA", adminUnitId: ward.id });
+  });
+
+  it("is for administrators only: 403 for a member, 401 when signed out", async () => {
+    expect((await request(app).post("/api/v1/infrastructure").set(asMember).send(hospital)).status).toBe(403);
+    expect((await request(app).post("/api/v1/infrastructure").send(hospital)).status).toBe(401);
+    expect(facilities.created).toEqual([]);
+  });
+
+  it("refuses a bad body (400) with the field that is wrong", async () => {
+    const res = await request(app).post("/api/v1/infrastructure").set(asAdmin).send({ ...hospital, kind: "spaceport", name: "" });
+    expect(res.status).toBe(400);
+    expect(res.body.errors.map((e: { field: string }) => e.field)).toEqual(expect.arrayContaining(["kind", "name"]));
+    expect(facilities.created).toEqual([]);
+  });
+
+  it("renames and deletes a saved place, and refuses an imported one", async () => {
+    const saved = facilities.seed();
+    const imported = facilities.seed({ origin: "import" });
+
+    const renamed = await request(app).patch(`/api/v1/infrastructure/${saved.id}`).set(asAdmin).send({ name: "Renamed clinic" });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data.name).toBe("Renamed clinic");
+
+    expect((await request(app).patch(`/api/v1/infrastructure/${imported.id}`).set(asAdmin).send({ name: "Nope" })).status).toBe(403);
+    expect((await request(app).delete(`/api/v1/infrastructure/${imported.id}`).set(asAdmin)).status).toBe(403);
+    expect((await request(app).delete(`/api/v1/infrastructure/${saved.id}`).set(asMember)).status).toBe(403);
+    expect((await request(app).delete(`/api/v1/infrastructure/${saved.id}`).set(asAdmin)).status).toBe(200);
+    expect((await request(app).delete(`/api/v1/infrastructure/${saved.id}`).set(asAdmin)).status).toBe(404);
+    expect((await request(app).delete("/api/v1/infrastructure/not-an-id").set(asAdmin)).status).toBe(400);
+  });
+});
 
 describe("GET /api/v1/map-layers", () => {
   it("lists the layers with their sources for any signed-in user", async () => {
     const res = await request(app).get("/api/v1/map-layers").set(asMember);
     expect(res.status).toBe(200);
-    expect(res.body.data.map((layer: { id: string }) => layer.id)).toEqual(["roads", "waterways", "settlements", "infrastructure"]);
+    expect(res.body.data.map((layer: { id: string }) => layer.id)).toEqual(["roads", "waterways", "settlements", "infrastructure", "buildings"]);
     expect(res.body.data[0]).toMatchObject({ featureCount: 47_507, sources: [{ provider: "OpenStreetMap contributors via HDX", license: "ODbL" }] });
   });
 
@@ -50,11 +149,35 @@ describe("GET /api/v1/map-layers", () => {
   });
 });
 
+describe("GET /api/v1/infrastructure/search", () => {
+  const url = "/api/v1/infrastructure/search";
+
+  it("finds facilities by name for any signed-in user", async () => {
+    infrastructure.facilityHits = [{ id: "f1", name: "General Hospital", facilityType: "health", osmClass: "hospital", origin: "import", point: [7.01, 4.78] }];
+    const res = await request(app).get(url).query({ q: " hos " }).set(asMember);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(infrastructure.facilityHits);
+    expect(infrastructure.searches).toEqual([{ q: "hos", limit: 8 }]);
+  });
+
+  it("refuses a one-letter search (400)", async () => {
+    const res = await request(app).get(url).query({ q: "h" }).set(asMember);
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual([{ field: "q", message: "Type at least 2 characters" }]);
+    expect(infrastructure.searches).toEqual([]);
+  });
+
+  it("needs a signed-in user (401)", async () => {
+    expect((await request(app).get(url).query({ q: "hos" })).status).toBe(401);
+  });
+});
+
 describe.each([
   ["roads", () => roads],
   ["waterways", () => waterways],
   ["settlements", () => settlements],
   ["infrastructure", () => infrastructure],
+  ["buildings", () => buildings],
 ])("GET /api/v1/%s/geojson", (name, repo) => {
   const url = `/api/v1/${name}/geojson`;
 

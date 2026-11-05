@@ -20,7 +20,7 @@ None of the new fields grant anything. Access still comes only from `role` and `
 | Field | Rule |
 | --- | --- |
 | `displayName` | Up to 200 characters |
-| `phone` | Up to 32 characters. Digits, spaces, `()` and `-`, with an optional leading `+` |
+| `phone` | Up to 32 characters. Digits, spaces, `()` and `-`, with an optional leading `+`. The web app always sends it in international format with no spaces, e.g. `+2348031234567`, from its country-code dropdown ([features/onboarding.md](features/onboarding.md)); numbers saved earlier in other layouts are left as they were |
 | `organisation` | Up to 200 characters |
 | `jobTitle` | Up to 120 characters |
 

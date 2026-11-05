@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { locatePoint } from "../endpoints/admin-unit.endpoints";
+import { locatePublicPoint } from "../endpoints/public.endpoints";
 import { toApiError } from "../transport/api-error";
 import type { LocateResult, LonLat } from "../types/admin-unit.types";
 
@@ -15,9 +16,11 @@ const IDLE: LocateState = { point: null, result: null, loading: false, error: nu
 /**
  * "Which state, LGA and ward is this point in?" -- asked of the server, which runs the
  * point-in-polygon test in PostGIS. Used by map clicks and the "Where am I?" button. A point
- * outside every mapped area is a normal answer here, not an error screen.
+ * outside every mapped area is a normal answer here, not an error screen. `access: "public"`
+ * asks the landing page's route instead, which needs no sign-in.
  */
-export function useLocatePoint() {
+export function useLocatePoint(access: "signed-in" | "public" = "signed-in") {
+  const ask = access === "public" ? locatePublicPoint : locatePoint;
   const [state, setState] = useState<LocateState>(IDLE);
   const requestId = useRef(0);
 
@@ -26,7 +29,7 @@ export function useLocatePoint() {
     const thisRequest = ++requestId.current;
     setState({ point, result: null, loading: true, error: null });
     try {
-      const response = await locatePoint(point[0], point[1]);
+      const response = await ask(point[0], point[1]);
       if (thisRequest === requestId.current) setState({ point, result: response.data, loading: false, error: null });
       return response.data;
     } catch (error) {
@@ -40,7 +43,7 @@ export function useLocatePoint() {
       });
       return null;
     }
-  }, []);
+  }, [ask]);
 
   const clear = useCallback(() => {
     requestId.current++;
