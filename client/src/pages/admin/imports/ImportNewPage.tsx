@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ColumnMappingFields } from "../../../components/imports/ColumnMappingFields";
@@ -46,6 +46,7 @@ import type { MapLayerLoadReport, OverlayLayerId } from "../../../types/map-laye
 import { applySubmitError } from "../../../utils/form-errors";
 import { MAP_PATH } from "../../../utils/map-url";
 import { formatYearMonth } from "../../../utils/rainfall-summary";
+import { pickMonthlyTiles, type MonthlyTiles } from "../../../utils/monthly-tiles";
 
 const FILE_TYPE_LABELS: Record<ImportFileType, string> = {
   xlsx: "Excel workbook",
@@ -142,6 +143,9 @@ export function ImportNewPage() {
   const [file, setFile] = useState<File | null>(null);
   // Satellite flood takes many files at once (one per month); every other kind takes the first.
   const [files, setFiles] = useState<File[]>([]);
+  // What a chosen folder (or several tiles) holds: months, gaps and what was left out, shown before checking.
+  const [tileSet, setTileSet] = useState<MonthlyTiles | null>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
   const batch = useSatelliteFloodBatch();
   const [filePreview, setFilePreview] = useState<ImportPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -210,6 +214,33 @@ export function ImportNewPage() {
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = Array.from(event.target.files ?? []);
+    // Several months of tiles: sorted into month order, as a folder is.
+    if (chosen.length > 1 && chosen.every((f) => f.name.toLowerCase().endsWith(".mbtiles"))) {
+      const picked = pickMonthlyTiles(chosen);
+      setTileSet(picked);
+      chooseFiles(picked.files);
+    } else {
+      setTileSet(null);
+      chooseFiles(chosen);
+    }
+  };
+
+  /** A whole folder of monthly tiles: only its .mbtiles files are kept, one per month, in month order. */
+  const onFolderChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const picked = pickMonthlyTiles(Array.from(event.target.files ?? []));
+    // Cleared so choosing the same folder again (after adding a month to it) is noticed.
+    event.target.value = "";
+    if (picked.files.length === 0) {
+      setTileSet(null);
+      chooseFiles([]);
+      setPreviewError("That folder has no .mbtiles files. Choose the folder that holds the monthly tiles (s1_flood_2016_01.mbtiles and so on).");
+      return;
+    }
+    setTileSet(picked);
+    chooseFiles(picked.files);
+  };
+
+  const chooseFiles = (chosen: File[]) => {
     const next = chosen[0] ?? null;
     setFile(next);
     setFiles(chosen);
@@ -599,7 +630,7 @@ export function ImportNewPage() {
               {floodRiskChoice
                 ? `The classified flood risk map: a GeoTIFF (.tif). Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB.`
                 : satelliteChoice
-                  ? `One or more months of tiles (.mbtiles), one file per month. Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB each; they are checked one after another.`
+                  ? `One or more months of tiles (.mbtiles), one file per month, or a whole folder of them. Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB each; they are checked one after another.`
                 : `A shapefile (the .shp, or a .zip of its .shp, .dbf and .prj), a GeoJSON file, an Excel workbook (.xlsx) or a CSV file. Excel and CSV hold shapes as WKT text. Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB.`}
             </p>
             <label className="field">
@@ -613,6 +644,24 @@ export function ImportNewPage() {
                 data-cy="import-file"
               />
             </label>
+            {satelliteChoice && (
+              <div className="import-folder">
+                <input
+                  ref={folderInput}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={onFolderChange}
+                  // Not in React's types, but every current browser supports it: the picker chooses a folder.
+                  {...{ webkitdirectory: "", directory: "" }}
+                  data-cy="import-folder"
+                />
+                <Button variant="secondary" size="sm" icon={<Icon name="upload" size={16} />} onClick={() => folderInput.current?.click()} disabled={batch.running}>
+                  Choose a folder
+                </Button>
+                <span className="muted">Every .mbtiles file in it, one per month. Your browser may ask you to confirm the upload.</span>
+              </div>
+            )}
             {previewing && <p className="muted section-gap">Reading the file…</p>}
             {previewError && (
               <div className="section-gap">
@@ -693,6 +742,7 @@ export function ImportNewPage() {
                   <Callout tone="info" dataCy="satellite-flood-ready">
                     Ready to check <strong>{files.length === 1 ? file.name : `${files.length} months`}</strong> against every live LGA and ward. Each
                     takes a few seconds. Nothing goes live until it is promoted.
+                    {tileSet && <TileSetSummary tiles={tileSet} />}
                   </Callout>
                 )}
                 {files.length === 1 && (
@@ -819,6 +869,43 @@ export function ImportNewPage() {
         }}
       />
     </div>
+  );
+}
+
+/** Lists up to eight names, then how many more. */
+function someOf(names: string[]): string {
+  return names.length <= 8 ? names.join(", ") : `${names.slice(0, 8).join(", ")} and ${names.length - 8} more`;
+}
+
+/**
+ * What a chosen folder of monthly tiles holds, before anything is sent: the months it covers, the
+ * months with no file, what was left out and why, and how much there is to upload.
+ */
+function TileSetSummary({ tiles }: { tiles: MonthlyTiles }) {
+  const megabytes = tiles.files.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024;
+  return (
+    <ul className="import-folder__summary" data-cy="satellite-flood-folder-summary">
+      {tiles.first && tiles.last && (
+        <li>
+          {formatYearMonth(tiles.first)} to {formatYearMonth(tiles.last)}, {megabytes >= 1024 ? `${(megabytes / 1024).toFixed(1)} GB` : `${Math.round(megabytes)} MB`} to upload.
+          Keep this page open until the last month is checked.
+        </li>
+      )}
+      {tiles.missing.length > 0 && (
+        <li data-cy="satellite-flood-folder-missing">
+          {tiles.missing.length === 1 ? "1 month has" : `${tiles.missing.length} months have`} no file: {someOf(tiles.missing.map((m) => formatYearMonth(m, "short")))}.
+        </li>
+      )}
+      {tiles.duplicates.length > 0 && (
+        <li data-cy="satellite-flood-folder-duplicates">
+          Left out, as a second file for a month already chosen: {someOf(tiles.duplicates)}.
+        </li>
+      )}
+      {tiles.unnamed.length > 0 && (
+        <li>Their names don't say the month, so they will be refused: {someOf(tiles.unnamed)}.</li>
+      )}
+      {tiles.otherFiles > 0 && <li>{tiles.otherFiles === 1 ? "1 other file" : `${tiles.otherFiles} other files`} in the folder (not .mbtiles) left out.</li>}
+    </ul>
   );
 }
 
