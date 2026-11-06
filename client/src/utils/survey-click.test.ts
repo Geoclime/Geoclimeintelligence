@@ -13,7 +13,7 @@ describe("surveyFeatureIn", () => {
     expect(surveyFeatureIn([flood], CLICK)).toEqual({
       type: "flood",
       point: CLICK,
-      properties: { id: "f1", areaM2: 12_500, depth: "knee", method: "walked", receded: false, observedAt: "2026-10-31T09:00:00.000Z", lgaId: null, wardId: null },
+      properties: { id: "f1", areaM2: 12_500, depth: "knee", method: "walked", receded: false, observedAt: "2026-10-31T09:00:00.000Z", photoCount: 0, lgaId: null, wardId: null },
     });
   });
 

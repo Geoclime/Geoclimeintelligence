@@ -14,8 +14,10 @@ describe("userAccessSchema", () => {
     expect(result.error?.issues[0]?.path).toEqual(["scopeAdminUnitId"]);
   });
 
-  it("ignores a stale scope value when the role can't be scoped", () => {
-    expect(userAccessSchema.safeParse({ role: "researcher", scopeAdminUnitId: "anything" }).success).toBe(true);
+  // Whether a role can be scoped is set on the Roles screen, so the schema doesn't know it: it checks
+  // the ID's shape whatever the role, and toAccessPatch drops the scope for a role that can't carry one.
+  it("accepts a leftover region on a role that can't be scoped", () => {
+    expect(userAccessSchema.safeParse({ role: "researcher", scopeAdminUnitId: REGION }).success).toBe(true);
   });
 });
 
