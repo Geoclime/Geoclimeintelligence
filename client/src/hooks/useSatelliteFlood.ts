@@ -1,6 +1,6 @@
 import { QUERY_KEYS, REFERENCE_POLICY } from "../cache/queryClient";
-import { fetchRunSatelliteFlood, fetchSatelliteFloodImage, fetchSatelliteFloods } from "../endpoints/satellite-flood.endpoints";
-import type { SatelliteFloodLayer, SatelliteFloodList } from "../types/satellite-flood.types";
+import { fetchAreaSatelliteFlood, fetchRunSatelliteFlood, fetchSatelliteFloodImage, fetchSatelliteFloods } from "../endpoints/satellite-flood.endpoints";
+import type { AreaSatelliteFlood, SatelliteFloodLayer, SatelliteFloodList } from "../types/satellite-flood.types";
 import { blobToDataUrl } from "./useFloodRisk";
 import { useLoader } from "./useLoader";
 
@@ -55,4 +55,22 @@ export function useRunSatelliteFlood(runId: string | undefined, enabled: boolean
   });
   const image = useSatelliteFloodImage(data?.id);
   return { layer: data, imageUrl: image.imageUrl, loading: loading || image.loading, error: error ?? image.error };
+}
+
+/**
+ * One LGA or ward's water month by month, oldest first, for its profile page. Cached with the other
+ * satellite reads, so a promoted month clears it.
+ */
+export function useAreaSatelliteFlood(adminUnitId: string | undefined) {
+  const key = adminUnitId ? [...QUERY_KEYS.satelliteFlood, "area", adminUnitId] : null;
+  const { data, loading, error } = useLoader<AreaSatelliteFlood>(
+    key,
+    async () => {
+      const response = await fetchAreaSatelliteFlood(adminUnitId!);
+      if (!response.data) throw new Error(response.message || "The server returned no satellite water for this area.");
+      return response.data;
+    },
+    REFERENCE_POLICY,
+  );
+  return { water: data, loading, error };
 }

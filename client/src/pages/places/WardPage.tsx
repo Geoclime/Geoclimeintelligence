@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router";
 import { DrainageCard } from "../../components/floods/DrainageCard";
 import { FloodHistoryCard } from "../../components/floods/FloodHistoryCard";
 import { FloodRiskCard } from "../../components/floods/FloodRiskCard";
+import { SatelliteWaterCard } from "../../components/floods/SatelliteWaterCard";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
 import { AreaSurveyPopup } from "../../components/map/AreaSurveyPopup";
 import { SourceBadge } from "../../components/map/SourceBadge";
@@ -106,6 +107,10 @@ export function WardPage() {
         >
           <AreaSurveyPopup selected={area.selected} onClose={area.close} />
         </AreaOutlineMap>
+      </div>
+
+      <div className="section-gap">
+        <SatelliteWaterCard areaId={ward.id} areaName={ward.unitName} countryCode={ward.countryCode} lgaId={id ?? null} />
       </div>
     </div>
   );

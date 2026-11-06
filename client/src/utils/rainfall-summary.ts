@@ -28,7 +28,8 @@ export interface RainfallSummary {
 
 const MIN_YEARS = 2;
 
-function addMonths(yearMonth: string, delta: number): string {
+/** "2026-01" moved by -1 -> "2025-12". */
+export function addMonths(yearMonth: string, delta: number): string {
   const [y, m] = yearMonth.split("-").map(Number) as [number, number];
   const index = y * 12 + (m - 1) + delta;
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;

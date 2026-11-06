@@ -77,6 +77,14 @@ A `.mbtiles` file sent to the areas or rainfall import is refused with a message
 - **Imports → New import → Level: "Satellite flood extent: monthly"**. It is picked automatically for a `.mbtiles` file. The file box accepts **many files at once**. They are checked **one after another**, each as its own run, because each is read in the API's memory and the free Render server has little of it. A results list shows each file's month and outcome, with a Review link. **Promote N checked months** then promotes them oldest first. A refused file doesn't stop the rest. A single file whose name doesn't say its month can be given one. (`useSatelliteFloodBatch.ts`, `ImportNewPage.tsx`.)
 - **The review screen** draws the month over the base map, shows a card with the water km² and the share covered (`SatelliteFloodRunCard.tsx`), and has water, share and area-covered columns in the rows table.
 - **The home map** has a **Water seen by satellite** layer under Hazard once any month is live. It is **off by default**, because it would hide the flood risk colours. When it is on, a panel picks the month: earlier and later buttons, and a dropdown. The month is kept in the link (`/map?floodMonth=2022-10`) and only the chosen month's picture is downloaded. The legend credits the source and says what "water" means here (`SatelliteFloodLayer.tsx`, `SatelliteFloodPanel.tsx`, `utils/satellite-flood.ts`).
+- **LGA and ward pages** (`/places/:id` and `/places/:id/wards/:wardId`) have a **Water seen by satellite** card (`components/floods/SatelliteWaterCard.tsx`), under Rainfall on an LGA page and under the map on a ward page. It reads `GET /api/v1/satellite-floods/areas/:adminUnitId` and shows:
+  - the latest month's water in km² and as a share of the area, against an average of that calendar month (at least two other years are needed for an average);
+  - the month with the most water on record, and how many months are on record;
+  - a month-by-month chart (the last 12 months, or any year), with each month's average as a tick. It reuses the rainfall chart, which now takes a `unit` and a `format`, painted in the map layer's blue;
+  - a table where each month links to the home map with the layer on at that month, zoomed to the LGA;
+  - the caveat (rivers and creeks are included, and dry ground can read as water), a **Derived** badge and the source.
+
+  An area with no live month says so. If the server can't answer at all (for example, before the migration has run), the card isn't shown, so the page isn't left showing an error. (`useAreaSatelliteFlood` in `hooks/useSatelliteFlood.ts`; `summariseAreaWater` and `satelliteFloodMapHref` in `utils/satellite-flood.ts`.)
 
 ### 6. What was checked
 
