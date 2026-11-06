@@ -97,6 +97,7 @@ export function WardPage() {
           label={`Map of ${ward.unitName} ward in ${lgaName}`}
           theme={theme}
           geometry={ward.geometry}
+          areaId={ward.id}
           bbox={lga?.bbox ?? ward.bbox}
           contextGeometry={lga?.geometry ?? null}
           countryCode={ward.countryCode}

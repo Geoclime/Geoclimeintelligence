@@ -9,15 +9,17 @@ import { useMapLayer } from "./useMapLayer";
  * only while its switch is on, and wards and buildings only from the zoom where they are drawn.
  * Used by the main map and by the map under a flood report, so both show the same things.
  * `facilitiesRefresh` is bumped after a place is saved, edited or deleted, to fetch the facilities again.
+ * `within` (an LGA or ward id) keeps the roads, waterways and facilities inside that area, cut at its
+ * outline, for the small map on its page.
  */
-export function useMapLayers(bbox: BBox | null, zoom: number, on: Record<MapLayerId, boolean>, facilitiesRefresh = 0) {
+export function useMapLayers(bbox: BBox | null, zoom: number, on: Record<MapLayerId, boolean>, facilitiesRefresh = 0, within?: string) {
   const state = useAdminUnitLayer(bbox, 1, { enabled: on.state, zoom });
   const lga = useAdminUnitLayer(bbox, 2, { enabled: on.lga, zoom });
   const ward = useAdminUnitLayer(bbox, 3, { enabled: on.ward && zoom >= WARD_MIN_ZOOM, zoom });
-  const roads = useMapLayer("roads", bbox, { enabled: on.roads, zoom });
-  const waterways = useMapLayer("waterways", bbox, { enabled: on.waterways, zoom });
+  const roads = useMapLayer("roads", bbox, { enabled: on.roads, zoom, within });
+  const waterways = useMapLayer("waterways", bbox, { enabled: on.waterways, zoom, within });
   const settlements = useMapLayer("settlements", bbox, { enabled: on.settlements, zoom });
-  const infrastructure = useMapLayer("infrastructure", bbox, { enabled: on.infrastructure, zoom, refreshKey: facilitiesRefresh });
+  const infrastructure = useMapLayer("infrastructure", bbox, { enabled: on.infrastructure, zoom, refreshKey: facilitiesRefresh, within });
   const buildings = useMapLayer("buildings", bbox, { enabled: on.buildings && zoom >= BUILDING_MIN_ZOOM, zoom });
   const wetlands = useMapLayer("wetlands", bbox, { enabled: on.wetlands, zoom });
 

@@ -97,6 +97,7 @@ All under `/api/v1/`, mounted in [`app.ts`](../server/src/app.ts) after the sing
 
 - `bbox` is **required** (`minLon,minLat,maxLon,maxLat`, EPSG:4326, min < max). Without it the request gets `400` "bbox is required: map layers are only served for a visible area", and never reaches the database ([`map-layer.validation.ts`](../server/src/modules/map-layers/map-layer.validation.ts)).
 - `zoom` is optional, 0 to 24. Leaving it out means no thinning and no simplification, but the cap still applies.
+- `within` is optional, and only roads, waterways and facilities (`/infrastructure/geojson`) read it. It takes an LGA or ward id. The reply then holds only what lies inside that area, and a road or river crossing the boundary is cut at the outline in PostGIS ([`area-clip.ts`](../server/src/modules/map-layers/area-clip.ts)). The small map on an LGA or ward page sends it, so it draws only what is inside the place, the way its flood risk picture is already cut. An unknown id gives an empty layer. The main map never sends it.
 - A GeoJSON reply is a `FeatureCollection` with one extra field, `truncated`, inside the usual envelope ([errors-and-responses.md](errors-and-responses.md)).
 
 ```http

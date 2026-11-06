@@ -13,6 +13,8 @@ export const layerGeoJsonSchema = z.object({
   query: z.object({
     bbox: bboxQuerySchema,
     zoom: z.coerce.number().min(0).max(24).optional(),
+    // Roads, waterways and facilities only: cuts them to one LGA or ward, for the map on its page.
+    within: optional(z.uuid("within must be an LGA or ward id")),
   }),
 });
 export type LayerGeoJsonQueryInput = z.infer<typeof layerGeoJsonSchema>["query"];

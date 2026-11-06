@@ -100,6 +100,7 @@ export function LgaProfilePage() {
           label={`Map of ${unit.unitName} and its wards`}
           theme={theme}
           geometry={unit.geometry}
+          areaId={unit.id}
           bbox={unit.bbox}
           innerAreas={wardShapes.data}
           countryCode={unit.countryCode}

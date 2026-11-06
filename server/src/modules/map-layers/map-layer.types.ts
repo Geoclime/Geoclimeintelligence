@@ -153,6 +153,8 @@ export type WetlandFeatureCollection = LayerFeatureCollection<MultiPolygon, Wetl
 export interface LayerGeoJsonQuery {
   bbox: BBox;
   zoom?: number;
+  /** An LGA or ward id: only what lies inside it is sent, lines cut at its outline (area-clip.ts). Roads, waterways and facilities. */
+  within?: string;
 }
 
 /** How many features a layer holds and which sources they came from. */
