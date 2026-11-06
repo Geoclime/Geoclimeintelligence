@@ -55,9 +55,9 @@ const ACTION_GROUPS: Array<{ label: string; kinds: string[] }> = [
   { label: "Roles and access", kinds: ["role", "user"] },
 ];
 
-const actionsOf = (kinds: string[]) => AUDIT_ACTIONS.filter((action) => kinds.includes(action.split(".")[0]));
+const actionsOf = (kinds: string[]) => AUDIT_ACTIONS.filter((action) => kinds.includes(action.split(".")[0] ?? ""));
 
-const isDate =(value: string | null) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined);
+const isDate = (value: string | null) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined);
 
 /**
  * The activity log: who recorded, inspected, called over, changed or deleted what on the record of the
