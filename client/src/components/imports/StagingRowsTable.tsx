@@ -17,10 +17,18 @@ interface StagingRowsTableProps {
   rainfall?: boolean;
   /** Flood risk runs show how much of each LGA and ward is high or very high risk. */
   floodRisk?: boolean;
+  /** Satellite flood runs show how much of each LGA and ward was water that month. */
+  satellite?: boolean;
 }
 
 /** One page of staged rows with each one's verdict, errors and warnings, by file row number. */
-export const StagingRowsTable = memo(function StagingRowsTable({ rows, parentLevelName, rainfall = false, floodRisk = false }: StagingRowsTableProps) {
+export const StagingRowsTable = memo(function StagingRowsTable({
+  rows,
+  parentLevelName,
+  rainfall = false,
+  floodRisk = false,
+  satellite = false,
+}: StagingRowsTableProps) {
   return (
     <div className="data-table__scroll">
       <table className="data-table" data-cy="staging-table">
@@ -52,6 +60,19 @@ export const StagingRowsTable = memo(function StagingRowsTable({ rows, parentLev
                 </th>
               </>
             )}
+            {satellite && (
+              <>
+                <th scope="col" className="data-table__numeric">
+                  Water (km²)
+                </th>
+                <th scope="col" className="data-table__numeric">
+                  Share
+                </th>
+                <th scope="col" className="data-table__numeric">
+                  Area covered (km²)
+                </th>
+              </>
+            )}
             <th scope="col">Result</th>
             <th scope="col">Details</th>
           </tr>
@@ -64,7 +85,11 @@ export const StagingRowsTable = memo(function StagingRowsTable({ rows, parentLev
               </td>
               <td className="data-table__lead">
                 <span className="data-table__primary">{row.unitName ?? <span className="muted">No name</span>}</span>
-                {row.risk ? <span className="data-table__secondary">{row.risk.levelName}</span> : row.unitCode && <span className="data-table__secondary mono">{row.unitCode}</span>}
+                {row.risk || row.water ? (
+                  <span className="data-table__secondary">{row.risk?.levelName ?? row.water?.levelName}</span>
+                ) : (
+                  row.unitCode && <span className="data-table__secondary mono">{row.unitCode}</span>
+                )}
               </td>
               {parentLevelName && (
                 <td data-label={parentLevelName}>
@@ -92,6 +117,19 @@ export const StagingRowsTable = memo(function StagingRowsTable({ rows, parentLev
                   </td>
                   <td data-label="Mapped area (km²)" className="data-table__numeric">
                     {row.risk ? row.risk.areaKm2.toLocaleString("en") : <span className="muted">No data</span>}
+                  </td>
+                </>
+              )}
+              {satellite && (
+                <>
+                  <td data-label="Water (km²)" className="data-table__numeric" data-cy="water-km2">
+                    {row.water ? row.water.floodedKm2.toLocaleString("en", { maximumFractionDigits: 1 }) : <span className="muted">No data</span>}
+                  </td>
+                  <td data-label="Share" className="data-table__numeric">
+                    {row.water?.percentFlooded != null ? `${row.water.percentFlooded}%` : <span className="muted">Not covered</span>}
+                  </td>
+                  <td data-label="Area covered (km²)" className="data-table__numeric">
+                    {row.water ? row.water.measuredKm2.toLocaleString("en", { maximumFractionDigits: 1 }) : <span className="muted">No data</span>}
                   </td>
                 </>
               )}

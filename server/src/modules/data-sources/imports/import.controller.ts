@@ -82,6 +82,10 @@ export class ImportController {
       if (run.target === "flood_risk_layers") {
         return res.json(ok(run, `The flood risk map is now live, with figures for ${run.promotedCount ?? 0} areas`));
       }
+      if (run.target === "satellite_flood_layers") {
+        const month = "yearMonth" in run.options ? run.options.yearMonth : "This month";
+        return res.json(ok(run, `${month} of satellite flood extent is now live, with figures for ${run.promotedCount ?? 0} areas`));
+      }
       const what = run.target === "rainfall_observations" ? "rainfall months" : "areas";
       return res.json(ok(run, `${run.promotedCount ?? 0} ${what} are now live`));
     } catch (err) {

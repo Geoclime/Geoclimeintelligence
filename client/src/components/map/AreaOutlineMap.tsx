@@ -62,6 +62,7 @@ const CONTEXT_LAYERS: Record<MapLayerId, boolean> = {
   floodExtents: false,
   drainage: false,
   floodRisk: false,
+  satelliteFlood: false,
   households: false,
 };
 const NO_LAYERS = Object.fromEntries(Object.keys(CONTEXT_LAYERS).map((id) => [id, false])) as Record<MapLayerId, boolean>;

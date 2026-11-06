@@ -27,6 +27,8 @@ import {
   type MapLayerId,
 } from "../../components/map/map-style";
 import { FloodRiskLayer } from "../../components/map/FloodRiskLayer";
+import { SatelliteFloodLayer } from "../../components/map/SatelliteFloodLayer";
+import { SatelliteFloodPanel } from "../../components/map/SatelliteFloodPanel";
 import { Button, buttonClassName } from "../../components/shared/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { Icon } from "../../components/shared/Icon";
@@ -41,6 +43,7 @@ import { useFloodRisk } from "../../hooks/useFloodRisk";
 import { useFloodRiskAt } from "../../hooks/useFloodRiskAt";
 import { useMapLayerCatalog } from "../../hooks/useMapLayerCatalog";
 import { useMapLayers } from "../../hooks/useMapLayers";
+import { useSatelliteFlood } from "../../hooks/useSatelliteFlood";
 import { useSavedPlaces } from "../../hooks/useSavedPlaces";
 import { useSurveyLayers } from "../../hooks/useSurveyLayers";
 import { useTheme } from "../../hooks/useTheme";
@@ -48,7 +51,21 @@ import type { BBox, LonLat } from "../../types/admin-unit.types";
 import type { ClickedFeature } from "../../types/map-layer.types";
 import { boundsAround } from "../../utils/geo-distance";
 import { readMapFocus } from "../../utils/map-focus";
-import { readBase, readLayers, readMapView, readPin, readPinLabel, writeBase, writeLayers, writeMapView, writePin, type MapBase } from "../../utils/map-url";
+import {
+  readBase,
+  readFloodMonth,
+  readLayers,
+  readMapView,
+  readPin,
+  readPinLabel,
+  writeBase,
+  writeFloodMonth,
+  writeLayers,
+  writeMapView,
+  writePin,
+  type MapBase,
+} from "../../utils/map-url";
+import { satelliteFloodLegend, satelliteFloodNote } from "../../utils/satellite-flood";
 import { facilityIn, householdIn } from "../../utils/map-features";
 import { HOUSEHOLD_LAYER, HouseholdLayer } from "../../components/map/HouseholdLayer";
 import { HouseholdPopup } from "../../components/map/HouseholdPopup";
@@ -139,6 +156,10 @@ export function MapPage() {
   const floodRiskLayer = floodRisk.layer;
   const floodRiskOn = layers.floodRisk && floodRiskLayer !== null;
   const clickedRisk = useFloodRiskAt(country?.countryCode ?? null, located.point, floodRiskOn);
+  // Monthly water seen by satellite, once an administrator has promoted a month: the one in the link, else the latest.
+  const satellite = useSatelliteFlood(country?.countryCode ?? null, readFloodMonth(searchParams), layers.satelliteFlood);
+  const satelliteLayer = satellite.layer;
+  const satelliteOn = layers.satelliteFlood && satelliteLayer !== null;
   const selectedLga = lgaList.find((lga) => lga.id === selectedLgaId) ?? null;
   const isAdmin = user ? hasAnyRole(user.role, ["administrator"]) : false;
   const can = useCan();
@@ -172,6 +193,8 @@ export function MapPage() {
     },
     [updateParams],
   );
+
+  const chooseFloodMonth = useCallback((yearMonth: string) => updateParams((params) => writeFloodMonth(params, yearMonth)), [updateParams]);
 
   const selectLga = useCallback(
     (id: string | null) =>
@@ -385,20 +408,35 @@ export function MapPage() {
     ...(floodRiskLayer
       ? [{ id: "floodRisk" as const, label: "Flood risk", checked: layers.floodRisk, loading: floodRisk.loading, hint: "Relative risk, not a forecast", group: GROUP.hazard }]
       : []),
+    ...(satellite.months.length > 0
+      ? [
+          {
+            id: "satelliteFlood" as const,
+            label: "Water seen by satellite",
+            checked: layers.satelliteFlood,
+            loading: satelliteOn && satellite.loading,
+            hint: "Monthly, Sentinel-1 radar",
+            group: GROUP.hazard,
+          },
+        ]
+      : []),
   ];
   const fix = geolocation.fix;
-  const layerProblem = layerError ?? surveyData.floodExtents.error ?? surveyData.drainage.error ?? floodRisk.error;
+  const layerProblem = layerError ?? surveyData.floodExtents.error ?? surveyData.drainage.error ?? floodRisk.error ?? (satelliteOn ? satellite.error : null);
   const legendItems = [
     ...LEGEND,
     ...(pin ? [{ key: "pin", label: "Pinned place", swatch: "pin" }] : []),
     ...(fix ? [{ key: "you", label: "Your location", swatch: "you" }] : []),
     ...(floodRiskOn ? floodRiskLegend(floodRiskLayer.classes) : []),
+    ...(satelliteOn ? satelliteFloodLegend(satelliteLayer) : []),
     ...legendFor(OVERLAY_LEGEND, layers),
     ...legendFor(SURVEY_LEGEND, layers),
     ...(impactFloodId ? [{ key: "impact", label: "What the chosen flood reaches", swatch: "impact" }] : []),
     ...(layers.households && can("households.view") ? [{ key: "household-other", label: "Other people's households (staff only)", swatch: "household-other" }] : []),
   ];
-  const legendNote = floodRiskOn ? `${BOUNDARY_NOTE} ${floodRiskNote(floodRiskLayer)}` : BOUNDARY_NOTE;
+  const legendNote = [BOUNDARY_NOTE, floodRiskOn ? floodRiskNote(floodRiskLayer) : null, satelliteOn ? satelliteFloodNote(satelliteLayer) : null]
+    .filter(Boolean)
+    .join(" ");
   // Mapbox stacks layers in the order they were added, and a boundary layer is added when its data
   // arrives. Remounting the markers whenever one appears or goes puts them back on top of the tint.
   const markerKey = [stateLayer.data, lgaLayer.data, wardLayer.data].map(Boolean).join();
@@ -445,6 +483,7 @@ export function MapPage() {
         {/* Keyed by the base map and theme: a new style drops every layer, and remounting adds them back in this order. */}
         <Fragment key={`${base}-${palette.name}`}>
         <FloodRiskLayer visible={floodRiskOn} imageUrl={floodRisk.imageUrl} coordinates={floodRiskLayer?.coordinates ?? null} />
+        <SatelliteFloodLayer visible={satelliteOn} imageUrl={satellite.imageUrl} coordinates={satelliteLayer?.coordinates ?? null} />
         <MapOverlayLayers
           palette={palette}
           roads={roadLayer.data}
@@ -535,6 +574,9 @@ export function MapPage() {
 
       <div className={`map-page__panels${panelsOpen ? " is-open" : ""}`} id="map-panels">
         <LayerToggle layers={layerOptions} onChange={toggleLayer} base={base} onBaseChange={chooseBase} />
+        {satelliteOn && (
+          <SatelliteFloodPanel months={satellite.months} layer={satelliteLayer} onChoose={chooseFloodMonth} loading={satellite.loading} />
+        )}
         <MapLegend items={legendItems} note={legendNote} collapsible />
         <MapLayerSources catalog={catalog} visible={visibleOverlays} />
       </div>

@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { ColumnMappingFields } from "../../../components/imports/ColumnMappingFields";
 import { DataSourceDialog } from "../../../components/imports/DataSourceDialog";
 import { FilePreviewTable } from "../../../components/imports/FilePreviewTable";
@@ -12,6 +12,7 @@ import {
   EMPTY_MAPPING,
   importFormSchema,
   isFloodRiskChoice,
+  isSatelliteFloodChoice,
   mappingToForm,
   parseLayerChoice,
   parseRainfallChoice,
@@ -36,6 +37,7 @@ import { useDataSources } from "../../../hooks/useDataSources";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 import { useImportUpload } from "../../../hooks/useImportUpload";
 import { useMapLayerCatalog } from "../../../hooks/useMapLayerCatalog";
+import { useSatelliteFloodBatch, type BatchItem } from "../../../hooks/useSatelliteFloodBatch";
 import { useTemplateDownload } from "../../../hooks/useTemplateDownload";
 import { useToast } from "../../../hooks/useToast";
 import { errorMessage } from "../../../transport/api-error";
@@ -43,6 +45,7 @@ import type { ImportFileType, ImportPreview, TemplateFormat } from "../../../typ
 import type { MapLayerLoadReport, OverlayLayerId } from "../../../types/map-layer.types";
 import { applySubmitError } from "../../../utils/form-errors";
 import { MAP_PATH } from "../../../utils/map-url";
+import { formatYearMonth } from "../../../utils/rainfall-summary";
 
 const FILE_TYPE_LABELS: Record<ImportFileType, string> = {
   xlsx: "Excel workbook",
@@ -50,10 +53,21 @@ const FILE_TYPE_LABELS: Record<ImportFileType, string> = {
   shapefile: "Shapefile",
   csv: "CSV file",
   geotiff: "GeoTIFF",
+  mbtiles: "Map tiles (MBTiles)",
+};
+
+/** What each file of a satellite flood batch is doing, as the results list says it. */
+const BATCH_LABELS: Record<BatchItem["state"], string> = {
+  waiting: "Waiting",
+  checking: "Checking…",
+  checked: "Checked, not live yet",
+  promoting: "Promoting…",
+  promoted: "Live",
+  failed: "Refused",
 };
 
 const SERVER_FIELDS = [
-  "countryCode", "level", "sourceId", "sheetName", "headerRow", "parentId",
+  "countryCode", "level", "sourceId", "sheetName", "headerRow", "parentId", "yearMonth",
   "columnMapping.unit_name", "columnMapping.unit_code", "columnMapping.parent_code", "columnMapping.geometry_wkt",
   "columnMapping.area_code", "columnMapping.area_name", "columnMapping.year_month", "columnMapping.rainfall_mm",
 ] as const;
@@ -96,6 +110,7 @@ export function ImportNewPage() {
       parentId: "",
       fileType: "",
       acceptPartial: false,
+      yearMonth: "",
       columnMapping: EMPTY_MAPPING,
     },
   });
@@ -107,8 +122,9 @@ export function ImportNewPage() {
   const layerKind = parseLayerChoice(levelText);
   const rainfallLevel = parseRainfallChoice(levelText);
   const floodRiskChoice = isFloodRiskChoice(levelText);
-  // 0 for map layers, rainfall and the flood risk map: none of the boundary-level steps apply to them.
-  const level = layerKind || rainfallLevel !== null || floodRiskChoice ? 0 : Number(levelText) || 0;
+  const satelliteChoice = isSatelliteFloodChoice(levelText);
+  // 0 for map layers, rainfall, the flood risk map and satellite flood: none of the boundary-level steps apply to them.
+  const level = layerKind || rainfallLevel !== null || floodRiskChoice || satelliteChoice ? 0 : Number(levelText) || 0;
 
   const { countries } = useCountries();
   const { sources, addSource } = useDataSources();
@@ -124,6 +140,9 @@ export function ImportNewPage() {
   const parents = useAdminUnits({ countryCode, level: level - 1, pageSize: 100, enabled: Boolean(country) && level > 1 });
 
   const [file, setFile] = useState<File | null>(null);
+  // Satellite flood takes many files at once (one per month); every other kind takes the first.
+  const [files, setFiles] = useState<File[]>([]);
+  const batch = useSatelliteFloodBatch();
   const [filePreview, setFilePreview] = useState<ImportPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -190,10 +209,13 @@ export function ImportNewPage() {
   }, [filePreview, onlyParentId, level, setValue]);
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const next = event.target.files?.[0] ?? null;
+    const chosen = Array.from(event.target.files ?? []);
+    const next = chosen[0] ?? null;
     setFile(next);
+    setFiles(chosen);
     setFilePreview(null);
     setLayerReport(null);
+    batch.clear();
     if (!next) return;
 
     const detectedLayer = detectLayerChoiceFromFileName(next.name);
@@ -204,8 +226,9 @@ export function ImportNewPage() {
     }
     const effectiveLayer = parseLayerChoice(detectedLayer ?? levelText);
     // The delivery zip and the OpenStreetMap extract have no columns to match, so nothing to preview.
-    // Nor has the flood risk map: it is a grid of cells, not rows.
-    if (effectiveLayer === "zip" || isOsmLayer(effectiveLayer) || isFloodRiskChoice(detectedLayer ?? levelText)) {
+    // Nor has the flood risk map (a grid of cells, not rows), nor satellite flood tiles.
+    const choice = detectedLayer ?? levelText;
+    if (effectiveLayer === "zip" || isOsmLayer(effectiveLayer) || isFloodRiskChoice(choice) || isSatelliteFloodChoice(choice)) {
       setPreviewError(null);
       return;
     }
@@ -222,8 +245,22 @@ export function ImportNewPage() {
     const chosenLayer = parseLayerChoice(values.level);
     const rainfallFor = parseRainfallChoice(values.level);
     const floodRiskFor = isFloodRiskChoice(values.level);
-    if (!file || (!chosenLayer && !floodRiskFor && !filePreview)) {
+    const satelliteFor = isSatelliteFloodChoice(values.level);
+    if (!file || (!chosenLayer && !floodRiskFor && !satelliteFor && !filePreview)) {
       setError("root.server", { message: "Choose a file to upload first." });
+      return;
+    }
+    if (satelliteFor) {
+      const results = await batch.checkAll({ files, countryCode: values.countryCode, sourceId: values.sourceId, yearMonth: values.yearMonth || undefined });
+      const checked = results.filter((item) => item.state === "checked");
+      if (results.length === 1 && checked[0]?.run) {
+        navigate(`/admin/imports/${checked[0].run.id}`);
+        return;
+      }
+      showToast({
+        type: checked.length === results.length ? "success" : "error",
+        message: `Checked ${checked.length} of ${results.length} months.${checked.length < results.length ? " See the reasons below." : " Review them, or promote them all below."}`,
+      });
       return;
     }
     try {
@@ -293,10 +330,14 @@ export function ImportNewPage() {
       <header className="page__header">
         <div>
           <p className="page__eyebrow">Administration</p>
-          <h1 className="page__title">{floodRiskChoice ? "Import the flood risk map" : rainfallLevel !== null ? "Import rainfall" : "Import areas"}</h1>
+          <h1 className="page__title">
+            {floodRiskChoice ? "Import the flood risk map" : satelliteChoice ? "Import satellite flood extent" : rainfallLevel !== null ? "Import rainfall" : "Import areas"}
+          </h1>
           <p className="page__lead">
             {floodRiskChoice
               ? "The map is checked before anything goes live: that it can be read, that it lines up with the boundaries, and how much of each LGA and ward falls in each class."
+              : satelliteChoice
+                ? "Each month is checked before anything goes live: that its tiles can be read, that they line up with the boundaries, and how much of each LGA and ward was water."
               : rainfallLevel !== null
                 ? "Every row is checked before anything goes live: the area it's for, the month and the value, and how it compares with the rainfall already live."
                 : "Every row is checked before anything goes live: the shape, where it sits, its name and its parent."}{" "}
@@ -350,7 +391,9 @@ export function ImportNewPage() {
                     setLayerReport(null);
                     // Areas and rainfall guess different columns (and may read different sheets): read again.
                     const next = event.target.value;
-                    if (file && filePreview && !parseLayerChoice(next) && !isFloodRiskChoice(next) && (parseRainfallChoice(next) !== null) !== (rainfallLevel !== null)) {
+                    batch.clear();
+                    const noRows = parseLayerChoice(next) || isFloodRiskChoice(next) || isSatelliteFloodChoice(next);
+                    if (file && filePreview && !noRows && (parseRainfallChoice(next) !== null) !== (rainfallLevel !== null)) {
                       void readFile(file, {}, next);
                     }
                   },
@@ -391,6 +434,10 @@ export function ImportNewPage() {
                   <optgroup label="Hazard data">
                     <option value="flood-risk" disabled={rainfallChoice.unitCount === 0}>
                       Flood risk map {rainfallChoice.unitCount > 0 ? "(classified GeoTIFF, .tif)" : `(import ${rainfallChoice.name} areas first)`}
+                    </option>
+                    <option value="satellite-flood" disabled={rainfallChoice.unitCount === 0}>
+                      Satellite flood extent: monthly{" "}
+                      {rainfallChoice.unitCount > 0 ? "(Sentinel-1 tiles, .mbtiles)" : `(import ${rainfallChoice.name} areas first)`}
                     </option>
                   </optgroup>
                 )}
@@ -476,6 +523,15 @@ export function ImportNewPage() {
                     licence, and the map is shown as <strong>derived</strong>: a modelled judgement of where it could flood, not an observation.
                   </Callout>
                 )}
+                {satelliteChoice && (
+                  <Callout tone="info" dataCy="satellite-flood-note">
+                    One file per month of water seen by Sentinel-1 radar, as the data team delivers it: <code>s1_flood_2016_08.mbtiles</code>{" "}
+                    (PNG tiles, blue where water was seen, transparent elsewhere). The month comes from the file name. Choose as many months as you
+                    like: each is checked against the live LGAs and wards as its own import, and nothing goes live until you promote it. A month
+                    already live is replaced when its new import is promoted. The data is shown as <strong>derived</strong>: the radar is an
+                    observation, but &quot;water&quot; is a threshold applied to it, and it includes rivers and creeks as well as floods.
+                  </Callout>
+                )}
                 {rainfallLevel !== null && (
                   <Callout tone="info" dataCy="rainfall-note">
                     Monthly rainfall per {rainfallLevelName}, one row per {rainfallLevelName} per month: the CHIRPS export from Google
@@ -521,7 +577,7 @@ export function ImportNewPage() {
                 )}
               </>
             )}
-            {!layerKind && rainfallLevel === null && !floodRiskChoice && (
+            {!layerKind && rainfallLevel === null && !floodRiskChoice && !satelliteChoice && (
               <div className="template-actions section-gap">
                 <span className="muted">Building a file by hand? Start from a blank one. Already have a file? Skip this and upload it below.</span>
                 <Button variant="ghost" size="sm" icon={<Icon name="download" size={16} />} disabled={!ready} loading={template.downloading} onClick={() => void downloadTemplate("xlsx")} data-cy="download-xlsx">
@@ -542,11 +598,20 @@ export function ImportNewPage() {
             <p className="form-section__lead">
               {floodRiskChoice
                 ? `The classified flood risk map: a GeoTIFF (.tif). Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB.`
+                : satelliteChoice
+                  ? `One or more months of tiles (.mbtiles), one file per month. Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB each; they are checked one after another.`
                 : `A shapefile (the .shp, or a .zip of its .shp, .dbf and .prj), a GeoJSON file, an Excel workbook (.xlsx) or a CSV file. Excel and CSV hold shapes as WKT text. Up to ${env.VITE_IMPORT_MAX_FILE_MB} MB.`}
             </p>
             <label className="field">
               <span className="field__label">File</span>
-              <input type="file" accept=".shp,.zip,.geojson,.json,.xlsx,.csv,.tsv,.gpkg,.tif,.tiff" className="field__input" onChange={onFileChange} data-cy="import-file" />
+              <input
+                type="file"
+                accept={satelliteChoice ? ".mbtiles" : ".shp,.zip,.geojson,.json,.xlsx,.csv,.tsv,.gpkg,.tif,.tiff,.mbtiles"}
+                multiple={satelliteChoice}
+                className="field__input"
+                onChange={onFileChange}
+                data-cy="import-file"
+              />
             </label>
             {previewing && <p className="muted section-gap">Reading the file…</p>}
             {previewError && (
@@ -618,6 +683,56 @@ export function ImportNewPage() {
                   <Button type="submit" icon={<Icon name="check" size={16} />} loading={formState.isSubmitting} loadingLabel="Measuring the map…" data-cy="start-import">
                     Check the map
                   </Button>
+                </div>
+              </div>
+            )}
+
+            {satelliteChoice && file && (
+              <div className="stack section-gap">
+                {batch.items.length === 0 && (
+                  <Callout tone="info" dataCy="satellite-flood-ready">
+                    Ready to check <strong>{files.length === 1 ? file.name : `${files.length} months`}</strong> against every live LGA and ward. Each
+                    takes a few seconds. Nothing goes live until it is promoted.
+                  </Callout>
+                )}
+                {files.length === 1 && (
+                  <TextField
+                    label="Month (only if the file name doesn't say)"
+                    placeholder="YYYY-MM"
+                    hint="Read from the file name (s1_flood_2016_08) when left blank."
+                    error={formState.errors.yearMonth?.message}
+                    data-cy="satellite-flood-year-month"
+                    {...register("yearMonth")}
+                  />
+                )}
+                {batch.items.length > 0 && <SatelliteBatchList items={batch.items} />}
+                <div className="form-actions">
+                  {batch.running ? (
+                    <Button variant="secondary" onClick={batch.stop} data-cy="satellite-flood-stop">
+                      Stop after this file
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" onClick={() => navigate("/admin/imports")}>
+                      {batch.items.length > 0 ? "Open the import history" : "Cancel"}
+                    </Button>
+                  )}
+                  {batch.items.some((item) => item.state === "checked") ? (
+                    <Button
+                      icon={<Icon name="check" size={16} />}
+                      loading={batch.running}
+                      loadingLabel="Working…"
+                      onClick={() => void batch.promoteAll()}
+                      data-cy="satellite-flood-promote-all"
+                    >
+                      Promote {batch.items.filter((item) => item.state === "checked").length} checked months
+                    </Button>
+                  ) : (
+                    batch.items.length === 0 && (
+                      <Button type="submit" icon={<Icon name="check" size={16} />} loading={formState.isSubmitting} loadingLabel="Checking…" data-cy="start-import">
+                        {files.length === 1 ? "Check the month" : `Check ${files.length} months`}
+                      </Button>
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -703,6 +818,42 @@ export function ImportNewPage() {
           showToast({ type: "success", message: `${source.provider} added.` });
         }}
       />
+    </div>
+  );
+}
+
+/** The months of a satellite flood batch: each file, its month, what happened to it, and a link to review it. */
+function SatelliteBatchList({ items }: { items: BatchItem[] }) {
+  return (
+    <div className="data-table__scroll">
+      <table className="data-table" data-cy="satellite-flood-batch">
+        <caption className="visually-hidden">The months being imported</caption>
+        <thead>
+          <tr>
+            <th scope="col">File</th>
+            <th scope="col">Month</th>
+            <th scope="col">Result</th>
+            <th scope="col">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.fileName} data-cy="satellite-flood-batch-row" data-state={item.state}>
+              <td className="mono">{item.fileName}</td>
+              <td>{item.run?.options.yearMonth ? formatYearMonth(item.run.options.yearMonth) : <span className="muted">Not known yet</span>}</td>
+              <td>{BATCH_LABELS[item.state]}</td>
+              <td>
+                {item.error && <span className="field__error">{item.error}</span>}
+                {item.run && (
+                  <Link to={`/admin/imports/${item.run.id}`} target="_blank" rel="noreferrer">
+                    Review
+                  </Link>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

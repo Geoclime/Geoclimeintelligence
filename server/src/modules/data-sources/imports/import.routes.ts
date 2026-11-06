@@ -5,6 +5,8 @@ import { authorise } from "../../../middleware/authorise.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { FloodRiskController } from "../../flood-risk/flood-risk.controller";
 import { floodRiskForRunSchema, startFloodRiskImportSchema } from "../../flood-risk/flood-risk.validation";
+import { SatelliteFloodController } from "../../satellite-flood/satellite-flood.controller";
+import { satelliteFloodForRunSchema, startSatelliteFloodImportSchema } from "../../satellite-flood/satellite-flood.validation";
 import { ImportController } from "./import.controller";
 import {
   adminUnitTemplateSchema,
@@ -52,7 +54,9 @@ importsRouter.get("/", validate(listImportsSchema), ImportController.list);
 importsRouter.post("/", uploadFile, validate(startImportSchema), ImportController.start);
 importsRouter.post("/rainfall", uploadFile, validate(startRainfallImportSchema), ImportController.startRainfall);
 importsRouter.post("/flood-risk", uploadFile, validate(startFloodRiskImportSchema), FloodRiskController.startImport);
+importsRouter.post("/satellite-flood", uploadFile, validate(startSatelliteFloodImportSchema), SatelliteFloodController.startImport);
 importsRouter.get("/:id", validate(getImportSchema), ImportController.get);
 importsRouter.get("/:id/geojson", validate(importGeoJsonSchema), ImportController.geoJson);
 importsRouter.get("/:id/flood-risk", validate(floodRiskForRunSchema), FloodRiskController.forRun);
+importsRouter.get("/:id/satellite-flood", validate(satelliteFloodForRunSchema), SatelliteFloodController.forRun);
 importsRouter.post("/:id/promote", validate(promoteImportSchema), ImportController.promote);

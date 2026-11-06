@@ -31,7 +31,11 @@ function crc32(bytes: Uint8Array): number {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-function chunk(type: string, data: Buffer): Buffer {
+/** The eight bytes every PNG starts with. */
+export const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** One PNG chunk: length, type, data and CRC. Shared with the satellite flood mask. */
+export function pngChunk(type: string, data: Buffer): Buffer {
   const out = Buffer.alloc(12 + data.length);
   out.writeUInt32BE(data.length, 0);
   out.write(type, 4, "ascii");
@@ -56,12 +60,12 @@ export async function encodePalettePng(width: number, height: number, indices: U
   }
   const palette = Buffer.from(["#000000", ...colours].flatMap((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))));
   return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk("IHDR", header),
-    chunk("PLTE", palette),
-    chunk("tRNS", Buffer.from([0])),
-    chunk("IDAT", await deflateAsync(raw, { level: 6 })),
-    chunk("IEND", Buffer.alloc(0)),
+    PNG_SIGNATURE,
+    pngChunk("IHDR", header),
+    pngChunk("PLTE", palette),
+    pngChunk("tRNS", Buffer.from([0])),
+    pngChunk("IDAT", await deflateAsync(raw, { level: 6 })),
+    pngChunk("IEND", Buffer.alloc(0)),
   ]);
 }
 

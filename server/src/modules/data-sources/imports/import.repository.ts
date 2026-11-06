@@ -5,17 +5,17 @@ import type { OffsetPageQuery } from "../../../common/pagination/pagination";
 import { BaseRepository } from "../../../common/repository/base.repository";
 import type { PageMeta } from "../../../common/response/api-response";
 import { insertStagedLayer, promoteStagedLayer } from "../../flood-risk/flood-risk.repository";
-import type { FloodRiskStagedFields, NewFloodRiskLayer } from "../../flood-risk/flood-risk.types";
+import type { NewFloodRiskLayer } from "../../flood-risk/flood-risk.types";
+import { insertStagedSatelliteLayer, promoteStagedSatelliteLayer } from "../../satellite-flood/satellite-flood.repository";
+import type { NewSatelliteFloodLayer } from "../../satellite-flood/satellite-flood.types";
 import { SHAPE_CHECKS, VERDICT_CHECKS } from "./import-checks.sql";
 import { ImportRun } from "./import-run.entity";
 import type {
-  AdminUnitStagedFields,
   GeometryCheckContext,
   IImportRepository,
   ImportRunDto,
   NewImportRun,
-  RainfallStagedFields,
-  StagedRowInput,
+  StagedRows,
   StagingFeatureCollection,
   StagingRowDto,
   StagingRowQuery,
@@ -26,12 +26,13 @@ const userJson = (alias: string) =>
 
 /** `extent` and `promotableCount` cost an aggregate over the run's rows, so only single-run reads include them. */
 function runSelect(detail: boolean): string {
-  // A flood risk run has no staged shapes: its extent is the edges of its map.
+  // Flood risk and satellite flood runs have no staged shapes: their extent is the edges of their picture.
   const extent = detail
     ? `COALESCE(
          (SELECT CASE WHEN x.e IS NULL THEN NULL ELSE ARRAY[ST_XMin(x.e), ST_YMin(x.e), ST_XMax(x.e), ST_YMax(x.e)] END
             FROM (SELECT ST_Extent(geom) AS e FROM import_staging_rows WHERE run_id = r.id) x),
-         (SELECT ARRAY[l.west, l.south, l.east, l.north] FROM flood_risk_layers l WHERE l.import_run_id = r.id))`
+         (SELECT ARRAY[l.west, l.south, l.east, l.north] FROM flood_risk_layers l WHERE l.import_run_id = r.id),
+         (SELECT ARRAY[l.west, l.south, l.east, l.north] FROM satellite_flood_layers l WHERE l.import_run_id = r.id))`
     : "NULL::float8[]";
   // Rainfall months already live with the same value pass, but Promote has nothing to write for them.
   const promotable = detail
@@ -82,9 +83,9 @@ export class ImportRepository extends BaseRepository<ImportRun> implements IImpo
 
   async createCheckedRun(
     run: NewImportRun,
-    rows: StagedRowInput<AdminUnitStagedFields>[] | StagedRowInput<RainfallStagedFields>[] | StagedRowInput<FloodRiskStagedFields>[],
+    rows: StagedRows,
     checks: GeometryCheckContext | null,
-    layer: NewFloodRiskLayer | null = null,
+    layer: NewFloodRiskLayer | NewSatelliteFloodLayer | null = null,
   ): Promise<ImportRunDto> {
     const runId = await this.repo.manager.transaction(async (manager) => {
       const [created]: { id: string }[] = await manager.query(
@@ -105,7 +106,8 @@ export class ImportRepository extends BaseRepository<ImportRun> implements IImpo
         }
       }
       for (const check of VERDICT_CHECKS) await manager.query(check.sql, [id]);
-      if (layer) await insertStagedLayer(manager, id, layer);
+      if (layer && "kind" in layer) await insertStagedSatelliteLayer(manager, id, layer);
+      else if (layer) await insertStagedLayer(manager, id, layer);
       return id;
     });
 
@@ -147,6 +149,12 @@ export class ImportRepository extends BaseRepository<ImportRun> implements IImpo
                                * COALESCE((SELECT (l.cell_size_m * l.cell_size_m / 1e6)::numeric FROM flood_risk_layers l WHERE l.import_run_id = import_staging_rows.run_id), 0), 2)::float8,
                   'percentHigh', (fields->>'percentHigh')::float8,
                   'meanClass', (fields->>'meanClass')::float8) END AS risk,
+                CASE WHEN fields->'floodedKm2' IS NULL THEN NULL ELSE json_build_object(
+                  'levelName', fields->>'levelName',
+                  'floodedKm2', (fields->>'floodedKm2')::float8,
+                  'measuredKm2', (fields->>'measuredKm2')::float8,
+                  'areaKm2', (fields->>'areaKm2')::float8,
+                  'percentFlooded', (fields->>'percentFlooded')::float8) END AS water,
                 errors, warnings
            FROM import_staging_rows ${where}
           ORDER BY row_number LIMIT $3 OFFSET $4`,
@@ -191,7 +199,9 @@ export class ImportRepository extends BaseRepository<ImportRun> implements IImpo
           ? await promoteRainfall(manager, runId)
           : run.target === "flood_risk_layers"
             ? await promoteStagedLayer(manager, runId)
-            : await promoteAdminUnits(manager, runId);
+            : run.target === "satellite_flood_layers"
+              ? await promoteStagedSatelliteLayer(manager, runId)
+              : await promoteAdminUnits(manager, runId);
 
       await manager.query(
         `UPDATE import_runs SET status = 'promoted', promoted_count = $2, promoted_by = $3, promoted_at = now() WHERE id = $1`,
@@ -281,7 +291,7 @@ async function promoteRainfall(manager: EntityManager, runId: string): Promise<n
 async function insertStagingRows(
   manager: EntityManager,
   runId: string,
-  rows: StagedRowInput<AdminUnitStagedFields>[] | StagedRowInput<RainfallStagedFields>[] | StagedRowInput<FloodRiskStagedFields>[],
+  rows: StagedRows,
 ): Promise<void> {
   if (rows.length === 0) return;
   const payload = rows.map((row) => ({

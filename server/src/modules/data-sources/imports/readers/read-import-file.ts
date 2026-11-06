@@ -9,9 +9,10 @@ import { isWorkbook, listZipNames, openZip } from "./zip-bundle";
 
 /**
  * What an upload is. A zip is a bundle: what it holds decides the file type once it is opened.
- * A GeoTIFF is never read here: it has no rows, and goes through the flood risk import instead.
+ * A GeoTIFF or an MBTiles file is never read here: neither has rows, and they go through the flood
+ * risk and satellite flood imports instead.
  */
-export type DetectedKind = Exclude<ImportFileType, "geotiff"> | "zip";
+export type DetectedKind = Exclude<ImportFileType, "geotiff" | "mbtiles"> | "zip";
 
 const SUPPORTED =
   "Upload a shapefile (.shp, or a .zip of its .shp, .dbf and .prj), an Excel workbook (.xlsx), a GeoJSON file (.geojson or .json) or a CSV file (.csv).";
@@ -37,6 +38,12 @@ export function detectFileType(file: UploadedFile): DetectedKind {
     throw fileError(
       "A GeoTIFF is a map made of cells, not a list of areas or rainfall rows. To import the flood risk map, choose " +
         '"Flood risk map" as the level on the import screen.',
+    );
+  }
+  if (extension === ".mbtiles") {
+    throw fileError(
+      "An .mbtiles file is a set of map tiles, not a list of areas or rainfall rows. To import a month of satellite flood extent, choose " +
+        '"Satellite flood extent" as the level on the import screen.',
     );
   }
   if (SHAPEFILE_PARTS.includes(extension)) {

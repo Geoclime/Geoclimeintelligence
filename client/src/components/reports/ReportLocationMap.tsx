@@ -43,6 +43,7 @@ const ALL_LAYERS: Record<MapLayerId, boolean> = {
   floodExtents: false,
   drainage: false,
   floodRisk: false,
+  satelliteFlood: false,
   households: false,
 };
 

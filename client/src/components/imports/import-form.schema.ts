@@ -23,6 +23,8 @@ import type { MapLayerUploadKind, UploadMapLayerInput } from "../../types/map-la
  * whose columns are columnMapping.area_code, area_name, year_month and rainfall_mm.
  * `flood-risk` selects the flood risk map (`POST /api/v1/imports/flood-risk`): a classified GeoTIFF, which has
  * no columns to match, so it needs only the country and the data source.
+ * `satellite-flood` selects monthly satellite flood extent (`POST /api/v1/imports/satellite-flood`): one or
+ * more .mbtiles files, one per month, checked one after another; only the country and the source are needed.
  */
 
 const optionalHeading = z.string().trim();
@@ -41,6 +43,13 @@ export function isFloodRiskChoice(levelValue: string): boolean {
   return levelValue === FLOOD_RISK_CHOICE;
 }
 
+/** The Level choice that imports satellite flood extent: one .mbtiles file of Sentinel-1 water per month. */
+export const SATELLITE_FLOOD_CHOICE = "satellite-flood";
+
+export function isSatelliteFloodChoice(levelValue: string): boolean {
+  return levelValue === SATELLITE_FLOOD_CHOICE;
+}
+
 export function parseLayerChoice(levelValue: string): MapLayerUploadKind | null {
   if (levelValue === "layer:roads") return "roads";
   if (levelValue === "layer:waterways") return "waterways";
@@ -56,6 +65,8 @@ export function detectLayerChoiceFromFileName(fileName: string): string | null {
   const lower = fileName.toLowerCase();
   // A GeoTIFF is a map made of cells: the only one this app imports is the flood risk map.
   if (lower.endsWith(".tif") || lower.endsWith(".tiff")) return FLOOD_RISK_CHOICE;
+  // Map tiles: the only ones this app imports are the monthly Sentinel-1 water tiles (s1_flood_2016_08.mbtiles).
+  if (lower.endsWith(".mbtiles")) return SATELLITE_FLOOD_CHOICE;
   // CHIRPS exported from Earth Engine is monthly rainfall per LGA (ADM2). Not "rainfall" alone:
   // rivers_state_rainfall_and_boundaries.xlsx is also the Phase 2 LGA boundaries file.
   if (lower.includes("chirps") && /\.(xlsx|csv|tsv)$/.test(lower)) return "rainfall:2";
@@ -81,7 +92,13 @@ export const importFormSchema = z
     headerRow: z.string().regex(/^\d*$/, "A row number, e.g. 2"),
     parentMode: z.enum(["column", "fixed"]),
     parentId: z.string(),
-    fileType: z.enum(["xlsx", "geojson", "shapefile", "csv", "geotiff", ""]),
+    fileType: z.enum(["xlsx", "geojson", "shapefile", "csv", "geotiff", "mbtiles", ""]),
+    /** Satellite flood only: the month of a single file whose name doesn't say it. */
+    yearMonth: z
+      .string()
+      .trim()
+      .regex(/^(\d{4}-(0[1-9]|1[0-2]))?$/, "A month as YYYY-MM, e.g. 2016-08")
+      .optional(),
     /** OpenStreetMap layers only: load a cut-short GeoPackage even if rows are missing. */
     acceptPartial: z.boolean(),
     columnMapping: z.object({
@@ -106,6 +123,12 @@ export const importFormSchema = z
     if (isFloodRiskChoice(values.level)) {
       if (!values.sourceId.trim()) {
         ctx.addIssue({ code: "custom", path: ["sourceId"], message: "Choose the data source this map comes from" });
+      }
+      return;
+    }
+    if (isSatelliteFloodChoice(values.level)) {
+      if (!values.sourceId.trim()) {
+        ctx.addIssue({ code: "custom", path: ["sourceId"], message: "Choose the data source these tiles come from" });
       }
       return;
     }

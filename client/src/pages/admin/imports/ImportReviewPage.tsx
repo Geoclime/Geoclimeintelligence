@@ -4,6 +4,7 @@ import { FloodRiskRunCard } from "../../../components/imports/FloodRiskRunCard";
 import { ImportPreviewMap } from "../../../components/imports/ImportPreviewMap";
 import { ImportStatusBadge } from "../../../components/imports/ImportStatusBadge";
 import "../../../components/imports/imports.css";
+import { SatelliteFloodRunCard } from "../../../components/imports/SatelliteFloodRunCard";
 import { StagingRowsTable } from "../../../components/imports/StagingRowsTable";
 import type { MapView } from "../../../components/map/ClimateMap";
 import { Breadcrumbs } from "../../../components/shared/Breadcrumbs/Breadcrumbs";
@@ -20,11 +21,13 @@ import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 import { useImportRun } from "../../../hooks/useImportRun";
 import { useImportRunLayer } from "../../../hooks/useImportRunLayer";
 import { useRunFloodRisk } from "../../../hooks/useRunFloodRisk";
+import { useRunSatelliteFlood } from "../../../hooks/useSatelliteFlood";
 import { useTheme } from "../../../hooks/useTheme";
 import { useToast } from "../../../hooks/useToast";
 import { errorMessage } from "../../../transport/api-error";
 import { formatDateTime } from "../../../utils/formatDate";
 import { parsePageParam } from "../../../utils/pagination";
+import { formatYearMonth } from "../../../utils/rainfall-summary";
 
 const FILTERS = [
   { value: undefined, label: "All rows" },
@@ -46,10 +49,12 @@ export function ImportReviewPage() {
   const run = useImportRun(id, { page, status, pageSize: 50 });
   const [view, setView] = useState<MapView | null>(null);
   const [layerVersion, setLayerVersion] = useState(0);
-  // A flood risk run has no staged shapes to draw: its map is drawn instead.
+  // Flood risk and satellite flood runs have no staged shapes to draw: their picture is drawn instead.
   const isFloodRisk = run.run?.target === "flood_risk_layers";
+  const isSatellite = run.run?.target === "satellite_flood_layers";
   const floodMap = useRunFloodRisk(run.run?.id, isFloodRisk);
-  const layer = useImportRunLayer(isFloodRisk ? undefined : run.run?.id, view?.bbox ?? null, layerVersion);
+  const waterMap = useRunSatelliteFlood(run.run?.id, isSatellite);
+  const layer = useImportRunLayer(isFloodRisk || isSatellite ? undefined : run.run?.id, view?.bbox ?? null, layerVersion);
   const [confirming, setConfirming] = useState(false);
   const { countries } = useCountries();
   useDocumentTitle(run.run ? `Import: ${run.run.fileName}` : "Import");
@@ -69,15 +74,17 @@ export function ImportReviewPage() {
   const promoted = current.status === "promoted";
   const rainfall = current.target === "rainfall_observations";
   const floodRisk = current.target === "flood_risk_layers";
+  const satellite = current.target === "satellite_flood_layers";
+  const month = current.options.yearMonth ? formatYearMonth(current.options.yearMonth) : "This month";
   const level = current.options.level ?? 0;
   const levelName = current.options.levelName ?? "area";
   // Rainfall months already live with the same value pass, but Promote has nothing to write for them.
   const toPromote = current.promotableCount ?? current.passedCount;
-  const what = floodRisk ? "areas measured" : rainfall ? "rainfall months" : `${levelName} areas`;
+  const what = floodRisk || satellite ? "areas measured" : rainfall ? "rainfall months" : `${levelName} areas`;
   const levelBelow =
-    rainfall || floodRisk ? null : (countries.find((c) => c.countryCode === current.options.countryCode)?.levels[level] ?? null);
-  const parentLevelName = floodRisk || level > 1 ? "Parent" : null;
-  const dataLabel = floodRisk ? "Flood risk map" : rainfall ? `Rainfall per ${levelName}` : levelName;
+    rainfall || floodRisk || satellite ? null : (countries.find((c) => c.countryCode === current.options.countryCode)?.levels[level] ?? null);
+  const parentLevelName = floodRisk || satellite || level > 1 ? "Parent" : null;
+  const dataLabel = floodRisk ? "Flood risk map" : satellite ? `Satellite flood extent, ${month}` : rainfall ? `Rainfall per ${levelName}` : levelName;
   const setFilter = (value?: string) => setSearchParams(value ? { status: value } : {});
 
   const handlePromote = async () => {
@@ -85,7 +92,11 @@ export function ImportReviewPage() {
       const result = await run.promote();
       showToast({
         type: "success",
-        message: floodRisk ? `The flood risk map is now live, with figures for ${result.promotedCount ?? 0} areas.` : `${result.promotedCount ?? 0} ${what} are now live.`,
+        message: floodRisk
+          ? `The flood risk map is now live, with figures for ${result.promotedCount ?? 0} areas.`
+          : satellite
+            ? `${month} is now live, with figures for ${result.promotedCount ?? 0} areas.`
+            : `${result.promotedCount ?? 0} ${what} are now live.`,
       });
       setLayerVersion((v) => v + 1);
     } catch (error) {
@@ -112,7 +123,7 @@ export function ImportReviewPage() {
         <div className="page__actions">
           {!promoted && (
             <Link
-              to={`/admin/imports/new?country=${current.options.countryCode}&level=${floodRisk ? "flood-risk" : `${rainfall ? "rainfall:" : ""}${level}`}`}
+              to={`/admin/imports/new?country=${current.options.countryCode}&level=${floodRisk ? "flood-risk" : satellite ? "satellite-flood" : `${rainfall ? "rainfall:" : ""}${level}`}`}
               className={buttonClassName({ variant: "secondary" })}
             >
               Upload a corrected file
@@ -124,7 +135,7 @@ export function ImportReviewPage() {
             onClick={() => setConfirming(true)}
             data-cy="promote"
           >
-            {promoted ? "Promoted" : floodRisk ? "Promote the map" : `Promote ${toPromote} ${rainfall ? "months" : "areas"}`}
+            {promoted ? "Promoted" : floodRisk ? "Promote the map" : satellite ? "Promote the month" : `Promote ${toPromote} ${rainfall ? "months" : "areas"}`}
           </Button>
         </div>
       </header>
@@ -192,7 +203,21 @@ export function ImportReviewPage() {
             &quot;Flood risk&quot; layer on the home map, and replaces any earlier map.
           </Callout>
         )}
-        {promoted && !rainfall && !floodRisk && (
+        {promoted && satellite && (
+          <Callout
+            tone="success"
+            dataCy="promoted-next"
+            action={
+              <Link to={`/map?layers=state,lga,satelliteFlood&floodMonth=${current.options.yearMonth ?? ""}`} className={buttonClassName({ variant: "secondary", size: "sm" })}>
+                Open the map
+              </Link>
+            }
+          >
+            {month} is live for {current.options.countryCode}, with figures for {current.promotedCount} LGAs and wards. It is a month of the
+            &quot;Water seen by satellite&quot; layer on the home map, and replaces any earlier import of the same month.
+          </Callout>
+        )}
+        {promoted && !rainfall && !floodRisk && !satellite && (
           <Callout
             tone="success"
             dataCy="promoted-next"
@@ -224,6 +249,14 @@ export function ImportReviewPage() {
           </div>
         ) : floodRisk && current.extent ? (
           <ImportPreviewMap theme={theme} extent={current.extent} data={null} onViewChange={setView} floodRisk={{ layer: floodMap.layer, imageUrl: floodMap.imageUrl }} />
+        ) : satellite && current.extent ? (
+          <ImportPreviewMap
+            theme={theme}
+            extent={current.extent}
+            data={null}
+            onViewChange={setView}
+            satelliteFlood={{ layer: waterMap.layer, imageUrl: waterMap.imageUrl }}
+          />
         ) : current.extent ? (
           <ImportPreviewMap theme={theme} extent={current.extent} data={layer.data} onViewChange={setView} />
         ) : (
@@ -246,7 +279,7 @@ export function ImportReviewPage() {
                 <dd className="mono">{current.sheetName}</dd>
               </div>
             )}
-            {!floodRisk && (
+            {!floodRisk && !satellite && (
               <div>
                 <dt>Columns</dt>
                 <dd>
@@ -264,6 +297,15 @@ export function ImportReviewPage() {
                 <dd>
                   Derived
                   <span className="data-table__secondary">A modelled judgement of where it could flood, not an observation</span>
+                </dd>
+              </div>
+            )}
+            {satellite && (
+              <div>
+                <dt>Kind of data</dt>
+                <dd>
+                  Derived
+                  <span className="data-table__secondary">Radar observed from space; &quot;water&quot; is a threshold applied to it</span>
                 </dd>
               </div>
             )}
@@ -297,6 +339,16 @@ export function ImportReviewPage() {
           <Callout tone="warning">The map itself couldn&apos;t be loaded for this import: {floodMap.error}</Callout>
         </div>
       )}
+      {satellite && waterMap.layer && (
+        <div className="section-gap">
+          <SatelliteFloodRunCard layer={waterMap.layer} />
+        </div>
+      )}
+      {satellite && waterMap.error && !waterMap.layer && (
+        <div className="section-gap">
+          <Callout tone="warning">The month itself couldn&apos;t be loaded for this import: {waterMap.error}</Callout>
+        </div>
+      )}
 
       <section className="card section-gap" aria-busy={run.loading} aria-labelledby="rows-title">
         <div className="card__header">
@@ -315,7 +367,7 @@ export function ImportReviewPage() {
           <EmptyState icon="check" message={status === "failed" ? "No rows failed their checks." : "No rows to show."} />
         ) : (
           <>
-            <StagingRowsTable rows={run.rows} parentLevelName={parentLevelName} rainfall={rainfall} floodRisk={floodRisk} />
+            <StagingRowsTable rows={run.rows} parentLevelName={parentLevelName} rainfall={rainfall} floodRisk={floodRisk} satellite={satellite} />
             <div className="card__footer">
               <Pagination
                 page={page}
@@ -334,10 +386,12 @@ export function ImportReviewPage() {
 
       <Modal
         open={confirming}
-        title={floodRisk ? "Make this flood risk map live?" : `Promote ${toPromote} ${what}?`}
+        title={floodRisk ? "Make this flood risk map live?" : satellite ? `Make ${month} live?` : `Promote ${toPromote} ${what}?`}
         description={
           floodRisk
             ? "It becomes the Flood risk layer on the home map for every signed-in user, replacing the current map if there is one. Each LGA and ward keeps the figures measured here."
+            : satellite
+              ? "It becomes a month of the Water seen by satellite layer for every signed-in user, replacing an earlier import of the same month if there is one. Each LGA and ward keeps the figures measured here."
             : rainfall
               ? "They become live for their areas and available to every later feature. Months already live with the same value are left as they are."
               : "They become live: on the map, in the directory, and available to every later feature."

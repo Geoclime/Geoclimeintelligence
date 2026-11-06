@@ -17,6 +17,7 @@ import { Road } from "../modules/map-layers/road.entity";
 import { SettlementPoint } from "../modules/map-layers/settlement-point.entity";
 import { Waterway } from "../modules/map-layers/waterway.entity";
 import { RainfallObservation } from "../modules/rainfall/rainfall-observation.entity";
+import { SatelliteFloodLayer } from "../modules/satellite-flood/satellite-flood-layer.entity";
 import { Role } from "../modules/users/role.entity";
 import { User } from "../modules/users/user.entity";
 
@@ -43,7 +44,7 @@ export const AppDataSource = new DataSource({
         ...(env.DATABASE_SSL_CA ? { ca: readFileSync(env.DATABASE_SSL_CA, "utf8") } : {}),
       }
     : false,
-  entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow, Road, Waterway, SettlementPoint, Infrastructure, Building, Wetland, RainfallObservation, FloodExtent, DrainageFeature, FloodRiskLayer],
+  entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow, Road, Waterway, SettlementPoint, Infrastructure, Building, Wetland, RainfallObservation, FloodExtent, DrainageFeature, FloodRiskLayer, SatelliteFloodLayer],
   migrations: [path.join(__dirname, "..", "migrations", "*.ts")],
   // Passed to node-postgres' pool. Its defaults close a connection after 10 seconds idle, so a pause in use
   // means the next burst (the map asks for eight layers at once) opens a fresh connection for each, every one

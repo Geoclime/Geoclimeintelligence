@@ -10,7 +10,7 @@ import type { LonLat } from "../types/admin-unit.types";
 /** Where the map lives. It was "/" until the public landing page took that address. */
 export const MAP_PATH = "/map";
 
-const MAP_PARAMS = ["lng", "lat", "z", "lga", "layers", "pin", "base"];
+const MAP_PARAMS = ["lng", "lat", "z", "lga", "layers", "pin", "base", "floodMonth"];
 
 /** The picture under everything: the themed street map, or aerial imagery for checking what is really on the ground. */
 export type MapBase = "map" | "satellite";
@@ -99,17 +99,37 @@ export function writePin(params: URLSearchParams, point: LonLat | null, label?: 
   return next;
 }
 
-/** Every layer is on unless the link says otherwise; unknown names are ignored. */
+/**
+ * Off until someone turns it on: a month of water seen from space, drawn over the flood risk
+ * surface, would hide it on everyone's first view.
+ */
+const OFF_BY_DEFAULT: MapLayerId[] = ["satelliteFlood"];
+const DEFAULT_LAYERS = ALL_LAYERS.filter((id) => !OFF_BY_DEFAULT.includes(id));
+
+/** Every layer but the satellite flood one is on unless the link says otherwise; unknown names are ignored. */
 export function readLayers(params: URLSearchParams): Record<MapLayerId, boolean> {
   const raw = params.get("layers");
-  const listed = raw === null ? ALL_LAYERS : raw.split(",").filter((l): l is MapLayerId => ALL_LAYERS.includes(l as MapLayerId));
+  const listed = raw === null ? DEFAULT_LAYERS : raw.split(",").filter((l): l is MapLayerId => ALL_LAYERS.includes(l as MapLayerId));
   return Object.fromEntries(ALL_LAYERS.map((id) => [id, listed.includes(id)])) as Record<MapLayerId, boolean>;
 }
 
 export function writeLayers(params: URLSearchParams, layers: Record<MapLayerId, boolean>): URLSearchParams {
   const next = new URLSearchParams(params);
   const on = ALL_LAYERS.filter((id) => layers[id]);
-  if (on.length === ALL_LAYERS.length) next.delete("layers");
+  if (on.length === DEFAULT_LAYERS.length && DEFAULT_LAYERS.every((id) => layers[id])) next.delete("layers");
   else next.set("layers", on.join(","));
+  return next;
+}
+
+/** The month of satellite flood extent shown, e.g. /map?floodMonth=2022-10; null shows the latest. */
+export function readFloodMonth(params: URLSearchParams): string | null {
+  const value = params.get("floodMonth");
+  return value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : null;
+}
+
+export function writeFloodMonth(params: URLSearchParams, yearMonth: string | null): URLSearchParams {
+  const next = new URLSearchParams(params);
+  if (yearMonth) next.set("floodMonth", yearMonth);
+  else next.delete("floodMonth");
   return next;
 }
