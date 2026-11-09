@@ -20,6 +20,7 @@ All paths are relative to `server/`.
 | `DATABASE_URL` | **yes** | – | PostgreSQL connection string |
 | `DATABASE_SSL` | no | `false` | Encrypt the database connection. See [database-connection-ssl.md](database-connection-ssl.md) |
 | `DATABASE_SSL_CA` | no | – | Path to the database provider's CA certificate |
+| `DATABASE_POOL_MAX` | no | `5` | Most database connections one running copy of the API holds open (1 to 20). See [database-connection-limit.md](database-connection-limit.md) |
 | `FIREBASE_PROJECT_ID` | **yes** | – | The Firebase project whose ID tokens this API accepts |
 | `CORS_ORIGINS` | no | empty | Comma-separated browser origins allowed to call the API |
 | `CLOUDINARY_URL` | no | empty | `cloudinary://<api_key>:<api_secret>@<cloud_name>`, from the Cloudinary dashboard: where flood-report photos, voice notes, videos and documents are stored ([flood-alerts-and-reports.md](flood-alerts-and-reports.md)) |

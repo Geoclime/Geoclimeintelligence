@@ -22,6 +22,7 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 **Features and tools**
 10. [user-management.md](user-management.md): the Administrator user endpoints and the first-admin script.
 11. [testing.md](testing.md): running and writing tests.
+    - 11b. [database-connection-limit.md](database-connection-limit.md): the database allows only 17 usable connections; the `DATABASE_POOL_MAX` cap that keeps Render, a laptop and the startup migration from filling them.
     - 11a. [test-fakes-and-deploy-gate.md](test-fakes-and-deploy-gate.md): why Render's build failed (the test fakes had fallen behind the code, so the typecheck broke) and how they were brought back in step.
 12. [postman-collection.md](postman-collection.md): trying the API by hand.
 

@@ -33,7 +33,7 @@ tokens needs nothing else: no service-account key.
 
 ## Deployment
 
-The API deploys to Render from [`../render.yaml`](../render.yaml): see [`docs/deployment-render.md`](../docs/deployment-render.md). The build runs the typecheck and the tests first, so a test file that has fallen behind the code blocks the deploy: see [`docs/test-fakes-and-deploy-gate.md`](../docs/test-fakes-and-deploy-gate.md).
+The API deploys to Render from [`../render.yaml`](../render.yaml): see [`docs/deployment-render.md`](../docs/deployment-render.md). The build runs the typecheck and the tests first, so a test file that has fallen behind the code blocks the deploy: see [`docs/test-fakes-and-deploy-gate.md`](../docs/test-fakes-and-deploy-gate.md). The database only allows 17 usable connections, shared by Render and every laptop: see [`docs/database-connection-limit.md`](../docs/database-connection-limit.md) and the `DATABASE_POOL_MAX` setting.
 
 ## Your first administrator
 

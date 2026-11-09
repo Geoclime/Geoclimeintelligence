@@ -46,6 +46,11 @@ export const AppDataSource = new DataSource({
     : false,
   entities: [Role, User, DataSourceRecord, Country, AdminUnit, ImportRun, ImportStagingRow, Road, Waterway, SettlementPoint, Infrastructure, Building, Wetland, RainfallObservation, FloodExtent, DrainageFeature, FloodRiskLayer, SatelliteFloodLayer],
   migrations: [path.join(__dirname, "..", "migrations", "*.ts")],
+  // At most this many connections per process (node-postgres' default is 10). Every process that uses the
+  // database (Render, a laptop's dev server, a script) has its own pool, and they all share the database's
+  // few slots: with the pool left at 10 and connections kept for five minutes, two processes could use up
+  // every slot and a third (the migration at startup) was refused with "remaining connection slots are reserved".
+  poolSize: env.DATABASE_POOL_MAX,
   // Passed to node-postgres' pool. Its defaults close a connection after 10 seconds idle, so a pause in use
   // means the next burst (the map asks for eight layers at once) opens a fresh connection for each, every one
   // with its own DNS lookup and TLS handshake to a host on the internet, and any lookup that fails shows as an
