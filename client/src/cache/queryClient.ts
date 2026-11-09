@@ -47,6 +47,7 @@ export const QUERY_KEYS = {
   mapLayers: ["map-layers"],
   rainfall: ["rainfall"],
   floodRisk: ["flood-risk"],
+  satelliteFlood: ["satellite-flood"],
   public: ["public"],
   alerts: ["alerts"],
   reports: ["reports"],

@@ -6,6 +6,7 @@ import { DrainageService } from "../../src/modules/field-survey/drainage.service
 import { createDrainageSchema, createFloodExtentSchema, updateDrainageSchema } from "../../src/modules/field-survey/field-survey.validation";
 import { FloodExtentService } from "../../src/modules/field-survey/flood-extent.service";
 import { distinctPoints, isLineKind, meanPoint, needsAttention } from "../../src/modules/field-survey/survey-rules";
+import { fakeAudit, fakePhotos } from "../fakes";
 import { InMemoryAdminUnitRepository, makeUnit } from "../geo-fakes";
 import { EMPTY_IMPACT, InMemoryDrainageRepository, InMemoryFloodExtentRepository } from "../field-survey-fakes";
 import { validationMessageAsync } from "../map-layer-fakes";
@@ -49,14 +50,14 @@ function floodService(containing = [state, lga, ward], gate = regions()) {
   const extents = new InMemoryFloodExtentRepository();
   const units = new InMemoryAdminUnitRepository([state, lga, ward]);
   units.containing = containing;
-  return { service: new FloodExtentService(extents, units, gate), extents, gate };
+  return { service: new FloodExtentService(extents, units, gate, fakeAudit(), fakePhotos()), extents, gate };
 }
 
 function drainService(containing = [state, lga, ward], gate = regions()) {
   const drains = new InMemoryDrainageRepository();
   const units = new InMemoryAdminUnitRepository([state, lga, ward]);
   units.containing = containing;
-  return { service: new DrainageService(drains, units, gate), drains, gate };
+  return { service: new DrainageService(drains, units, gate, fakeAudit(), fakePhotos()), drains, gate };
 }
 
 describe("survey rules", () => {
@@ -98,12 +99,12 @@ describe("survey validation", () => {
     expect(createDrainageSchema.safeParse({ body: { ...base, kind: "culvert", points: [[7, 4.8], [7.001, 4.8]] } }).success).toBe(false);
   });
 
-  it("limits a drain's size, and needs something to change on an inspection", () => {
+  it("limits a drain's size, and accepts an inspection that changes nothing (a check that found it as it was)", () => {
     const body = { kind: "culvert", condition: "clear", method: "drawn", points: [[7, 4.8]] };
     expect(createDrainageSchema.safeParse({ body: { ...body, widthM: 500 } }).success).toBe(false);
     expect(createDrainageSchema.safeParse({ body: { ...body, widthM: 1.5, depthM: 0.5 } }).success).toBe(true);
     const id = "80000000-0000-4000-8000-000000000001";
-    expect(updateDrainageSchema.safeParse({ params: { id }, body: {} }).success).toBe(false);
+    expect(updateDrainageSchema.safeParse({ params: { id }, body: {} }).success).toBe(true);
     expect(updateDrainageSchema.safeParse({ params: { id }, body: { condition: "clear" } }).success).toBe(true);
     expect(updateDrainageSchema.safeParse({ params: { id }, body: { widthM: null } }).success).toBe(true);
   });

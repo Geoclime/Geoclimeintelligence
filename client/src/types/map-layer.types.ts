@@ -166,6 +166,8 @@ export interface OverlayCollections {
 export interface OverlayLayerParams {
   bbox: BBox;
   zoom?: number;
+  /** An LGA or ward id: the server sends only what lies inside it, lines cut at its outline. Roads, waterways and facilities. */
+  within?: string;
 }
 
 /** GET /api/v1/map-layers: a layer, how much of it is loaded, and where its data came from. */

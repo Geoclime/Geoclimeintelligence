@@ -23,7 +23,10 @@ describe("flood form", () => {
 });
 
 describe("drain form", () => {
-  const valid = { kind: "open_drain", condition: "blocked", name: " Aba Road drain ", widthM: "1.5", depthM: "", note: "" };
+  const valid = {
+    kind: "open_drain", condition: "blocked", name: " Aba Road drain ", widthM: "1.5", depthM: "", note: "",
+    flowDirection: "", diameterM: "", material: "", barrels: "",
+  };
 
   it("accepts a kind and a condition, with the name and sizes optional", () => {
     expect(drainFormSchema.safeParse(valid).data).toMatchObject({ name: "Aba Road drain", widthM: "1.5" });

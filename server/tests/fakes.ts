@@ -1,5 +1,7 @@
 import type { AuthUser, VerifiedIdentity } from "../src/common/access/auth-user";
+import type { AuditEntry } from "../src/modules/audit/audit.types";
 import type { TokenVerifier } from "../src/modules/auth/firebase-token-verifier";
+import type { RoleRecord } from "../src/modules/roles/role.types";
 import { User } from "../src/modules/users/user.entity";
 import { toAuthUser, type IUserRepository, type NewUser, type RoleRequestPatch, type UserAccessPatch, type UserListQuery, type UserProfilePatch } from "../src/modules/users/user.types";
 
@@ -104,6 +106,38 @@ export class InMemoryUserRepository implements IUserRepository {
 export function fakeRegions(knownIds: string[] = []) {
   const ids = new Set(knownIds);
   return { exists: async (id: string) => ids.has(id) };
+}
+
+/** Stands in for the activity log: keeps every entry a service wrote, so a test can read them back. */
+export function fakeAudit() {
+  const entries: { actor: AuthUser; entry: AuditEntry }[] = [];
+  return {
+    entries,
+    record: async (actor: AuthUser, entry: AuditEntry) => {
+      entries.push({ actor, entry });
+    },
+  };
+}
+
+/** Stands in for photo storage: nothing is stored, so removing the photos of a record always works. */
+export function fakePhotos() {
+  return { removeAllFor: async () => {} };
+}
+
+/** The five built-in roles, as the roles table holds them: only the field and government roles can be limited to an area. */
+const BUILT_IN_ROLES: Record<string, RoleRecord> = Object.fromEntries(
+  [
+    ["general_public", "General public", false],
+    ["emergency_responder", "Emergency responder", true],
+    ["government_official", "Government official", true],
+    ["researcher", "Researcher", false],
+    ["administrator", "Administrator", false],
+  ].map(([code, name, canBeScoped]) => [code, { code, name, description: name, isSystem: true, canBeScoped }] as [string, RoleRecord]),
+);
+
+/** Stands in for the roles table: finds a built-in role by its code, and nothing else. */
+export function fakeRoles() {
+  return { findByCode: async (code: string) => BUILT_IN_ROLES[code] ?? null };
 }
 
 /**

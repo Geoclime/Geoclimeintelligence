@@ -19,6 +19,7 @@ describe("handSavedPlaceIn", () => {
       osmClass: "hospital",
       note: "Open 24 hours",
       point: [7.0123, 4.8156],
+      origin: "manual",
     });
   });
 
@@ -63,6 +64,6 @@ describe("placeOnMapFrom", () => {
       adminUnitId: null,
       createdAt: "2026-10-31T00:00:00.000Z",
     };
-    expect(placeOnMapFrom(place)).toEqual({ id: "p1", name: "St. Mary's", facilityType: "health", osmClass: "hospital", note: null, point: [7, 4.8] });
+    expect(placeOnMapFrom(place)).toEqual({ id: "p1", name: "St. Mary's", facilityType: "health", osmClass: "hospital", note: null, point: [7, 4.8], origin: "manual" });
   });
 });

@@ -1,0 +1,13 @@
+/* The satellite water card reuses the rainfall chart, painted in the map layer's water blue (#1e90ff)
+   so the card and the "Water seen by satellite" layer read as the same thing. */
+.satellite-water-card {
+  --satellite-water: #1e90ff;
+}
+
+.satellite-water-card .rainfall-chart__bar {
+  fill: var(--satellite-water);
+}
+
+.satellite-water-card .rainfall-chart__swatch {
+  background: var(--satellite-water);
+}

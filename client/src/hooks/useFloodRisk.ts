@@ -4,11 +4,11 @@ import type { FloodRiskLayer } from "../types/flood-risk.types";
 import { useLoader } from "./useLoader";
 
 /** The picture as a data URL: Mapbox can take it as an image source, and unlike an object URL there is nothing to revoke. */
-function blobToDataUrl(blob: Blob): Promise<string> {
+export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("The flood risk picture couldn't be read."));
+    reader.onerror = () => reject(new Error("The map picture couldn't be read."));
     reader.readAsDataURL(blob);
   });
 }

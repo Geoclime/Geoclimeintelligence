@@ -132,6 +132,10 @@ A third target, `flood_risk_layers`, takes a **classified GeoTIFF** instead of r
 
 It needs the LGAs to be live first, like rainfall. The whole of it, including the tables, endpoints and what was checked, is in [flood-risk.md](flood-risk.md). A GeoTIFF sent to the areas or rainfall import is refused with a message pointing here.
 
+### 10. Satellite flood extent
+
+A fourth target, `satellite_flood_layers`, takes **one month of Sentinel-1 water tiles** as an MBTiles file (`s1_flood_2016_08.mbtiles`, file type `mbtiles`): `POST /api/v1/imports/satellite-flood`. Like the flood risk map it has no shapes. The tiles are stitched into one mask, every live LGA and ward is staged with how much of it was water, and the mask is stored with the run. Promote makes the month live and retires an earlier import of the same month, so there is one live layer per country and month. The screen checks many files one after another, one run each, and can promote them all. Details, and the caveats on what "water" means in these files, are in [satellite-flood.md](satellite-flood.md).
+
 **Tests:**
 - [`tests/unit/import-readers.test.ts`](../server/tests/unit/import-readers.test.ts): the Excel and GeoJSON readers, heading-row detection and the templates. Shapefiles, zips and CSV: `import-shapefile.test.ts` and `import-csv.test.ts`.
 - [`tests/unit/admin-unit-rows.test.ts`](../server/tests/unit/admin-unit-rows.test.ts): name standardisation, parent matching, duplicates and the column guesses for the three real files.

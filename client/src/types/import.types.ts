@@ -3,11 +3,11 @@ import type { BBox } from "./admin-unit.types";
 
 // Mirrors server/src/modules/data-sources/imports/import.types.ts.
 
-export type ImportFileType = "xlsx" | "geojson" | "shapefile" | "csv" | "geotiff";
+export type ImportFileType = "xlsx" | "geojson" | "shapefile" | "csv" | "geotiff" | "mbtiles";
 export type ImportRunStatus = "checked" | "promoted";
 export type StagingRowStatus = "pending" | "passed" | "failed";
-/** Which live table a run feeds: areas, monthly rainfall per area, or a flood risk map. */
-export type ImportTarget = "admin_units" | "rainfall_observations" | "flood_risk_layers";
+/** Which live table a run feeds: areas, monthly rainfall per area, a flood risk map, or a month of satellite flood extent. */
+export type ImportTarget = "admin_units" | "rainfall_observations" | "flood_risk_layers" | "satellite_flood_layers";
 
 export const TEMPLATE_COLUMNS = ["unit_name", "unit_code", "parent_code", "geometry_wkt"] as const;
 export type TemplateColumn = (typeof TEMPLATE_COLUMNS)[number];
@@ -49,8 +49,10 @@ export interface ImportOptions {
   parentId?: string | null;
   /** Rainfall: OBSERVED, MODELLED... A flood risk map is always DERIVED. */
   dataType?: string;
-  /** Flood risk map only. */
+  /** Flood risk map and satellite flood month. */
   title?: string;
+  /** Satellite flood month only: "YYYY-MM". */
+  yearMonth?: string;
 }
 
 export interface UserRef {
@@ -99,8 +101,21 @@ export interface StagingRow {
   change: RainfallChange | null;
   /** Flood risk rows only (one per LGA and ward). */
   risk: StagingRowRisk | null;
+  /** Satellite flood rows only (one per LGA and ward). */
+  water: StagingRowWater | null;
   errors: string[];
   warnings: string[];
+}
+
+/** What the satellite flood review table shows for an area: how much of it was water that month. */
+export interface StagingRowWater {
+  levelName: string;
+  floodedKm2: number;
+  /** The part of the area the tiles cover. */
+  measuredKm2: number;
+  areaKm2: number;
+  /** Share of the measured part that was water, 0 to 100; null when the tiles don't reach the area. */
+  percentFlooded: number | null;
 }
 
 /** What the flood risk review table shows for an area: how much of it is in which class. */

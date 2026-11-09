@@ -12,6 +12,8 @@ interface LayerOptions {
   zoom?: number;
   /** Change it to fetch the same view again, e.g. after a place was saved. */
   refreshKey?: number;
+  /** An LGA or ward id: only what lies inside it, for the map on its page (roads, waterways and facilities). */
+  within?: string;
 }
 
 /**
@@ -20,7 +22,7 @@ interface LayerOptions {
  * then fetches that bbox, and replies for an older view are dropped. Never cached: a bbox key
  * would almost never repeat (standard section 14).
  */
-export function useMapLayer<L extends OverlayLayerId>(layer: L, bbox: BBox | null, { enabled = true, zoom, refreshKey = 0 }: LayerOptions = {}) {
+export function useMapLayer<L extends OverlayLayerId>(layer: L, bbox: BBox | null, { enabled = true, zoom, refreshKey = 0, within }: LayerOptions = {}) {
   const roundedZoom = zoom === undefined ? undefined : Math.round(zoom);
   const view = useDebounce(enabled && bbox ? { bbox, zoom: roundedZoom } : null, 300);
   const [data, setData] = useState<OverlayCollections[L] | null>(null);
@@ -35,7 +37,7 @@ export function useMapLayer<L extends OverlayLayerId>(layer: L, bbox: BBox | nul
     // Starting a request is the one synchronous state change here; the rest happen on reply.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
-    fetchLayerGeoJson(layer, { bbox: view.bbox, zoom: view.zoom })
+    fetchLayerGeoJson(layer, { bbox: view.bbox, zoom: view.zoom, within })
       .then(
         (response) => {
           if (thisRequest !== requestId.current) return;
@@ -51,7 +53,7 @@ export function useMapLayer<L extends OverlayLayerId>(layer: L, bbox: BBox | nul
       });
     // viewKey stands in for `view`, whose identity changes on every debounce.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewKey, layer, refreshKey]);
+  }, [viewKey, layer, refreshKey, within]);
 
   return { data: enabled ? data : null, loading: enabled && loading, error: enabled ? error : null };
 }

@@ -46,7 +46,7 @@ describe("repositories read UPDATE and DELETE results the way TypeORM returns th
     ]);
     useStub(stub);
 
-    const flood = await new FloodExtentRepository().markReceded("f1");
+    const flood = await new FloodExtentRepository().markReceded("f1", "u1");
 
     expect(flood).toMatchObject({ id: "f1", receded: true, recededAt: "2026-10-31T18:00:00.000Z", observedAt: "2026-10-31T09:00:00.000Z" });
     expect(stub.calls.every((sql) => !/^\s*(UPDATE|DELETE)\b/i.test(sql))).toBe(true);
@@ -54,7 +54,7 @@ describe("repositories read UPDATE and DELETE results the way TypeORM returns th
 
   it("says nothing was changed when no flood matched", async () => {
     useStub(stubQuery(() => []));
-    expect(await new FloodExtentRepository().markReceded("missing")).toBeNull();
+    expect(await new FloodExtentRepository().markReceded("missing", "u1")).toBeNull();
   });
 
   it("puts a receded flood back as still going and hands back the flood", async () => {
@@ -66,7 +66,7 @@ describe("repositories read UPDATE and DELETE results the way TypeORM returns th
     ]);
     useStub(stub);
 
-    expect(await new FloodExtentRepository().markActive("f1")).toMatchObject({ id: "f1", receded: false, recededAt: null });
+    expect(await new FloodExtentRepository().markActive("f1", "u1")).toMatchObject({ id: "f1", receded: false, recededAt: null });
     expect(stub.calls.every((sql) => !/^\s*(UPDATE|DELETE)\b/i.test(sql))).toBe(true);
     expect(stub.calls[0]).toContain("receded_at IS NOT NULL");
   });
@@ -74,13 +74,18 @@ describe("repositories read UPDATE and DELETE results the way TypeORM returns th
   it("re-inspects a drain and hands back the drain", async () => {
     useStub(
       stubQuery(() => [
-        { id: "d1", kind: "open_drain", condition: "clear", name: null, widthM: null, depthM: null, lengthM: 120, note: null, method: "walked", wardId: null, lgaId: null, lastCheckedAt: new Date("2026-10-31T10:00:00Z"), longitude: 7, latitude: 4.8 },
+        {
+          id: "d1", kind: "open_drain", condition: "clear", name: null, widthM: null, depthM: null, lengthM: 120, note: null, method: "walked",
+          flowDirection: null, diameterM: null, material: null, barrels: null, wardId: null, lgaId: null,
+          lastCheckedAt: new Date("2026-10-31T10:00:00Z"), longitude: 7, latitude: 4.8, inspectionId: "i1", distanceM: null,
+        },
       ]),
     );
-    expect(await new DrainageRepository().update("d1", { condition: "clear", name: null, widthM: null, depthM: null, note: null })).toMatchObject({
-      id: "d1",
-      condition: "clear",
-      lastCheckedAt: "2026-10-31T10:00:00.000Z",
+    const changes = { condition: "clear" as const, name: null, widthM: null, depthM: null, note: null, flowDirection: null, diameterM: null, material: null, barrels: null };
+    const inspection = { inspectedBy: "u1", inspectorName: null, inspectorRole: "emergency_responder", conditionBefore: "blocked" as const, note: null, point: null, accuracyM: null };
+    expect(await new DrainageRepository().inspect("d1", changes, inspection)).toMatchObject({
+      drain: { id: "d1", condition: "clear", lastCheckedAt: "2026-10-31T10:00:00.000Z" },
+      inspectionId: "i1",
     });
   });
 

@@ -8,7 +8,7 @@ export interface RainfallColumn {
   label: string;
   /** A second line under some columns: the year under January. */
   sublabel?: string;
-  /** Null draws a dash: no value (missing, incomplete, or a year still in progress). */
+  /** In the chart's unit (mm unless `unit` says otherwise). Null draws a dash: no value. */
   valueMm: number | null;
   averageMm: number | null;
   /** The tooltip's heading and the column's accessible name: "August 2026", "2019 total". */
@@ -25,6 +25,10 @@ interface RainfallChartProps {
   averageLabel: string | null;
   /** Describes the chart for screen readers; the table view carries the values. */
   ariaLabel: string;
+  /** The axis unit, "mm" unless given ("km²" for the satellite water card). */
+  unit?: string;
+  /** How a value reads in tooltips and labels; rainfall in mm unless given. */
+  format?: (value: number) => string;
   /** When given, a column can be clicked (or Enter/Space) to choose it. */
   onSelect?: (key: string) => void;
   selectedKey?: string | null;
@@ -51,7 +55,7 @@ function useWidth<T extends HTMLElement>() {
 
 /** A clean axis: the top tick is a round number at or above the largest value. */
 function niceScale(max: number): { top: number; ticks: number[] } {
-  const steps = [10, 20, 25, 50, 100, 200, 250, 500, 1000];
+  const steps = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
   const step = steps.find((s) => s * 4 >= max) ?? Math.ceil(max / 4 / 1000) * 1000;
   const top = Math.max(step, Math.ceil(max / step) * step);
   return { top, ticks: Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step) };
@@ -68,7 +72,7 @@ function columnPath(x: number, y: number, width: number, baseline: number): stri
  * reads at a glance. One series plus a neutral reference: the legend names both. Every value is
  * also in the hover/focus tooltip and in the table under the chart, so nothing depends on colour.
  */
-export function RainfallChart({ columns, valueLabel, averageLabel, ariaLabel, onSelect, selectedKey = null }: RainfallChartProps) {
+export function RainfallChart({ columns, valueLabel, averageLabel, ariaLabel, unit = "mm", format = formatMm, onSelect, selectedKey = null }: RainfallChartProps) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
 
@@ -108,14 +112,14 @@ export function RainfallChart({ columns, valueLabel, averageLabel, ariaLabel, on
               </g>
             ))}
             <text x={4} y={MARGIN.top - 2} className="rainfall-chart__tick">
-              mm
+              {unit}
             </text>
 
             {columns.map((c, i) => {
               const x = centre(i) - bar / 2;
               const classes = ["rainfall-chart__month", active === i && "is-active", selectedKey === c.key && "is-selected"].filter(Boolean).join(" ");
-              const label = `${c.title}: ${c.valueMm === null ? (c.missingText ?? "no value") : formatMm(c.valueMm)}${
-                c.averageMm === null ? "" : `, average ${formatMm(c.averageMm)}`
+              const label = `${c.title}: ${c.valueMm === null ? (c.missingText ?? "no value") : format(c.valueMm)}${
+                c.averageMm === null ? "" : `, average ${format(c.averageMm)}`
               }`;
               return (
                 <g key={c.key} className={classes}>
@@ -179,12 +183,12 @@ export function RainfallChart({ columns, valueLabel, averageLabel, ariaLabel, on
             role="status"
             style={{ left: Math.min(Math.max(centre(active), 80), width - 80), top: Math.max(0, y(Math.max(current.valueMm ?? 0, current.averageMm ?? 0)) - 8) }}
           >
-            <strong>{current.valueMm === null ? (current.missingText ?? "No value") : formatMm(current.valueMm)}</strong>
+            <strong>{current.valueMm === null ? (current.missingText ?? "No value") : format(current.valueMm)}</strong>
             <span>{current.title}</span>
             {current.averageMm !== null && (
               <span className="rainfall-chart__tooltip-row">
                 <span className="rainfall-chart__line-key" />
-                {formatMm(current.averageMm)} average
+                {format(current.averageMm)} average
               </span>
             )}
             {onSelect && <span className="rainfall-chart__hint">Click to see its months</span>}

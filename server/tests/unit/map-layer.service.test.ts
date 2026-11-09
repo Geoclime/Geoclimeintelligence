@@ -13,8 +13,9 @@ function build(sources = [osm, grid3, geofabrik]) {
   const settlements = new RecordingLayerRepository({ featureCount: 1_149, sourceIds: [grid3.id] });
   const infrastructure = new RecordingLayerRepository({ featureCount: 826, sourceIds: [geofabrik.id] });
   const buildings = new RecordingLayerRepository({ featureCount: 414_556, sourceIds: [geofabrik.id] });
-  const service = new MapLayerService({ roads, waterways, settlements, infrastructure, buildings }, new InMemoryDataSourceRepository(sources));
-  return { service, roads, waterways, settlements, infrastructure, buildings };
+  const wetlands = new RecordingLayerRepository({ featureCount: 1_090, sourceIds: [geofabrik.id] });
+  const service = new MapLayerService({ roads, waterways, settlements, infrastructure, buildings, wetlands }, new InMemoryDataSourceRepository(sources));
+  return { service, roads, waterways, settlements, infrastructure, buildings, wetlands };
 }
 
 describe("MapLayerService.catalog", () => {
@@ -26,6 +27,7 @@ describe("MapLayerService.catalog", () => {
       ["settlements", "Settlements", 1_149],
       ["infrastructure", "Infrastructure", 826],
       ["buildings", "Buildings", 414_556],
+      ["wetlands", "Wetlands", 1_090],
     ]);
     expect(catalog[0]!.sources).toEqual([
       expect.objectContaining({ id: osm.id, provider: "OpenStreetMap contributors via HDX", license: "ODbL", downloadedOn: "2026-09-22" }),
@@ -43,11 +45,12 @@ describe("MapLayerService.catalog", () => {
         settlements: new RecordingLayerRepository(),
         infrastructure: new RecordingLayerRepository(),
         buildings: new RecordingLayerRepository(),
+        wetlands: new RecordingLayerRepository(),
       },
       new InMemoryDataSourceRepository([]),
     );
     expect((await empty.catalog()).every((layer) => layer.featureCount === 0 && layer.sources.length === 0)).toBe(true);
-    expect(await service.catalog()).toHaveLength(5);
+    expect(await service.catalog()).toHaveLength(6);
   });
 
   it("skips a source id that no longer resolves", async () => {

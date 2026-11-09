@@ -24,6 +24,8 @@ interface AreaOutlineMapProps {
   theme: ResolvedTheme;
   /** The area this page is about, drawn bold and fitted to. */
   geometry: MultiPolygon;
+  /** Its id: the roads, waterways and facilities are cut to it, so only what is inside the place is drawn. */
+  areaId?: string;
   bbox: BBox;
   /** A larger area for context (e.g. the ward's LGA), drawn thin. */
   contextGeometry?: MultiPolygon | null;
@@ -62,6 +64,7 @@ const CONTEXT_LAYERS: Record<MapLayerId, boolean> = {
   floodExtents: false,
   drainage: false,
   floodRisk: false,
+  satelliteFlood: false,
   households: false,
 };
 const NO_LAYERS = Object.fromEntries(Object.keys(CONTEXT_LAYERS).map((id) => [id, false])) as Record<MapLayerId, boolean>;
@@ -70,15 +73,16 @@ const NO_LAYERS = Object.fromEntries(Object.keys(CONTEXT_LAYERS).map((id) => [id
  * A small map that outlines one area: the LGA profile and ward pages use it. Recorded floods and drains
  * are drawn exactly as on the main map, with a legend that explains them, and a switch adds the roads,
  * waterways and facilities around them, since a drain means little without the road it runs beside.
+ * Given `areaId`, those are cut to the place's outline, as its flood risk is: the page is about what is inside it.
  */
-export function AreaOutlineMap({ label, theme, geometry, bbox, contextGeometry, innerAreas, floods, drains, onSelect, countryCode, onViewChange, dataCy, children }: AreaOutlineMapProps) {
+export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGeometry, innerAreas, floods, drains, onSelect, countryCode, onViewChange, dataCy, children }: AreaOutlineMapProps) {
   const palette = useMemo(() => mapPalette(theme), [theme]);
   // The same cached map as the home screen's: a profile opened after the home map asks nothing again.
   const floodRisk = useFloodRisk(countryCode ?? null);
   const [showFloodRisk, setShowFloodRisk] = useState(true);
   const [showContext, setShowContext] = useState(true);
   const [view, setView] = useState<MapView | null>(null);
-  const context = useMapLayers(view?.bbox ?? null, view?.zoom ?? 11, showContext ? CONTEXT_LAYERS : NO_LAYERS);
+  const context = useMapLayers(view?.bbox ?? null, view?.zoom ?? 11, showContext ? CONTEXT_LAYERS : NO_LAYERS, 0, areaId);
   const riskLayer = floodRisk.layer;
   // Only this area's part of the picture: the imported one covers the whole state.
   const areaRisk = useClippedFloodRisk(floodRisk.imageUrl, riskLayer?.coordinates ?? null, geometry);

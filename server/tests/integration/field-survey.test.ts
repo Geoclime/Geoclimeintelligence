@@ -4,7 +4,7 @@ import { createApp } from "../../src/app";
 import { AuthService } from "../../src/modules/auth/auth.service";
 import { DrainageService } from "../../src/modules/field-survey/drainage.service";
 import { FloodExtentService } from "../../src/modules/field-survey/flood-extent.service";
-import { FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
+import { fakeAudit, fakePhotos, FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
 import { InMemoryDrainageRepository, InMemoryFloodExtentRepository } from "../field-survey-fakes";
 import { InMemoryAdminUnitRepository, makeUnit } from "../geo-fakes";
 
@@ -32,8 +32,8 @@ beforeEach(() => {
   units.containing = [state, ward];
   const regions = { assert: async () => {} };
   vi.spyOn(AuthService, "Instance", "get").mockReturnValue(new AuthService(users, new FakeTokenVerifier()));
-  vi.spyOn(FloodExtentService, "Instance", "get").mockReturnValue(new FloodExtentService(extents, units, regions));
-  vi.spyOn(DrainageService, "Instance", "get").mockReturnValue(new DrainageService(drains, units, regions));
+  vi.spyOn(FloodExtentService, "Instance", "get").mockReturnValue(new FloodExtentService(extents, units, regions, fakeAudit(), fakePhotos()));
+  vi.spyOn(DrainageService, "Instance", "get").mockReturnValue(new DrainageService(drains, units, regions, fakeAudit(), fakePhotos()));
 });
 
 afterEach(() => {
@@ -161,13 +161,13 @@ describe("/api/v1/drainage", () => {
     expect(drains.created).toEqual([]);
   });
 
-  it("refuses a culvert walked as a line, and an empty inspection (400)", async () => {
+  it("refuses a culvert walked as a line (400), and accepts an inspection that changes nothing (200)", async () => {
     const line = await request(app).post("/api/v1/drainage").set(asResponder).send({ ...culvert, points: [[7, 4.8], [7.001, 4.8]] });
     expect(line.status).toBe(400);
     expect(line.body.errors[0].message).toMatch(/single point/);
 
     const drain = drains.seed();
-    expect((await request(app).patch(`/api/v1/drainage/${drain.id}`).set(asResponder).send({})).status).toBe(400);
+    expect((await request(app).patch(`/api/v1/drainage/${drain.id}`).set(asResponder).send({})).status).toBe(200);
   });
 
   it("shows a place's drainage to any signed-in user, and checks the question", async () => {

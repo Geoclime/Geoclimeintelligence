@@ -4,9 +4,12 @@ import type { ResolvedTheme } from "../../contexts/ThemeContext";
 import type { BBox } from "../../types/admin-unit.types";
 import type { FloodRiskLayer as FloodRiskMap } from "../../types/flood-risk.types";
 import type { StagingFeatureCollection } from "../../types/import.types";
+import type { SatelliteFloodLayer as SatelliteFloodMonth } from "../../types/satellite-flood.types";
 import { floodRiskLegend } from "../../utils/flood-risk";
+import { satelliteFloodLegend } from "../../utils/satellite-flood";
 import { ClimateMap, type MapView } from "../map/ClimateMap";
 import { FloodRiskLayer } from "../map/FloodRiskLayer";
+import { SatelliteFloodLayer } from "../map/SatelliteFloodLayer";
 import { MapLegend } from "../map/MapLegend";
 import { mapPalette, stagingLayers } from "../map/map-style";
 
@@ -17,6 +20,8 @@ interface ImportPreviewMapProps {
   onViewChange: (view: MapView) => void;
   /** A flood risk run: its map is drawn instead of staged shapes (which it has none of). */
   floodRisk?: { layer: FloodRiskMap | null; imageUrl: string | null };
+  /** A satellite flood run: its month's water is drawn instead. */
+  satelliteFlood?: { layer: SatelliteFloodMonth | null; imageUrl: string | null };
 }
 
 const LEGEND = [
@@ -31,12 +36,26 @@ const LEGEND = [
  * its map is drawn instead, over the base map, so a map that doesn't line up with the coast and
  * the rivers is caught by eye the same way.
  */
-export function ImportPreviewMap({ theme, extent, data, onViewChange, floodRisk }: ImportPreviewMapProps) {
+export function ImportPreviewMap({ theme, extent, data, onViewChange, floodRisk, satelliteFlood }: ImportPreviewMapProps) {
   const layers = useMemo(() => stagingLayers(mapPalette(theme)), [theme]);
-  const legend = floodRisk ? (floodRisk.layer ? floodRiskLegend(floodRisk.layer.classes) : []) : LEGEND;
+  const legend = floodRisk
+    ? floodRisk.layer
+      ? floodRiskLegend(floodRisk.layer.classes)
+      : []
+    : satelliteFlood
+      ? satelliteFlood.layer
+        ? satelliteFloodLegend(satelliteFlood.layer)
+        : []
+      : LEGEND;
   return (
     <ClimateMap
-      label={floodRisk ? "Map of the flood risk map in this import" : "Map of the staged shapes in this import"}
+      label={
+        floodRisk
+          ? "Map of the flood risk map in this import"
+          : satelliteFlood
+            ? "Map of the water seen by satellite in this import"
+            : "Map of the staged shapes in this import"
+      }
       theme={theme}
       fitTo={extent}
       onViewChange={onViewChange}
@@ -50,6 +69,8 @@ export function ImportPreviewMap({ theme, extent, data, onViewChange, floodRisk 
     >
       {floodRisk ? (
         <FloodRiskLayer visible imageUrl={floodRisk.imageUrl} coordinates={floodRisk.layer?.coordinates ?? null} />
+      ) : satelliteFlood ? (
+        <SatelliteFloodLayer visible imageUrl={satelliteFlood.imageUrl} coordinates={satelliteFlood.layer?.coordinates ?? null} />
       ) : (
         data && (
           <Source id="staging" type="geojson" data={data}>

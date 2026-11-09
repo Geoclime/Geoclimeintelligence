@@ -22,6 +22,7 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 **Features and tools**
 10. [user-management.md](user-management.md): the Administrator user endpoints and the first-admin script.
 11. [testing.md](testing.md): running and writing tests.
+    - 11a. [test-fakes-and-deploy-gate.md](test-fakes-and-deploy-gate.md): why Render's build failed (the test fakes had fallen behind the code, so the typecheck broke) and how they were brought back in step.
 12. [postman-collection.md](postman-collection.md): trying the API by hand.
 
 **Phase 2: Admin Geography**
@@ -87,6 +88,7 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 43. [features/client-data-caching.md](features/client-data-caching.md): how the app remembers what it has asked (TanStack Query): instant reopen, freshness windows, what clears it, and what is never cached.
 44. [features/flood-risk-overlay.md](features/flood-risk-overlay.md): the flood risk map on the client: the "Flood risk map" choice on the import screen and its review, the "Flood risk" layer on the home map (credit line, click popup), and the flood risk card on LGA and ward pages.
 45. [flood-risk.md](flood-risk.md): importing the data team's classified GeoTIFF through the import pipeline: the two tables, the checks (CRS, classes, lining up with the LGAs), measuring every LGA and ward, drawing the picture, Promote, and the read endpoints.
+46. [satellite-flood.md](satellite-flood.md): importing the data team's monthly Sentinel-1 water tiles (`s1_flood_YYYY_MM.mbtiles`): reading MBTiles, the one-mask-per-month storage, measuring every LGA and ward, checking many months at once, the "Water seen by satellite" map layer with its month picker, and what the data can and can't say.
 
 ## Accounts
 

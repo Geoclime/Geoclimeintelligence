@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router";
 import { DrainageCard } from "../../components/floods/DrainageCard";
 import { FloodHistoryCard } from "../../components/floods/FloodHistoryCard";
 import { FloodRiskCard } from "../../components/floods/FloodRiskCard";
+import { SatelliteWaterCard } from "../../components/floods/SatelliteWaterCard";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
 import { AreaSurveyPopup } from "../../components/map/AreaSurveyPopup";
 import { SourceBadge } from "../../components/map/SourceBadge";
@@ -99,6 +100,7 @@ export function LgaProfilePage() {
           label={`Map of ${unit.unitName} and its wards`}
           theme={theme}
           geometry={unit.geometry}
+          areaId={unit.id}
           bbox={unit.bbox}
           innerAreas={wardShapes.data}
           countryCode={unit.countryCode}
@@ -113,6 +115,10 @@ export function LgaProfilePage() {
 
       <div className="section-gap">
         <RainfallCard adminUnitId={unit.id} areaName={unit.unitName} />
+      </div>
+
+      <div className="section-gap">
+        <SatelliteWaterCard areaId={unit.id} areaName={unit.unitName} countryCode={unit.countryCode} lgaId={unit.id} />
       </div>
 
       <section className="card section-gap" aria-labelledby="wards-title">

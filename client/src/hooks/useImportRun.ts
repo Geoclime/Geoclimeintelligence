@@ -39,6 +39,7 @@ export function useImportRun(id: string | undefined, { page = 1, pageSize = 50, 
       invalidateQueries(QUERY_KEYS.countries);
       invalidateQueries(QUERY_KEYS.rainfall);
       invalidateQueries(QUERY_KEYS.floodRisk);
+      invalidateQueries(QUERY_KEYS.satelliteFlood);
       invalidateQueries(QUERY_KEYS.public);
       setData((current) => current && { ...current, detail: { ...current.detail, run } });
       return run;

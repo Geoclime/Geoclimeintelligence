@@ -45,6 +45,8 @@ This works because the services take interfaces, not concrete classes (see [arch
 
 **Before every commit:** run `npm run typecheck` and `npm test`. Both must be clean.
 
+**Keep the fakes in step with the code.** Render won't deploy unless `npm run typecheck` passes, and a fake that lacks a new repository method or constructor argument breaks it. When a service gains a dependency, update its fake in the same change. [test-fakes-and-deploy-gate.md](test-fakes-and-deploy-gate.md) tells the story of what happens when that is missed.
+
 ## Resources to read
 
 - Vitest: https://vitest.dev
