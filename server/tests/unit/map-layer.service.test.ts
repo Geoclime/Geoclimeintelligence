@@ -50,7 +50,7 @@ describe("MapLayerService.catalog", () => {
       new InMemoryDataSourceRepository([]),
     );
     expect((await empty.catalog()).every((layer) => layer.featureCount === 0 && layer.sources.length === 0)).toBe(true);
-    expect(await service.catalog()).toHaveLength(5);
+    expect(await service.catalog()).toHaveLength(6);
   });
 
   it("skips a source id that no longer resolves", async () => {

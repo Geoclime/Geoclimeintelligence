@@ -99,12 +99,12 @@ describe("survey validation", () => {
     expect(createDrainageSchema.safeParse({ body: { ...base, kind: "culvert", points: [[7, 4.8], [7.001, 4.8]] } }).success).toBe(false);
   });
 
-  it("limits a drain's size, and needs something to change on an inspection", () => {
+  it("limits a drain's size, and accepts an inspection that changes nothing (a check that found it as it was)", () => {
     const body = { kind: "culvert", condition: "clear", method: "drawn", points: [[7, 4.8]] };
     expect(createDrainageSchema.safeParse({ body: { ...body, widthM: 500 } }).success).toBe(false);
     expect(createDrainageSchema.safeParse({ body: { ...body, widthM: 1.5, depthM: 0.5 } }).success).toBe(true);
     const id = "80000000-0000-4000-8000-000000000001";
-    expect(updateDrainageSchema.safeParse({ params: { id }, body: {} }).success).toBe(false);
+    expect(updateDrainageSchema.safeParse({ params: { id }, body: {} }).success).toBe(true);
     expect(updateDrainageSchema.safeParse({ params: { id }, body: { condition: "clear" } }).success).toBe(true);
     expect(updateDrainageSchema.safeParse({ params: { id }, body: { widthM: null } }).success).toBe(true);
   });

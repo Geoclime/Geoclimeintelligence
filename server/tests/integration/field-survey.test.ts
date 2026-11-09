@@ -161,13 +161,13 @@ describe("/api/v1/drainage", () => {
     expect(drains.created).toEqual([]);
   });
 
-  it("refuses a culvert walked as a line, and an empty inspection (400)", async () => {
+  it("refuses a culvert walked as a line (400), and accepts an inspection that changes nothing (200)", async () => {
     const line = await request(app).post("/api/v1/drainage").set(asResponder).send({ ...culvert, points: [[7, 4.8], [7.001, 4.8]] });
     expect(line.status).toBe(400);
     expect(line.body.errors[0].message).toMatch(/single point/);
 
     const drain = drains.seed();
-    expect((await request(app).patch(`/api/v1/drainage/${drain.id}`).set(asResponder).send({})).status).toBe(400);
+    expect((await request(app).patch(`/api/v1/drainage/${drain.id}`).set(asResponder).send({})).status).toBe(200);
   });
 
   it("shows a place's drainage to any signed-in user, and checks the question", async () => {

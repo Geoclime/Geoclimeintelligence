@@ -29,7 +29,11 @@ All paths are relative to `server/tests/`.
 
 **4. Two expectations that changed with the code.** The layer list now has six layers, so the two catalog tests expect `wetlands` last. The drainage repository test now calls `inspect(...)` and reads `{ drain, inspectionId }`.
 
-**What has not been checked.** The typecheck was run and passes. `npm test` (the other half of Render's build) was **not run**: only the types were repaired. A test could still fail at run time on something the compiler can't see.
+**Three run-time failures the compiler couldn't see.** A first `npm test` after the type repair gave 541 passed, 3 failed and 1 skipped. The three failures were old expectations, not broken code:
+- The catalog test still expected five layers. It is six since wetlands, so it now expects 6.
+- Two tests (one unit, one integration) said an empty drain inspection is refused. That rule was dropped on purpose in commit `f791343`: `PATCH /api/v1/drainage/:id` with nothing but the place is now "a check that found it as it was", so it is accepted. The tests now expect that (`true` and `200`).
+
+**What has not been checked.** After these three edits, only the typecheck was re-run. A final `npm test` is the check that settles whether Render's build passes.
 
 ## Resources to read
 
