@@ -21,6 +21,9 @@ const envSchema = z.object({
     .transform((value) => value === "true"),
   // Path to a PEM CA certificate for hosts signed by a private CA (e.g. Aiven's project CA).
   DATABASE_SSL_CA: z.string().optional(),
+  // The most connections one running copy of the API holds open. The database allows only a few in all
+  // (Aiven's free plan: 20, 3 of them reserved), and Render, a laptop and any script share them.
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(20).default(5),
   FIREBASE_PROJECT_ID: z.string().min(1, "FIREBASE_PROJECT_ID is required"),
   // Bootstraps the very first Administrator (Phase 2 decision 4). Optional; empty = off.
   BOOTSTRAP_ADMIN_EMAIL: z
