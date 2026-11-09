@@ -13,6 +13,14 @@
   background: var(--color-primary-soft);
 }
 
+/* The AI provider form. Its fields need a gap, and this file loads with the section, unlike users.css. */
+.ai-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 36rem;
+}
+
 .source-delete-list {
   max-height: 200px;
   margin: 0;

@@ -50,6 +50,7 @@ import { useSavedPlaces } from "../../hooks/useSavedPlaces";
 import { useSurveyLayers } from "../../hooks/useSurveyLayers";
 import { useTheme } from "../../hooks/useTheme";
 import type { BBox, LonLat } from "../../types/admin-unit.types";
+import { DEFAULT_OUTLOOK_DAYS } from "../../types/flood-prediction.types";
 import type { ClickedFeature } from "../../types/map-layer.types";
 import { boundsAround } from "../../utils/geo-distance";
 import { readMapFocus } from "../../utils/map-focus";
@@ -163,7 +164,7 @@ export function MapPage() {
   const satelliteLayer = satellite.layer;
   const satelliteOn = layers.satelliteFlood && satelliteLayer !== null;
   // 7-day modelled flood prediction choropleth across LGAs
-  const floodPrediction = useFloodPredictions(country?.countryCode ?? null, "7d", layers.floodPrediction);
+  const floodPrediction = useFloodPredictions(country?.countryCode ?? null, DEFAULT_OUTLOOK_DAYS, layers.floodPrediction);
   const floodPredictionOn = layers.floodPrediction;
   const selectedLga = lgaList.find((lga) => lga.id === selectedLgaId) ?? null;
   const isAdmin = user ? hasAnyRole(user.role, ["administrator"]) : false;

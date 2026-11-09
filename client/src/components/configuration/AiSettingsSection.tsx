@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { QUERY_KEYS, SETTINGS_POLICY } from "../../cache/queryClient";
 import { useAiStatus, usePlatformAiCredentials } from "../../hooks/useAi";
+import { useLoader } from "../../hooks/useLoader";
 import { useToast } from "../../hooks/useToast";
 import { errorMessage } from "../../transport/api-error";
-import { AI_FEATURES, AI_PROVIDERS, type AiProviderId } from "../../types/ai.types";
+import { AI_FEATURES, AI_PROVIDERS, type AiModelOption, type AiProviderId } from "../../types/ai.types";
 import { Badge } from "../shared/Badge";
 import { Button } from "../shared/Button";
 import { Callout } from "../shared/Callout";
 import { SelectField } from "../shared/SelectField";
 import { TextField } from "../shared/TextField";
+import "./configuration.css";
 
 const DEFAULT_MODELS: Record<AiProviderId, string> = {
   gemini: "gemini-2.5-flash",
@@ -16,19 +19,97 @@ const DEFAULT_MODELS: Record<AiProviderId, string> = {
   ollama: "llama3.2",
 };
 
+/** The select's last entry: reveals a text box for a model ID the provider did not list. */
+const CUSTOM_MODEL = "__custom__";
+
+/** "Gemini 2.5 Flash (gemini-2.5-flash) · balanced": the name, the ID to save, and the provider's size hint. */
+function modelLabel(m: AiModelOption): string {
+  const name = m.label && m.label !== m.id ? `${m.label} (${m.id})` : m.id;
+  return m.tier ? `${name} · ${m.tier}` : name;
+}
+
 export function AiSettingsSection() {
   const { showToast } = useToast();
   const { status } = useAiStatus();
-  const { credentials, save, activate, remove } = usePlatformAiCredentials();
+  const { credentials, save, activate, remove, listModels } = usePlatformAiCredentials();
   const [provider, setProvider] = useState<AiProviderId>("gemini");
-  const [model, setModel] = useState(DEFAULT_MODELS.gemini);
+  const [chosenModel, setChosenModel] = useState<string | null>(null);
+  const [customModel, setCustomModel] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  // Models listed with a key typed here and not saved yet.
+  const [typedModels, setTypedModels] = useState<AiModelOption[] | null>(null);
+  const [loadingTyped, setLoadingTyped] = useState(false);
+  const [typedError, setTypedError] = useState<string | null>(null);
+  const loadRequest = useRef(0);
+
+  const saved = credentials.find((c) => c.provider === provider);
+  // Until a model is picked, show the one saved for this provider, else the provider's default.
+  const model = chosenModel ?? saved?.model ?? DEFAULT_MODELS[provider];
+  const providerLabel = AI_PROVIDERS.find((p) => p.id === provider)?.label ?? provider;
+  const serverUrl = provider === "ollama" ? baseUrl.trim() || "http://localhost:11434" : null;
+
+  // With a key already saved for this provider the server lists the models itself; no key is typed.
+  const savedModels = useLoader<AiModelOption[]>(
+    saved ? [...QUERY_KEYS.ai, "models", provider, saved.id, saved.updatedAt] : null,
+    () => listModels(provider),
+    SETTINGS_POLICY,
+  );
+  // The loader keeps the previous answer on screen while the next loads: never show another provider's models.
+  const savedList = saved && !savedModels.loading ? (savedModels.data ?? []) : [];
+  const models = typedModels ?? savedList;
+  const loadingModels = loadingTyped || (Boolean(saved) && savedModels.loading);
+  const modelsError = typedError ?? (saved ? savedModels.error : null);
+  const canLoadModels = Boolean(apiKey.trim()) || Boolean(saved) || provider === "ollama";
+
+  // The saved or default model may not be in the provider's list; keep it selectable so the select is never blank.
+  const options = models.map((m) => ({ id: m.id, text: modelLabel(m) }));
+  if (!models.some((m) => m.id === model)) {
+    options.unshift({ id: model, text: models.length > 0 ? `${model} (not in the provider's list)` : model });
+  }
+
+  let modelHint = "";
+  if (loadingModels) modelHint = "Loading models from the provider…";
+  else if (modelsError) modelHint = `Could not load the model list (${modelsError}). Choose “Other…” to type a model ID.`;
+  else if (models.length > 0) modelHint = `${models.length} models available from ${providerLabel}.`;
+  else if (!saved) modelHint = "Showing the default model. Enter your API key and load the provider's models to choose from the full list.";
 
   const handleProviderChange = (next: AiProviderId) => {
+    loadRequest.current += 1; // a reply still on its way belongs to the old provider
     setProvider(next);
-    setModel(DEFAULT_MODELS[next]);
+    setChosenModel(null);
+    setCustomModel(false);
+    setTypedModels(null);
+    setTypedError(null);
+    setLoadingTyped(false);
+  };
+
+  const handleModelSelect = (value: string) => {
+    if (value === CUSTOM_MODEL) {
+      setCustomModel(true);
+      setChosenModel(model);
+    } else {
+      setCustomModel(false);
+      setChosenModel(value);
+    }
+  };
+
+  const handleLoadModels = async () => {
+    const request = ++loadRequest.current;
+    setLoadingTyped(true);
+    setTypedError(null);
+    try {
+      const list = await listModels(provider, { apiKey: apiKey.trim() || undefined, baseUrl: serverUrl });
+      if (request !== loadRequest.current) return;
+      setTypedModels(list);
+      if (list.length === 0) setTypedError(`${providerLabel} returned no chat models`);
+    } catch (err) {
+      if (request !== loadRequest.current) return;
+      setTypedError(errorMessage(err));
+    } finally {
+      if (request === loadRequest.current) setLoadingTyped(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -39,7 +120,7 @@ export function AiSettingsSection() {
         provider,
         model: model.trim(),
         apiKey: apiKey.trim() || undefined,
-        baseUrl: provider === "ollama" ? baseUrl.trim() || "http://localhost:11434" : null,
+        baseUrl: serverUrl,
       });
       setApiKey("");
       showToast({ type: "success", message: "Platform AI provider configuration saved." });
@@ -132,7 +213,7 @@ export function AiSettingsSection() {
           </div>
         )}
 
-        <form onSubmit={handleSave} className="access-form" style={{ maxWidth: "36rem" }}>
+        <form onSubmit={handleSave} className="ai-form">
           <SelectField
             label="AI Provider"
             value={provider}
@@ -145,15 +226,6 @@ export function AiSettingsSection() {
               </option>
             ))}
           </SelectField>
-
-          <TextField
-            label="Model ID"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder="e.g. gemini-2.5-flash"
-            required
-            data-cy="ai-model-input"
-          />
 
           {provider === "ollama" && (
             <TextField
@@ -170,9 +242,50 @@ export function AiSettingsSection() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Paste provider API key"
+            placeholder={saved ? "Saved. Leave blank to keep it" : "Paste provider API key"}
             data-cy="ai-api-key-input"
           />
+
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleLoadModels()}
+              loading={loadingTyped}
+              loadingLabel="Loading models…"
+              disabled={!canLoadModels}
+              data-cy="ai-load-models"
+            >
+              {typedModels ? "Reload available models" : "Load available models"}
+            </Button>
+          </div>
+
+          <SelectField
+            label="Model"
+            value={customModel ? CUSTOM_MODEL : model}
+            onChange={(e) => handleModelSelect(e.target.value)}
+            hint={modelHint}
+            aria-busy={loadingModels}
+            data-cy="ai-model-select"
+          >
+            {options.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.text}
+              </option>
+            ))}
+            <option value={CUSTOM_MODEL}>Other… (type a model ID)</option>
+          </SelectField>
+
+          {customModel && (
+            <TextField
+              label="Model ID"
+              value={model}
+              onChange={(e) => setChosenModel(e.target.value)}
+              placeholder={`e.g. ${DEFAULT_MODELS[provider]}`}
+              required
+              data-cy="ai-model-input"
+            />
+          )}
 
           <div>
             <Button type="submit" loading={saving} loadingLabel="Verifying & saving…" disabled={status?.storageReady === false} data-cy="save-ai-credential">

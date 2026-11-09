@@ -21,11 +21,14 @@ import { usePublicOutline } from "../../hooks/usePublicOutline";
 import { useToast } from "../../hooks/useToast";
 import { errorMessage } from "../../transport/api-error";
 import type { FloodAlert } from "../../types/alert.types";
-import { PREDICTION_RISK_INFO } from "../../types/flood-prediction.types";
+import { DEFAULT_OUTLOOK_DAYS, PREDICTION_RISK_INFO } from "../../types/flood-prediction.types";
 import { severityByLga, SEVERITY_INFO, sortAlerts } from "../../utils/alert-severity";
 import { can } from "../../utils/permissions";
 import "../../components/alerts/alerts.css";
 import "../../components/reports/reports.css";
+
+/** How many flagged LGAs the early-warning banner lists before "+N more". */
+const FLAGGED_PREVIEW = 8;
 
 /**
  * The national alert map for signed-in users: LGAs coloured by the alerts in force, published
@@ -48,12 +51,13 @@ export function AlertsPage() {
   const [editing, setEditing] = useState<FloodAlert | null>(null);
   const [deleting, setDeleting] = useState<FloodAlert | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [showAllFlagged, setShowAllFlagged] = useState(false);
   // Whether the edit being saved was sent to people, for the message afterwards.
   const tellPeople = useRef(false);
   const canIssue = can(user, "alerts.issue");
   const canReview = can(user, "reports.review");
 
-  const { predictions } = useFloodPredictions("NGA", "7d", canIssue);
+  const { predictions } = useFloodPredictions("NGA", DEFAULT_OUTLOOK_DAYS, canIssue);
 
   // Open the issue modal automatically if arrived via ?draftArea=<lgaId> from an LGA profile page
   useEffect(() => {
@@ -176,12 +180,22 @@ export function AlertsPage() {
                 <strong>Early-warning forecast (Modelled, next 7 days):</strong>{" "}
                 {flaggedPredictions.length} {flaggedPredictions.length === 1 ? "LGA has" : "LGAs have"} elevated predicted flood risk without an active alert in force:
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.4rem" }}>
-                  {flaggedPredictions.slice(0, 8).map((pred) => (
+                  {(showAllFlagged ? flaggedPredictions : flaggedPredictions.slice(0, FLAGGED_PREVIEW)).map((pred) => (
                     <Badge key={pred.adminUnit.id} tone={PREDICTION_RISK_INFO[pred.riskLevel].badgeTone}>
                       {pred.adminUnit.unitName}: {PREDICTION_RISK_INFO[pred.riskLevel].label} ({pred.forecastRainfallMm} mm)
                     </Badge>
                   ))}
-                  {flaggedPredictions.length > 8 && <Badge tone="neutral">+{flaggedPredictions.length - 8} more</Badge>}
+                  {flaggedPredictions.length > FLAGGED_PREVIEW && (
+                    <button
+                      type="button"
+                      className="badge badge--neutral badge--button"
+                      aria-expanded={showAllFlagged}
+                      onClick={() => setShowAllFlagged((open) => !open)}
+                      data-cy="toggle-flagged-lgas"
+                    >
+                      {showAllFlagged ? "Show fewer" : `+${flaggedPredictions.length - FLAGGED_PREVIEW} more`}
+                    </button>
+                  )}
                 </div>
               </div>
               <Button

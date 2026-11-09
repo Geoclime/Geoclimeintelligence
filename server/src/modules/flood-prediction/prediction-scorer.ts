@@ -1,14 +1,17 @@
-import type {
-  DailyForecastItem,
-  PredictionDrivers,
-  PredictionHorizon,
-  PredictionRiskLevel,
+import {
+  LIVE_FORECAST_DAYS,
+  MAX_OUTLOOK_DAYS,
+  MIN_OUTLOOK_DAYS,
+  type DailyForecastItem,
+  type PredictionDrivers,
+  type PredictionRiskLevel,
 } from "./flood-prediction.types";
 
 export interface ScoringInputs {
-  horizon: PredictionHorizon;
+  /** How many days ahead to look, MIN_OUTLOOK_DAYS to MAX_OUTLOOK_DAYS. */
+  horizonDays: number;
+  /** The weather provider's daily forecast, starting today. Only the first `horizonDays` are used. */
   days: DailyForecastItem[];
-  peakDischargeM3s: number | null;
   meanDischargeM3s: number | null;
   /** From FloodRiskService.area(): 0-100, or null if no susceptibility map is live */
   percentHighOrVeryHighRisk: number | null;
@@ -69,42 +72,76 @@ export function scoreDailyRain(peakDayMm: number, total7dMm: number): number {
 }
 
 /**
- * Deterministic multi-factor flood prediction scorer.
- * Combines 7-day weather & river discharge with terrain susceptibility, drainage condition,
+ * Scores a month's rain using the monthly guide in docs/rainfall.md:
+ * < 110 mm low, 110-330 moderate, > 330 high, > 430 very high.
+ */
+export function scoreMonthlyRain(monthlyMm: number): number {
+  if (monthlyMm < 110) return clamp((monthlyMm / 110) * 25);
+  if (monthlyMm < 330) return clamp(25 + ((monthlyMm - 110) / 220) * 35);
+  if (monthlyMm < 450) return clamp(60 + ((monthlyMm - 330) / 120) * 25);
+  return clamp(85 + ((monthlyMm - 450) / 200) * 15);
+}
+
+/** The most rain that fell on `length` days in a row within `days`, or in all of them if there are fewer. */
+function heaviestRunMm(days: DailyForecastItem[], length: number): number {
+  let best = 0;
+  let run = 0;
+  days.forEach((day, i) => {
+    run += day.rainfallMm;
+    if (i >= length) run -= days[i - length]!.rainfallMm;
+    best = Math.max(best, run);
+  });
+  return round1(best);
+}
+
+/** The window lengths the two rain models are calibrated on: the daily guide on a week, the monthly guide on 30 days. */
+const DAILY_MODEL_DAYS = 7;
+const MONTHLY_MODEL_DAYS = MAX_OUTLOOK_DAYS;
+
+/**
+ * Deterministic multi-factor flood prediction scorer for an outlook of `horizonDays` days.
+ * Combines weather & river discharge with terrain susceptibility, drainage condition,
  * active flood extents, and 10-year monthly rainfall baseline.
+ *
+ * The days the weather provider can forecast (the first LIVE_FORECAST_DAYS) use that forecast. Any
+ * further day is not forecast: it is assumed to get an even share of the 10-year average rain for the
+ * month, and the result says so. The rain score follows the daily model for a week or less and the
+ * monthly model at 30 days, blending between the two for anything in between.
  */
 export function computeFloodPrediction(input: ScoringInputs): ScoredPrediction {
-  const total7dMm = round1(input.days.reduce((sum, d) => sum + d.rainfallMm, 0));
+  const horizonDays = Math.min(MAX_OUTLOOK_DAYS, Math.max(MIN_OUTLOOK_DAYS, Math.round(input.horizonDays)));
+  const window = input.days.slice(0, Math.min(horizonDays, LIVE_FORECAST_DAYS));
+  const windowTotalMm = round1(window.reduce((sum, d) => sum + d.rainfallMm, 0));
   let peakDailyRainfallMm = 0;
   let peakDayDate: string | null = null;
-  for (const d of input.days) {
+  for (const d of window) {
     if (d.rainfallMm > peakDailyRainfallMm) {
       peakDailyRainfallMm = round1(d.rainfallMm);
       peakDayDate = d.date;
     }
   }
 
-  // 1. Forecast Rain Score (weight 35% for 7d, 30% for seasonal)
-  let forecastRainScore: number;
-  let forecastRainfallMm: number;
-  if (input.horizon === "seasonal") {
-    const monthlyExpected = round1(input.expectedMonthlyRainfallMm ?? input.historicalMonthAverageMm ?? total7dMm * 4.2);
-    forecastRainfallMm = monthlyExpected;
-    // Scale from docs/rainfall.md: <110 low, 110-330 moderate, >330 high, >430 very high
-    if (monthlyExpected < 110) forecastRainScore = clamp((monthlyExpected / 110) * 25);
-    else if (monthlyExpected < 330) forecastRainScore = clamp(25 + ((monthlyExpected - 110) / 220) * 35);
-    else if (monthlyExpected < 450) forecastRainScore = clamp(60 + ((monthlyExpected - 330) / 120) * 25);
-    else forecastRainScore = clamp(85 + ((monthlyExpected - 450) / 200) * 15);
-  } else {
-    forecastRainfallMm = total7dMm;
-    forecastRainScore = scoreDailyRain(peakDailyRainfallMm, total7dMm);
-  }
+  // Days with no forecast get an even share of the month's average rain (or, with no average on file,
+  // the forecast's own daily mean).
+  const assumedDays = horizonDays - window.length;
+  const monthlyMm = input.expectedMonthlyRainfallMm ?? input.historicalMonthAverageMm;
+  const assumedDailyMm = monthlyMm !== null ? monthlyMm / 30 : window.length > 0 ? windowTotalMm / window.length : 0;
+  const assumedMm = round1(assumedDays * assumedDailyMm);
+  const forecastRainfallMm = round1(windowTotalMm + assumedMm);
+
+  // 1. Forecast Rain Score (weight 35%)
+  const dailyScore = scoreDailyRain(peakDailyRainfallMm, heaviestRunMm(window, DAILY_MODEL_DAYS));
+  const monthlyScore = scoreMonthlyRain((forecastRainfallMm / horizonDays) * 30);
+  const monthlyShare = Math.min(1, Math.max(0, (horizonDays - DAILY_MODEL_DAYS) / (MONTHLY_MODEL_DAYS - DAILY_MODEL_DAYS)));
+  const forecastRainScore = clamp((1 - monthlyShare) * dailyScore + monthlyShare * monthlyScore);
 
   // 2. River Discharge Anomaly Score (weight 15%)
+  const windowDischarges = window.map((d) => d.riverDischargeM3s).filter((v): v is number => v !== null);
+  const peakDischargeM3s = windowDischarges.length > 0 ? Math.max(...windowDischarges) : null;
   let riverDischargeRatio: number | null = null;
   let riverDischargeScore = 0;
-  if (input.peakDischargeM3s !== null && input.meanDischargeM3s !== null && input.meanDischargeM3s > 0) {
-    riverDischargeRatio = round2(input.peakDischargeM3s / input.meanDischargeM3s);
+  if (peakDischargeM3s !== null && input.meanDischargeM3s !== null && input.meanDischargeM3s > 0) {
+    riverDischargeRatio = round2(peakDischargeM3s / input.meanDischargeM3s);
     if (riverDischargeRatio <= 1) riverDischargeScore = clamp(riverDischargeRatio * 25);
     else if (riverDischargeRatio <= 2) riverDischargeScore = clamp(25 + (riverDischargeRatio - 1) * 45);
     else riverDischargeScore = clamp(70 + Math.min(30, (riverDischargeRatio - 2) * 30));
@@ -155,19 +192,21 @@ export function computeFloodPrediction(input: ScoringInputs): ScoredPrediction {
   const riskLevel = scoreToRiskLevel(likelihoodScore);
 
   const factors: string[] = [];
-  if (input.horizon === "7d") {
+  const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
+  if (window.length > 0) {
     if (peakDailyRainfallMm >= 50 && peakDayDate) {
-      factors.push(`Very heavy rain forecast (${peakDailyRainfallMm} mm on ${peakDayDate}, ${total7dMm} mm over 7 days)`);
+      factors.push(`Very heavy rain forecast (${peakDailyRainfallMm} mm on ${peakDayDate}, ${windowTotalMm} mm over ${days(window.length)})`);
     } else if (peakDailyRainfallMm >= 25 && peakDayDate) {
-      factors.push(`Heavy daily rain forecast (${peakDailyRainfallMm} mm on ${peakDayDate}, ${total7dMm} mm over 7 days)`);
+      factors.push(`Heavy daily rain forecast (${peakDailyRainfallMm} mm on ${peakDayDate}, ${windowTotalMm} mm over ${days(window.length)})`);
     } else {
-      factors.push(`${total7dMm} mm total rain forecast over the next 7 days`);
+      factors.push(`${windowTotalMm} mm total rain forecast over the next ${days(window.length)}`);
     }
-  } else {
+  }
+  if (assumedDays > 0) {
     factors.push(
-      `Seasonal baseline of ${forecastRainfallMm} mm/month${
-        input.historicalMonthAverageMm !== null ? ` (10-year average: ${round1(input.historicalMonthAverageMm)} mm)` : ""
-      }`,
+      `${days(assumedDays)} beyond the weather forecast assume ${assumedMm} mm, an even share of the 10-year average for the month${
+        input.historicalMonthAverageMm !== null ? ` (${round1(input.historicalMonthAverageMm)} mm)` : ""
+      }. This part is not a forecast`,
     );
   }
 
@@ -194,7 +233,7 @@ export function computeFloodPrediction(input: ScoringInputs): ScoredPrediction {
     forecastRainfallMm,
     peakDailyRainfallMm,
     peakDayDate,
-    riverDischargeM3s: input.peakDischargeM3s !== null ? round1(input.peakDischargeM3s) : null,
+    riverDischargeM3s: peakDischargeM3s !== null ? round1(peakDischargeM3s) : null,
     riverDischargeRatio,
     drivers: {
       forecastRainScore,

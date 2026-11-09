@@ -19,7 +19,7 @@ export const AI_FEATURES = [
   {
     id: "flood_outlook_draft",
     label: "Flood outlook narrative",
-    description: "Synthesizes 7-day and seasonal forecasts, terrain susceptibility, and drainage status into plain-language guidance.",
+    description: "Synthesizes the forecast outlook (1 to 30 days), terrain susceptibility, and drainage status into plain-language guidance.",
   },
   {
     id: "alert_draft",

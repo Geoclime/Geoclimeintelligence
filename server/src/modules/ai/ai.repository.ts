@@ -91,18 +91,22 @@ export class AiRepository implements IAiCredentialRepository, IAiUsageRecorder {
 
       const existing = await this.findByOwnerAndProviderIn(manager, input.userId, input.provider);
       if (existing) {
+        // An UPDATE run through TypeORM's query() comes back as [rows, rowCount], not as the rows, so it
+        // is wrapped in a CTE and read back with a SELECT, as the other repositories do (INSERT is fine).
         const rows: RawCredentialRow[] = await manager.query(
-          `UPDATE ai_credentials
-              SET model = $2,
-                  chat_model = $3,
-                  base_url = $4,
-                  key_ciphertext = $5,
-                  key_last4 = $6,
-                  is_active = $7,
-                  updated_by = $8,
-                  updated_at = now()
-            WHERE id = $1
-            RETURNING *`,
+          `WITH changed AS (
+             UPDATE ai_credentials
+                SET model = $2,
+                    chat_model = $3,
+                    base_url = $4,
+                    key_ciphertext = $5,
+                    key_last4 = $6,
+                    is_active = $7,
+                    updated_by = $8,
+                    updated_at = now()
+              WHERE id = $1
+              RETURNING *)
+           SELECT * FROM changed`,
           [
             existing.id,
             input.model,

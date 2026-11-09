@@ -114,7 +114,7 @@ export function AlertsSection({ alertMap, error, outline, outlineLoading, signed
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <h3 className="card__title" style={{ margin: 0 }}>
-                    {publicOutlook.horizon === "7d" ? "7-Day Flood Outlook" : "30-Day Seasonal Flood Outlook"}
+                    {publicOutlook.horizonDays}-Day Flood Outlook
                   </h3>
                   <Badge tone="neutral">Modelled</Badge>
                 </div>

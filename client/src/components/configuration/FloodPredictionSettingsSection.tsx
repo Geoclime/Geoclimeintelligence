@@ -2,18 +2,18 @@ import { useState } from "react";
 import { useFloodPredictions, useFloodPredictionSettings } from "../../hooks/useFloodPrediction";
 import { useToast } from "../../hooks/useToast";
 import { errorMessage } from "../../transport/api-error";
-import type { PredictionHorizon } from "../../types/flood-prediction.types";
+import { daysLabel, DEFAULT_OUTLOOK_DAYS } from "../../types/flood-prediction.types";
 import { formatDateTime } from "../../utils/formatDate";
+import { OutlookDaysPicker } from "../floods/OutlookDaysPicker";
 import { Badge } from "../shared/Badge";
 import { Button } from "../shared/Button";
 import { ErrorState } from "../shared/ErrorState";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
-import { SelectField } from "../shared/SelectField";
 
 export function FloodPredictionSettingsSection() {
   const { showToast } = useToast();
   const { settings, loading, error, refetch, update } = useFloodPredictionSettings();
-  const { generatedAt, refresh } = useFloodPredictions("NGA", "7d", true);
+  const { generatedAt, refresh } = useFloodPredictions("NGA", DEFAULT_OUTLOOK_DAYS, true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -34,11 +34,11 @@ export function FloodPredictionSettingsSection() {
     }
   };
 
-  const handleHorizonChange = async (horizon: PredictionHorizon) => {
+  const handleDaysChange = async (days: number) => {
     setSaving(true);
     try {
-      await update({ publicOutlookHorizon: horizon });
-      showToast({ type: "success", message: "Public flood outlook horizon updated." });
+      await update({ publicOutlookDays: days });
+      showToast({ type: "success", message: `The public flood outlook now looks ${daysLabel(days)} ahead.` });
     } catch (err) {
       showToast({ type: "error", message: errorMessage(err) });
     } finally {
@@ -117,17 +117,14 @@ export function FloodPredictionSettingsSection() {
               </span>
             </label>
 
-            <div style={{ maxWidth: "20rem" }}>
-              <SelectField
-                label="Public outlook horizon"
-                value={settings.publicOutlookHorizon}
+            <div style={{ maxWidth: "32rem" }}>
+              <OutlookDaysPicker
+                label="Public outlook: days ahead"
+                value={settings.publicOutlookDays}
                 disabled={saving}
-                onChange={(e) => void handleHorizonChange(e.target.value as PredictionHorizon)}
-                data-cy="public-outlook-horizon"
-              >
-                <option value="7d">Next 7 days (Short-term weather &amp; river discharge)</option>
-                <option value="seasonal">30-day seasonal baseline</option>
-              </SelectField>
+                onChange={(days) => void handleDaysChange(days)}
+                dataCy="public-outlook-days"
+              />
             </div>
 
             <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>

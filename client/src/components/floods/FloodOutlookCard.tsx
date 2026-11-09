@@ -5,7 +5,12 @@ import { useAuth } from "../../hooks/useAuth";
 import { useAreaFloodOutlook } from "../../hooks/useFloodPrediction";
 import { useToast } from "../../hooks/useToast";
 import { errorMessage } from "../../transport/api-error";
-import { PREDICTION_RISK_INFO, type PredictionHorizon } from "../../types/flood-prediction.types";
+import {
+  daysLabel,
+  DEFAULT_OUTLOOK_DAYS,
+  LIVE_FORECAST_DAYS,
+  PREDICTION_RISK_INFO,
+} from "../../types/flood-prediction.types";
 import { formatDate } from "../../utils/formatDate";
 import { can } from "../../utils/permissions";
 import { hasAnyRole } from "../../utils/roles";
@@ -14,6 +19,7 @@ import { Badge } from "../shared/Badge";
 import { Button, buttonClassName } from "../shared/Button";
 import { ErrorState } from "../shared/ErrorState";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
+import { OutlookDaysPicker } from "./OutlookDaysPicker";
 import "./flood-outlook.css";
 
 interface FloodOutlookCardProps {
@@ -27,8 +33,8 @@ export function FloodOutlookCard({ areaId, areaName }: FloodOutlookCardProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { status: aiStatus } = useAiStatus();
-  const { outlook, loading, error, refetch, generateAi, generatingAi } = useAreaFloodOutlook(areaId);
-  const [horizon, setHorizon] = useState<PredictionHorizon>("7d");
+  const [days, setDays] = useState(DEFAULT_OUTLOOK_DAYS);
+  const { outlook, loading, error, refetch, generateAi, generatingAi } = useAreaFloodOutlook(areaId, days);
 
   const canUseAi = Boolean(user && hasAnyRole(user.role, [...AI_ROLES]));
   const canIssueAlert = can(user, "alerts.issue");
@@ -51,7 +57,9 @@ export function FloodOutlookCard({ areaId, areaName }: FloodOutlookCardProps) {
 
   if (!outlook) return null;
 
-  const prediction = horizon === "7d" ? outlook.sevenDay : outlook.seasonal;
+  const prediction = outlook.outlook;
+  // While a new number of days loads, the last answer stays on screen; label it by what it really covers.
+  const shownDays = prediction.horizonDays;
   const riskInfo = PREDICTION_RISK_INFO[prediction.riskLevel];
 
   const dailyColumns: RainfallColumn[] = prediction.dailyForecast.map((day) => ({
@@ -66,7 +74,7 @@ export function FloodOutlookCard({ areaId, areaName }: FloodOutlookCardProps) {
 
   const handleGenerateAi = async () => {
     try {
-      await generateAi(horizon);
+      await generateAi();
       showToast({ type: "success", message: "AI flood outlook analysis generated." });
     } catch (err) {
       showToast({ type: "error", message: errorMessage(err) });
@@ -74,38 +82,22 @@ export function FloodOutlookCard({ areaId, areaName }: FloodOutlookCardProps) {
   };
 
   return (
-    <section className="card" aria-labelledby={`flood-outlook-${areaId}`} data-cy="flood-outlook-card">
+    <section
+      className="card flood-outlook-card"
+      aria-labelledby={`flood-outlook-${areaId}`}
+      aria-busy={loading}
+      data-cy="flood-outlook-card"
+    >
       <div className="card__header">
         <div>
           <h2 id={`flood-outlook-${areaId}`} className="card__title">
             Flood forecast &amp; outlook
           </h2>
           <p className="card__subtitle">
-            Modelled 7-day weather &amp; river discharge combined with terrain susceptibility and drainage records for {areaName}.
+            Modelled {shownDays}-day weather &amp; river discharge combined with terrain susceptibility and drainage records for {areaName}.
           </p>
         </div>
-        <div className="flood-outlook-card__tabs" role="tablist" aria-label="Forecast horizon">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={horizon === "7d"}
-            className={`flood-outlook-card__tab${horizon === "7d" ? " is-active" : ""}`}
-            onClick={() => setHorizon("7d")}
-            data-cy="outlook-tab-7d"
-          >
-            Next 7 days
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={horizon === "seasonal"}
-            className={`flood-outlook-card__tab${horizon === "seasonal" ? " is-active" : ""}`}
-            onClick={() => setHorizon("seasonal")}
-            data-cy="outlook-tab-seasonal"
-          >
-            30-day seasonal
-          </button>
-        </div>
+        <OutlookDaysPicker label="Days ahead" value={days} onChange={setDays} dataCy="outlook-days-picker" />
       </div>
 
       <div className="card__body">
@@ -135,7 +127,9 @@ export function FloodOutlookCard({ areaId, areaName }: FloodOutlookCardProps) {
 
         <div className="stat-grid">
           <div className="card stat">
-            <span className="stat__label">{horizon === "7d" ? "7-day forecast rain" : "Monthly baseline rain"}</span>
+            <span className="stat__label">
+              {shownDays <= LIVE_FORECAST_DAYS ? `${shownDays}-day forecast rain` : `Expected rain over ${shownDays} days`}
+            </span>
             <span className="stat__value">{prediction.forecastRainfallMm} mm</span>
             {prediction.peakDayDate && (
               <span className="rainfall-card__delta">
@@ -167,15 +161,21 @@ export function FloodOutlookCard({ areaId, areaName }: FloodOutlookCardProps) {
           </div>
         </div>
 
-        {horizon === "7d" && dailyColumns.length > 0 && (
+        {dailyColumns.length > 0 && (
           <div className="section-gap">
-            <h3 className="rainfall-card__section-title">Daily forecast rainfall (next 7 days)</h3>
+            <h3 className="rainfall-card__section-title">Daily forecast rainfall (next {daysLabel(dailyColumns.length)})</h3>
             <RainfallChart
               columns={dailyColumns}
               valueLabel="Forecast rainfall"
               averageLabel={null}
-              ariaLabel={`7-day daily rainfall forecast for ${areaName}`}
+              ariaLabel={`${dailyColumns.length}-day daily rainfall forecast for ${areaName}`}
             />
+            {shownDays > dailyColumns.length && (
+              <p className="muted" style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}>
+                The weather forecast stops after {daysLabel(dailyColumns.length)}. The other {shownDays - dailyColumns.length} of the {shownDays}{" "}
+                days assume the 10-year average rain for the month, so they are not shown here.
+              </p>
+            )}
           </div>
         )}
 

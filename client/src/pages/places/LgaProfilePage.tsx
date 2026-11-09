@@ -13,22 +13,29 @@ import { buttonClassName } from "../../components/shared/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { ErrorState } from "../../components/shared/ErrorState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { Tabs, type TabItem } from "../../components/shared/Tabs";
 import { useAdminUnit } from "../../hooks/useAdminUnit";
 import { useAdminUnitChildren } from "../../hooks/useAdminUnitChildren";
 import { useAdminUnitLayer } from "../../hooks/useAdminUnitLayer";
 import { useAreaSurvey } from "../../hooks/useAreaSurvey";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useTabParam } from "../../hooks/useTabParam";
 import { useTheme } from "../../hooks/useTheme";
 import { formatCoordinates } from "../../utils/formatCoordinates";
 import { MAP_PATH } from "../../utils/map-url";
 
+/** The tabs of an LGA page, in order. The open one lives in the URL (?tab=forecast). */
+const LGA_TAB_IDS = ["overview", "risk", "forecast", "rainfall", "satellite", "wards"] as const;
+
 /**
- * One LGA: outlined on a small map with its wards, its code, parent and source, its monthly
- * rainfall, its flood history (the floods responders recorded there, listed and drawn on its map, where a
- * click opens one), and its wards as a clickable list.
+ * One LGA, in tabs: an overview (its code, parent and source, outlined on a small map with its wards,
+ * where the floods responders recorded there are drawn and a click opens one), flood risk and history
+ * and drainage, the flood forecast, monthly rainfall, satellite water, and its wards as a clickable list.
+ * A tab loads its data the first time it is opened.
  */
 export function LgaProfilePage() {
   const { id } = useParams();
+  const [activeTab, selectTab] = useTabParam(LGA_TAB_IDS);
   const { resolved: theme } = useTheme();
   const { unit, loading, error, notFound, refetch } = useAdminUnit(id);
   const { children: wards, loading: wardsLoading, error: wardsError } = useAdminUnitChildren(unit?.id);
@@ -55,6 +62,120 @@ export function LgaProfilePage() {
   }
   if (error || !unit) return <ErrorState message={error ?? "The area couldn't be loaded."} onRetry={refetch} />;
 
+  const tabs: TabItem[] = [
+    {
+      id: "overview",
+      label: "Overview",
+      dataCy: "lga-tab-overview",
+      content: (
+        <div className="split">
+          <div className="stack">
+            <section className="card card__body" aria-label="About this area">
+              <dl className="detail-list" data-cy="lga-details">
+                <div>
+                  <dt>Code</dt>
+                  <dd>{unit.unitCode ?? <span className="muted">Not available</span>}</dd>
+                </div>
+                <div>
+                  <dt>Wards</dt>
+                  <dd>{unit.childCount > 0 ? unit.childCount : <span className="muted">Not loaded yet</span>}</dd>
+                </div>
+                <div>
+                  <dt>Centre</dt>
+                  <dd className="mono">{formatCoordinates(unit.centroid)}</dd>
+                </div>
+              </dl>
+            </section>
+            <section className="card card__body">
+              <SourceBadge source={unit.source} variant="full" />
+            </section>
+          </div>
+
+          <AreaOutlineMap
+            label={`Map of ${unit.unitName} and its wards`}
+            theme={theme}
+            geometry={unit.geometry}
+            areaId={unit.id}
+            bbox={unit.bbox}
+            innerAreas={wardShapes.data}
+            countryCode={unit.countryCode}
+            floods={area.floods}
+            drains={area.drains}
+            onSelect={area.select}
+            dataCy="lga-map"
+          >
+            <AreaSurveyPopup selected={area.selected} onClose={area.close} />
+          </AreaOutlineMap>
+        </div>
+      ),
+    },
+    {
+      id: "risk",
+      label: "Flood risk",
+      dataCy: "lga-tab-risk",
+      content: (
+        <div className="stack">
+          <FloodRiskCard areaId={unit.id} areaName={unit.unitName} />
+          <FloodHistoryCard areaId={unit.id} areaName={unit.unitName} />
+          <DrainageCard areaId={unit.id} areaName={unit.unitName} />
+        </div>
+      ),
+    },
+    {
+      id: "forecast",
+      label: "Forecast",
+      dataCy: "lga-tab-forecast",
+      content: <FloodOutlookCard areaId={unit.id} areaName={unit.unitName} />,
+    },
+    {
+      id: "rainfall",
+      label: "Rainfall",
+      dataCy: "lga-tab-rainfall",
+      content: <RainfallCard adminUnitId={unit.id} areaName={unit.unitName} />,
+    },
+    {
+      id: "satellite",
+      label: "Satellite water",
+      dataCy: "lga-tab-satellite",
+      content: <SatelliteWaterCard areaId={unit.id} areaName={unit.unitName} countryCode={unit.countryCode} lgaId={unit.id} />,
+    },
+    {
+      id: "wards",
+      label: unit.childCount > 0 ? `Wards (${unit.childCount})` : "Wards",
+      dataCy: "lga-tab-wards",
+      content: (
+        <section className="card" aria-labelledby="wards-title">
+          <div className="card__header">
+            <div>
+              <h2 id="wards-title" className="card__title">
+                Wards
+              </h2>
+              <p className="card__subtitle">The wards inside {unit.unitName}.</p>
+            </div>
+          </div>
+          {wardsLoading && wards.length === 0 ? (
+            <LoadingSpinner message="Loading wards…" />
+          ) : wardsError ? (
+            <ErrorState message={wardsError} />
+          ) : wards.length === 0 ? (
+            <EmptyState icon="pin" message="No wards are loaded for this LGA yet." />
+          ) : (
+            <ul className="ward-grid" data-cy="ward-list">
+              {wards.map((ward) => (
+                <li key={ward.id}>
+                  <Link to={`/places/${unit.id}/wards/${ward.id}`} className="ward-grid__link" data-cy="ward-link">
+                    <span className="ward-grid__name">{ward.unitName}</span>
+                    {ward.unitCode && <span className="ward-grid__code">{ward.unitCode}</span>}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ),
+    },
+  ];
+
   return (
     <div className="page" data-cy="lga-profile-page">
       <Breadcrumbs items={[{ label: "Places", to: "/places" }, { label: unit.unitName }]} />
@@ -71,89 +192,7 @@ export function LgaProfilePage() {
         </Link>
       </header>
 
-      <div className="split">
-        <div className="stack">
-          <section className="card card__body" aria-label="About this area">
-            <dl className="detail-list" data-cy="lga-details">
-              <div>
-                <dt>Code</dt>
-                <dd>{unit.unitCode ?? <span className="muted">Not available</span>}</dd>
-              </div>
-              <div>
-                <dt>Wards</dt>
-                <dd>{unit.childCount > 0 ? unit.childCount : <span className="muted">Not loaded yet</span>}</dd>
-              </div>
-              <div>
-                <dt>Centre</dt>
-                <dd className="mono">{formatCoordinates(unit.centroid)}</dd>
-              </div>
-            </dl>
-          </section>
-          <section className="card card__body">
-            <SourceBadge source={unit.source} variant="full" />
-          </section>
-          <FloodRiskCard areaId={unit.id} areaName={unit.unitName} />
-          <FloodHistoryCard areaId={unit.id} areaName={unit.unitName} />
-          <DrainageCard areaId={unit.id} areaName={unit.unitName} />
-        </div>
-
-        <AreaOutlineMap
-          label={`Map of ${unit.unitName} and its wards`}
-          theme={theme}
-          geometry={unit.geometry}
-          areaId={unit.id}
-          bbox={unit.bbox}
-          innerAreas={wardShapes.data}
-          countryCode={unit.countryCode}
-          floods={area.floods}
-          drains={area.drains}
-          onSelect={area.select}
-          dataCy="lga-map"
-        >
-          <AreaSurveyPopup selected={area.selected} onClose={area.close} />
-        </AreaOutlineMap>
-      </div>
-
-      <div className="section-gap">
-        <FloodOutlookCard areaId={unit.id} areaName={unit.unitName} />
-      </div>
-
-      <div className="section-gap">
-        <RainfallCard adminUnitId={unit.id} areaName={unit.unitName} />
-      </div>
-
-      <div className="section-gap">
-        <SatelliteWaterCard areaId={unit.id} areaName={unit.unitName} countryCode={unit.countryCode} lgaId={unit.id} />
-      </div>
-
-      <section className="card section-gap" aria-labelledby="wards-title">
-        <div className="card__header">
-          <div>
-            <h2 id="wards-title" className="card__title">
-              Wards
-            </h2>
-            <p className="card__subtitle">The wards inside {unit.unitName}.</p>
-          </div>
-        </div>
-        {wardsLoading && wards.length === 0 ? (
-          <LoadingSpinner message="Loading wards…" />
-        ) : wardsError ? (
-          <ErrorState message={wardsError} />
-        ) : wards.length === 0 ? (
-          <EmptyState icon="pin" message="No wards are loaded for this LGA yet." />
-        ) : (
-          <ul className="ward-grid" data-cy="ward-list">
-            {wards.map((ward) => (
-              <li key={ward.id}>
-                <Link to={`/places/${unit.id}/wards/${ward.id}`} className="ward-grid__link" data-cy="ward-link">
-                  <span className="ward-grid__name">{ward.unitName}</span>
-                  {ward.unitCode && <span className="ward-grid__code">{ward.unitCode}</span>}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <Tabs tabs={tabs} activeId={activeTab} onChange={selectTab} ariaLabel={`${unit.unitName} sections`} lazy />
     </div>
   );
 }

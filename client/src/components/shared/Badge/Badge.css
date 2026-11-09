@@ -14,6 +14,16 @@
   white-space: nowrap;
 }
 
+/* A badge that is a <button>, e.g. "+2 more", which shows the rest when pressed. */
+.badge--button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.badge--button:hover {
+  background: color-mix(in srgb, var(--badge-color) 22%, transparent);
+}
+
 .badge--primary {
   --badge-color: var(--color-primary);
 }

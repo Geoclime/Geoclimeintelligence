@@ -1,7 +1,9 @@
 import type { AuthUser } from "../../common/access/auth-user";
 import { RegionAccess } from "../../common/access/region-access";
+import { forEachWithLimit } from "../../common/concurrency/for-each-with-limit";
 import { NotFoundError, ValidationError } from "../../common/errors/app-error";
 import { domainEvents } from "../../common/events/domain-events";
+import { logger } from "../../config/logger";
 import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import { toRef, type AdminUnitSummary, type IAdminUnitRepository } from "../admin-units/admin-unit.types";
 import { AiService } from "../ai/ai.service";
@@ -24,19 +26,27 @@ import {
   type FloodOutlookPromptInput,
 } from "./flood-prediction.domain";
 import { FloodPredictionRepository } from "./flood-prediction.repository";
-import type {
-  AlertDraftDto,
-  AreaFloodOutlookDto,
-  FloodPredictionDto,
-  FloodPredictionListDto,
-  FloodPredictionSettingsDto,
-  IFloodPredictionRepository,
-  IForecastFetcher,
-  PredictionHorizon,
-  PublicFloodOutlookDto,
+import {
+  DEFAULT_OUTLOOK_DAYS,
+  LIVE_FORECAST_DAYS,
+  type AlertDraftDto,
+  type AreaFloodOutlookDto,
+  type FloodPredictionDto,
+  type FloodPredictionListDto,
+  type FloodPredictionSettingsDto,
+  type ForecastSnapshot,
+  type IFloodPredictionRepository,
+  type IForecastFetcher,
+  type PublicFloodOutlookDto,
 } from "./flood-prediction.types";
 import { OpenMeteoForecastFetcher } from "./forecast-fetcher";
-import { computeFloodPrediction } from "./prediction-scorer";
+import { computeFloodPrediction, type ScoringInputs } from "./prediction-scorer";
+
+/**
+ * How many LGAs are recomputed at once. Enough to hide the weather API's delay; few enough to leave
+ * most of the small database pool (DATABASE_POOL_MAX, 5 by default) free for everyone else's requests.
+ */
+const REFRESH_CONCURRENCY = 4;
 
 export interface FloodPredictionDeps {
   predictions: IFloodPredictionRepository;
@@ -70,95 +80,106 @@ export class FloodPredictionService {
   }
 
   private readonly now: () => Date;
+  private readonly refreshing = new Map<string, Promise<number>>();
 
   constructor(private readonly deps: FloodPredictionDeps) {
     this.now = deps.now ?? (() => new Date());
   }
 
   /**
-   * Lists predictions for all LGAs in a country for the chosen horizon.
+   * Lists predictions for all LGAs in a country for an outlook of `days` days.
    * If none have been computed yet, computes them on the fly so the map layer and Alerts page
    * always have fresh predictions ready.
    */
-  async list(countryCode: string, horizon: PredictionHorizon = "7d"): Promise<FloodPredictionListDto> {
-    let items = await this.deps.predictions.findByCountry(countryCode, horizon);
+  async list(countryCode: string, days: number = DEFAULT_OUTLOOK_DAYS): Promise<FloodPredictionListDto> {
+    let items = await this.deps.predictions.findByCountry(countryCode, days);
     if (items.length === 0) {
-      await this.refreshCountry(countryCode);
-      items = await this.deps.predictions.findByCountry(countryCode, horizon);
+      await this.recomputeCountry(countryCode, [days]);
+      items = await this.deps.predictions.findByCountry(countryCode, days);
     }
     const generatedAt = items.length > 0 ? items[0]!.updatedAt : null;
-    return { countryCode, horizon, generatedAt, items };
+    return { countryCode, horizonDays: days, generatedAt, items };
   }
 
   /**
-   * Detailed 7-day and seasonal outlook for one LGA or Ward.
+   * Detailed outlook for one LGA or Ward, looking `days` days ahead.
    * Computes and stores the prediction on first read if not yet present.
    */
-  async area(adminUnitId: string): Promise<AreaFloodOutlookDto> {
+  async area(adminUnitId: string, days: number = DEFAULT_OUTLOOK_DAYS): Promise<AreaFloodOutlookDto> {
     const unit = await this.deps.units.findSummaryById(adminUnitId);
     if (!unit) throw new NotFoundError("Admin unit");
 
-    let [sevenDay, seasonal] = await Promise.all([
-      this.deps.predictions.findByUnit(adminUnitId, "7d"),
-      this.deps.predictions.findByUnit(adminUnitId, "seasonal"),
-    ]);
+    const outlook =
+      (await this.deps.predictions.findByUnit(adminUnitId, days)) ?? (await this.computeAndStoreForUnit(unit, [days])).get(days)!;
 
-    if (!sevenDay || !seasonal) {
-      const computed = await this.computeAndStoreForUnit(unit);
-      sevenDay = computed.sevenDay;
-      seasonal = computed.seasonal;
-    }
-
-    return {
-      adminUnit: toRef(unit),
-      sevenDay,
-      seasonal,
-    };
+    return { adminUnit: toRef(unit), horizonDays: days, outlook };
   }
 
   /**
-   * Refreshes both 7d and seasonal predictions for all LGAs in a country.
+   * Refreshes the predictions for all LGAs in a country, for every number of days in use.
    */
   async refreshCountry(countryCode: string, actor?: AuthUser): Promise<FloodPredictionListDto> {
-    const { items: lgas } = await this.deps.units.findSummaries({
-      countryCode,
-      level: 2,
-      page: 1,
-      pageSize: 100,
-    });
-
-    for (const lga of lgas) {
-      await this.computeAndStoreForUnit(lga);
-    }
+    const lgaCount = await this.recomputeCountry(countryCode);
 
     if (actor) {
       await this.deps.audit.record(actor, {
         action: "flood_prediction.refreshed",
         entityType: "flood_prediction",
         entityId: null,
-        summary: `Refreshed 7-day and seasonal flood predictions for ${lgas.length} LGAs in ${countryCode}`,
-        details: { countryCode, lgaCount: lgas.length },
+        summary: `Refreshed flood predictions for ${lgaCount} LGAs in ${countryCode}`,
+        details: { countryCode, lgaCount },
       });
     }
 
     domainEvents.emit("prediction.updated", { countryCode });
-    return this.list(countryCode, "7d");
+    // Read the result directly: list() refreshes an empty country, so calling it here would loop
+    // for ever for a country that has no LGAs.
+    const items = await this.deps.predictions.findByCountry(countryCode, DEFAULT_OUTLOOK_DAYS);
+    return {
+      countryCode,
+      horizonDays: DEFAULT_OUTLOOK_DAYS,
+      generatedAt: items[0]?.updatedAt ?? null,
+      items,
+    };
+  }
+
+  /**
+   * Recomputes every LGA of a country and returns how many there were. Each LGA is scored for every
+   * number of days that matters: the default week, the public home page's setting, every number already
+   * computed (so none of them goes stale), and any in `alsoDays`. A few LGAs are worked on at once,
+   * because each one mostly waits on the weather API and the database. If a refresh of the same
+   * country is already running (a second click, or a client that timed out and asked again), the
+   * caller joins it, so repeated requests never pile up extra work.
+   */
+  private recomputeCountry(countryCode: string, alsoDays: number[] = []): Promise<number> {
+    const key = `${countryCode}:${[...alsoDays].sort((a, b) => a - b).join(",")}`;
+    const running = this.refreshing.get(key);
+    if (running) return running;
+
+    const run = (async () => {
+      const [{ items: lgas }, settings, inUse] = await Promise.all([
+        this.deps.units.findSummaries({ countryCode, level: 2, page: 1, pageSize: 100 }),
+        this.deps.predictions.getSettings(),
+        this.deps.predictions.horizonsInUse(countryCode),
+      ]);
+      const days = [...new Set([DEFAULT_OUTLOOK_DAYS, settings.publicOutlookDays, ...inUse, ...alsoDays])];
+      await forEachWithLimit(lgas, REFRESH_CONCURRENCY, (lga) => this.computeAndStoreForUnit(lga, days));
+      return lgas.length;
+    })().finally(() => this.refreshing.delete(key));
+
+    this.refreshing.set(key, run);
+    return run;
   }
 
   /**
    * Runs `AiService.generateJson` (`flood_outlook_draft`) to synthesize a plain-English narrative
    * and preparedness checklist for a specific LGA or Ward.
    */
-  async generateAiOutlook(
-    adminUnitId: string,
-    horizon: PredictionHorizon,
-    actor: AuthUser,
-  ): Promise<FloodPredictionDto> {
+  async generateAiOutlook(adminUnitId: string, days: number, actor: AuthUser): Promise<FloodPredictionDto> {
     const unit = await this.deps.units.findSummaryById(adminUnitId);
     if (!unit) throw new NotFoundError("Admin unit");
 
-    const { sevenDay, seasonal } = await this.computeAndStoreForUnit(unit);
-    const target = horizon === "seasonal" ? seasonal : sevenDay;
+    const target = (await this.computeAndStoreForUnit(unit, [days])).get(days)!;
     const promptInput = await this.buildPromptInputFor(unit, target);
 
     const aiResult = await this.deps.ai.generateJson(actor, {
@@ -175,7 +196,7 @@ export class FloodPredictionService {
     const updated = await this.deps.predictions.upsert({
       adminUnitId: unit.id,
       countryCode: unit.countryCode,
-      horizon: target.horizon,
+      horizonDays: target.horizonDays,
       validFrom: new Date(target.validFrom),
       validTo: new Date(target.validTo),
       riskLevel: target.riskLevel,
@@ -215,10 +236,9 @@ export class FloodPredictionService {
       if (!unit) throw new ValidationError([{ field: "areaIds", message: `No area with id ${id} exists` }]);
       await this.deps.regions.assert(actor, id);
 
-      let prediction = await this.deps.predictions.findByUnit(id, "7d");
-      if (!prediction) {
-        prediction = (await this.computeAndStoreForUnit(unit)).sevenDay;
-      }
+      const prediction =
+        (await this.deps.predictions.findByUnit(id, DEFAULT_OUTLOOK_DAYS)) ??
+        (await this.computeAndStoreForUnit(unit, [DEFAULT_OUTLOOK_DAYS])).get(DEFAULT_OUTLOOK_DAYS)!;
       promptInputs.push(await this.buildPromptInputFor(unit, prediction));
     }
 
@@ -245,7 +265,7 @@ export class FloodPredictionService {
   }
 
   async updateSettings(
-    patch: { showPublicFloodOutlook?: boolean; publicOutlookHorizon?: PredictionHorizon },
+    patch: { showPublicFloodOutlook?: boolean; publicOutlookDays?: number },
     actor: AuthUser,
   ): Promise<FloodPredictionSettingsDto> {
     const updated = await this.deps.predictions.updateSettings({
@@ -256,13 +276,22 @@ export class FloodPredictionService {
       action: "flood_prediction.settings_updated",
       entityType: "platform_settings",
       entityId: null,
-      summary: `${updated.showPublicFloodOutlook ? "Enabled" : "Hid"} public flood outlook on the landing page (${updated.publicOutlookHorizon})`,
+      summary: `${updated.showPublicFloodOutlook ? "Enabled" : "Hid"} public flood outlook on the landing page (${updated.publicOutlookDays} days)`,
       details: {
         showPublicFloodOutlook: updated.showPublicFloodOutlook,
-        publicOutlookHorizon: updated.publicOutlookHorizon,
+        publicOutlookDays: updated.publicOutlookDays,
       },
     });
     domainEvents.emit("prediction.updated", { countryCode: "NGA" });
+
+    // A new number of days has no outlooks yet. Start computing them now, so the first visitor to the
+    // home page does not wait for a whole country to be worked out. Not awaited: it takes a while, and
+    // a failure here only means that first visitor computes them instead.
+    if (patch.publicOutlookDays !== undefined) {
+      void this.recomputeCountry("NGA", [updated.publicOutlookDays]).catch((err) =>
+        logger.warn({ err }, "Could not precompute the public flood outlook for the new number of days"),
+      );
+    }
     return updated;
   }
 
@@ -275,17 +304,17 @@ export class FloodPredictionService {
     if (!settings.showPublicFloodOutlook) {
       return {
         enabled: false,
-        horizon: settings.publicOutlookHorizon,
+        horizonDays: settings.publicOutlookDays,
         generatedAt: null,
         weatherProvider: "Open-Meteo & GloFAS",
         items: [],
       };
     }
 
-    const list = await this.list(countryCode, settings.publicOutlookHorizon);
+    const list = await this.list(countryCode, settings.publicOutlookDays);
     return {
       enabled: true,
-      horizon: settings.publicOutlookHorizon,
+      horizonDays: settings.publicOutlookDays,
       generatedAt: list.generatedAt,
       weatherProvider: list.items[0]?.weatherProvider ?? "Open-Meteo & GloFAS",
       items: list.items.map((item) => ({
@@ -302,15 +331,20 @@ export class FloodPredictionService {
     };
   }
 
+  /**
+   * Gathers everything the score depends on once (the forecast, terrain, drains, floods, rainfall
+   * history), then scores and stores an outlook for each number of days asked for.
+   */
   private async computeAndStoreForUnit(
     unit: AdminUnitSummary,
-  ): Promise<{ sevenDay: FloodPredictionDto; seasonal: FloodPredictionDto }> {
+    horizonDays: number[],
+  ): Promise<Map<number, FloodPredictionDto>> {
     const now = this.now();
     const [lon, lat] = unit.centroid;
     const rainfallUnitId = unit.level === 3 && unit.parentId ? unit.parentId : unit.id;
 
     const [forecast, riskArea, drainageSummary, floodHistory, rainfallSeries] = await Promise.all([
-      this.deps.fetcher.fetch7Day(lon, lat, now),
+      this.deps.fetcher.fetchForecast(lon, lat, now),
       this.deps.floodRisk.area(unit.id).catch(() => null),
       this.deps.drainage.summary(unit.id, 10).catch(() => ({
         total: 0,
@@ -346,7 +380,6 @@ export class FloodPredictionService {
 
     const commonInputs = {
       days: forecast.days,
-      peakDischargeM3s: forecast.peakDischargeM3s,
       meanDischargeM3s: forecast.meanDischargeM3s,
       percentHighOrVeryHighRisk: riskArea?.percentHighOrVeryHigh ?? null,
       blockedDrainsCount: drainageSummary.needAttention,
@@ -356,61 +389,43 @@ export class FloodPredictionService {
       expectedMonthlyRainfallMm: historicalMonthAverageMm,
     };
 
-    const scored7d = computeFloodPrediction({ ...commonInputs, horizon: "7d" });
-    const scoredSeasonal = computeFloodPrediction({ ...commonInputs, horizon: "seasonal" });
+    const outlooks = await Promise.all(
+      [...new Set(horizonDays)].map((days) => this.scoreAndStore(unit, forecast, commonInputs, days, now)),
+    );
+    return new Map(outlooks.map((outlook) => [outlook.horizonDays, outlook]));
+  }
 
-    const validFrom = now;
-    const validTo7d = new Date(now.getTime() + 7 * 86_400_000);
-    const validToSeasonal = new Date(now.getTime() + 30 * 86_400_000);
-
-    const [sevenDay, seasonal] = await Promise.all([
-      this.deps.predictions.upsert({
-        adminUnitId: unit.id,
-        countryCode: unit.countryCode,
-        horizon: "7d",
-        validFrom,
-        validTo: validTo7d,
-        riskLevel: scored7d.riskLevel,
-        likelihoodScore: scored7d.likelihoodScore,
-        forecastRainfallMm: scored7d.forecastRainfallMm,
-        peakDailyRainfallMm: scored7d.peakDailyRainfallMm,
-        peakDayDate: scored7d.peakDayDate,
-        riverDischargeM3s: scored7d.riverDischargeM3s,
-        riverDischargeRatio: scored7d.riverDischargeRatio,
-        dailyForecast: forecast.days,
-        drivers: scored7d.drivers,
-        aiSummary: null,
-        aiPreparedness: [],
-        aiCaveats: null,
-        aiProvider: null,
-        aiModel: null,
-        weatherProvider: forecast.weatherProvider,
-      }),
-      this.deps.predictions.upsert({
-        adminUnitId: unit.id,
-        countryCode: unit.countryCode,
-        horizon: "seasonal",
-        validFrom,
-        validTo: validToSeasonal,
-        riskLevel: scoredSeasonal.riskLevel,
-        likelihoodScore: scoredSeasonal.likelihoodScore,
-        forecastRainfallMm: scoredSeasonal.forecastRainfallMm,
-        peakDailyRainfallMm: scoredSeasonal.peakDailyRainfallMm,
-        peakDayDate: scoredSeasonal.peakDayDate,
-        riverDischargeM3s: scoredSeasonal.riverDischargeM3s,
-        riverDischargeRatio: scoredSeasonal.riverDischargeRatio,
-        dailyForecast: forecast.days,
-        drivers: scoredSeasonal.drivers,
-        aiSummary: null,
-        aiPreparedness: [],
-        aiCaveats: null,
-        aiProvider: null,
-        aiModel: null,
-        weatherProvider: forecast.weatherProvider,
-      }),
-    ]);
-
-    return { sevenDay, seasonal };
+  private scoreAndStore(
+    unit: AdminUnitSummary,
+    forecast: ForecastSnapshot,
+    commonInputs: Omit<ScoringInputs, "horizonDays">,
+    days: number,
+    now: Date,
+  ): Promise<FloodPredictionDto> {
+    const scored = computeFloodPrediction({ ...commonInputs, horizonDays: days });
+    return this.deps.predictions.upsert({
+      adminUnitId: unit.id,
+      countryCode: unit.countryCode,
+      horizonDays: days,
+      validFrom: now,
+      validTo: new Date(now.getTime() + days * 86_400_000),
+      riskLevel: scored.riskLevel,
+      likelihoodScore: scored.likelihoodScore,
+      forecastRainfallMm: scored.forecastRainfallMm,
+      peakDailyRainfallMm: scored.peakDailyRainfallMm,
+      peakDayDate: scored.peakDayDate,
+      riverDischargeM3s: scored.riverDischargeM3s,
+      riverDischargeRatio: scored.riverDischargeRatio,
+      // Only the days that are really forecast; the days after them have no forecast to show.
+      dailyForecast: forecast.days.slice(0, Math.min(days, LIVE_FORECAST_DAYS)),
+      drivers: scored.drivers,
+      aiSummary: null,
+      aiPreparedness: [],
+      aiCaveats: null,
+      aiProvider: null,
+      aiModel: null,
+      weatherProvider: forecast.weatherProvider,
+    });
   }
 
   private async buildPromptInputFor(
@@ -425,6 +440,7 @@ export class FloodPredictionService {
       .slice(0, 6);
 
     return {
+      horizonDays: prediction.horizonDays,
       areaName: unit.unitName,
       levelName: unit.levelName,
       parentName: parent?.unitName ?? null,

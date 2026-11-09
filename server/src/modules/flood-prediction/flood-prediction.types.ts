@@ -2,8 +2,16 @@ import type { AdminUnitRef } from "../admin-units/admin-unit.types";
 import type { AiProviderId } from "../ai/providers/ai-provider";
 import type { AlertSeverity } from "../alerts/alert.types";
 
-export const PREDICTION_HORIZONS = ["7d", "seasonal"] as const;
-export type PredictionHorizon = (typeof PREDICTION_HORIZONS)[number];
+/** An outlook looks this many days ahead: any whole number from the smallest to the largest. */
+export const MIN_OUTLOOK_DAYS = 1;
+export const MAX_OUTLOOK_DAYS = 30;
+/** The window the map layer, the Alerts page and alert drafts use. */
+export const DEFAULT_OUTLOOK_DAYS = 7;
+/**
+ * How far ahead the weather provider forecasts. In an outlook longer than this, the days after it are
+ * not forecast: they use the 10-year average rainfall for the month, and the outlook says so.
+ */
+export const LIVE_FORECAST_DAYS = 16;
 
 export const PREDICTION_RISK_LEVELS = ["normal", "watch", "warning", "severe"] as const;
 export type PredictionRiskLevel = (typeof PREDICTION_RISK_LEVELS)[number];
@@ -42,7 +50,8 @@ export interface FloodPredictionDto {
   id: string;
   adminUnit: AdminUnitRef;
   parentId: string | null;
-  horizon: PredictionHorizon;
+  /** How many days ahead this outlook looks. */
+  horizonDays: number;
   validFrom: string;
   validTo: string;
   riskLevel: PredictionRiskLevel;
@@ -66,26 +75,27 @@ export interface FloodPredictionDto {
 
 export interface FloodPredictionListDto {
   countryCode: string;
-  horizon: PredictionHorizon;
+  horizonDays: number;
   generatedAt: string | null;
   items: FloodPredictionDto[];
 }
 
 export interface AreaFloodOutlookDto {
   adminUnit: AdminUnitRef;
-  sevenDay: FloodPredictionDto;
-  seasonal: FloodPredictionDto;
+  horizonDays: number;
+  outlook: FloodPredictionDto;
 }
 
 export interface FloodPredictionSettingsDto {
   showPublicFloodOutlook: boolean;
-  publicOutlookHorizon: PredictionHorizon;
+  /** How many days ahead the outlook on the public home page looks. */
+  publicOutlookDays: number;
   updatedAt: string;
 }
 
 export interface PublicFloodOutlookDto {
   enabled: boolean;
-  horizon: PredictionHorizon;
+  horizonDays: number;
   generatedAt: string | null;
   weatherProvider: string;
   items: {
@@ -114,19 +124,20 @@ export interface AlertDraftDto {
 
 export interface ForecastSnapshot {
   weatherProvider: string;
+  /** Up to LIVE_FORECAST_DAYS days, starting today. */
   days: DailyForecastItem[];
   peakDischargeM3s: number | null;
   meanDischargeM3s: number | null;
 }
 
 export interface IForecastFetcher {
-  fetch7Day(lon: number, lat: number, now?: Date): Promise<ForecastSnapshot>;
+  fetchForecast(lon: number, lat: number, now?: Date): Promise<ForecastSnapshot>;
 }
 
 export interface NewFloodPredictionRow {
   adminUnitId: string;
   countryCode: string;
-  horizon: PredictionHorizon;
+  horizonDays: number;
   validFrom: Date;
   validTo: Date;
   riskLevel: PredictionRiskLevel;
@@ -147,13 +158,15 @@ export interface NewFloodPredictionRow {
 }
 
 export interface IFloodPredictionRepository {
-  findByCountry(countryCode: string, horizon: PredictionHorizon): Promise<FloodPredictionDto[]>;
-  findByUnit(adminUnitId: string, horizon: PredictionHorizon): Promise<FloodPredictionDto | null>;
+  findByCountry(countryCode: string, horizonDays: number): Promise<FloodPredictionDto[]>;
+  findByUnit(adminUnitId: string, horizonDays: number): Promise<FloodPredictionDto | null>;
+  /** Every day-count that has been computed for this country, so a refresh keeps each of them current. */
+  horizonsInUse(countryCode: string): Promise<number[]>;
   upsert(input: NewFloodPredictionRow): Promise<FloodPredictionDto>;
   getSettings(): Promise<FloodPredictionSettingsDto>;
   updateSettings(patch: {
     showPublicFloodOutlook?: boolean;
-    publicOutlookHorizon?: PredictionHorizon;
+    publicOutlookDays?: number;
     updatedBy: string;
   }): Promise<FloodPredictionSettingsDto>;
 }

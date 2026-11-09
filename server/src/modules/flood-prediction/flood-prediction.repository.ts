@@ -1,14 +1,14 @@
 import { AppDataSource } from "../../config/data-source";
 import type { AiProviderId } from "../ai/providers/ai-provider";
-import type {
-  DailyForecastItem,
-  FloodPredictionDto,
-  FloodPredictionSettingsDto,
-  IFloodPredictionRepository,
-  NewFloodPredictionRow,
-  PredictionDrivers,
-  PredictionHorizon,
-  PredictionRiskLevel,
+import {
+  DEFAULT_OUTLOOK_DAYS,
+  type DailyForecastItem,
+  type FloodPredictionDto,
+  type FloodPredictionSettingsDto,
+  type IFloodPredictionRepository,
+  type NewFloodPredictionRow,
+  type PredictionDrivers,
+  type PredictionRiskLevel,
 } from "./flood-prediction.types";
 
 interface RawPredictionRow {
@@ -20,7 +20,7 @@ interface RawPredictionRow {
   level: number;
   level_name: string;
   parent_id: string | null;
-  horizon: PredictionHorizon;
+  horizon_days: number;
   valid_from: Date | string;
   valid_to: Date | string;
   risk_level: PredictionRiskLevel;
@@ -70,7 +70,7 @@ function toDto(row: RawPredictionRow): FloodPredictionDto {
       unitCode: row.unit_code,
     },
     parentId: row.parent_id,
-    horizon: row.horizon,
+    horizonDays: Number(row.horizon_days),
     validFrom: iso(row.valid_from),
     validTo: iso(row.valid_to),
     riskLevel: row.risk_level,
@@ -110,30 +110,38 @@ export class FloodPredictionRepository implements IFloodPredictionRepository {
     return (this._instance ??= new FloodPredictionRepository());
   }
 
-  async findByCountry(countryCode: string, horizon: PredictionHorizon): Promise<FloodPredictionDto[]> {
+  async findByCountry(countryCode: string, horizonDays: number): Promise<FloodPredictionDto[]> {
     const rows: RawPredictionRow[] = await AppDataSource.query(
       `${SELECT_PREDICTION}
-        WHERE fp.country_code = $1 AND fp.horizon = $2 AND au.level = 2
+        WHERE fp.country_code = $1 AND fp.horizon_days = $2 AND au.level = 2
         ORDER BY fp.likelihood_score DESC, au.unit_name ASC`,
-      [countryCode, horizon],
+      [countryCode, horizonDays],
     );
     return rows.map(toDto);
   }
 
-  async findByUnit(adminUnitId: string, horizon: PredictionHorizon): Promise<FloodPredictionDto | null> {
+  async findByUnit(adminUnitId: string, horizonDays: number): Promise<FloodPredictionDto | null> {
     const rows: RawPredictionRow[] = await AppDataSource.query(
       `${SELECT_PREDICTION}
-        WHERE fp.admin_unit_id = $1 AND fp.horizon = $2
+        WHERE fp.admin_unit_id = $1 AND fp.horizon_days = $2
         LIMIT 1`,
-      [adminUnitId, horizon],
+      [adminUnitId, horizonDays],
     );
     return rows[0] ? toDto(rows[0]) : null;
+  }
+
+  async horizonsInUse(countryCode: string): Promise<number[]> {
+    const rows: { horizon_days: number }[] = await AppDataSource.query(
+      `SELECT DISTINCT horizon_days FROM flood_predictions WHERE country_code = $1 ORDER BY horizon_days`,
+      [countryCode],
+    );
+    return rows.map((r) => Number(r.horizon_days));
   }
 
   async upsert(input: NewFloodPredictionRow): Promise<FloodPredictionDto> {
     await AppDataSource.query(
       `INSERT INTO flood_predictions (
-         admin_unit_id, country_code, horizon, valid_from, valid_to,
+         admin_unit_id, country_code, horizon_days, valid_from, valid_to,
          risk_level, likelihood_score, forecast_rainfall_mm, peak_daily_rainfall_mm,
          peak_day_date, river_discharge_m3s, river_discharge_ratio,
          daily_forecast, drivers, ai_summary, ai_preparedness, ai_caveats,
@@ -145,7 +153,7 @@ export class FloodPredictionRepository implements IFloodPredictionRepository {
          $13::jsonb, $14::jsonb, $15, $16::jsonb, $17,
          $18, $19, 'MODELLED', $20, now()
        )
-       ON CONFLICT (admin_unit_id, horizon) DO UPDATE SET
+       ON CONFLICT (admin_unit_id, horizon_days) DO UPDATE SET
          valid_from = EXCLUDED.valid_from,
          valid_to = EXCLUDED.valid_to,
          risk_level = EXCLUDED.risk_level,
@@ -167,7 +175,7 @@ export class FloodPredictionRepository implements IFloodPredictionRepository {
       [
         input.adminUnitId,
         input.countryCode,
-        input.horizon,
+        input.horizonDays,
         input.validFrom,
         input.validTo,
         input.riskLevel,
@@ -188,50 +196,50 @@ export class FloodPredictionRepository implements IFloodPredictionRepository {
       ],
     );
 
-    const saved = await this.findByUnit(input.adminUnitId, input.horizon);
+    const saved = await this.findByUnit(input.adminUnitId, input.horizonDays);
     return saved!;
   }
 
   async getSettings(): Promise<FloodPredictionSettingsDto> {
     const rows: {
       show_public_flood_outlook: boolean;
-      public_outlook_horizon: PredictionHorizon;
+      public_outlook_days: number;
       updated_at: Date | string;
     }[] = await AppDataSource.query(
-      `SELECT show_public_flood_outlook, public_outlook_horizon, updated_at FROM platform_settings WHERE id = 1`,
+      `SELECT show_public_flood_outlook, public_outlook_days, updated_at FROM platform_settings WHERE id = 1`,
     );
     const row = rows[0];
     if (!row) {
       return {
         showPublicFloodOutlook: false,
-        publicOutlookHorizon: "7d",
+        publicOutlookDays: DEFAULT_OUTLOOK_DAYS,
         updatedAt: new Date(0).toISOString(),
       };
     }
     return {
       showPublicFloodOutlook: Boolean(row.show_public_flood_outlook),
-      publicOutlookHorizon: row.public_outlook_horizon,
+      publicOutlookDays: Number(row.public_outlook_days),
       updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : new Date(row.updated_at).toISOString(),
     };
   }
 
   async updateSettings(patch: {
     showPublicFloodOutlook?: boolean;
-    publicOutlookHorizon?: PredictionHorizon;
+    publicOutlookDays?: number;
     updatedBy: string;
   }): Promise<FloodPredictionSettingsDto> {
     const current = await this.getSettings();
     const show = patch.showPublicFloodOutlook ?? current.showPublicFloodOutlook;
-    const horizon = patch.publicOutlookHorizon ?? current.publicOutlookHorizon;
+    const days = patch.publicOutlookDays ?? current.publicOutlookDays;
     await AppDataSource.query(
-      `INSERT INTO platform_settings (id, show_public_flood_outlook, public_outlook_horizon, updated_by, updated_at)
+      `INSERT INTO platform_settings (id, show_public_flood_outlook, public_outlook_days, updated_by, updated_at)
        VALUES (1, $1, $2, $3, now())
        ON CONFLICT (id) DO UPDATE SET
          show_public_flood_outlook = EXCLUDED.show_public_flood_outlook,
-         public_outlook_horizon = EXCLUDED.public_outlook_horizon,
+         public_outlook_days = EXCLUDED.public_outlook_days,
          updated_by = EXCLUDED.updated_by,
          updated_at = now()`,
-      [show, horizon, patch.updatedBy],
+      [show, days, patch.updatedBy],
     );
     return this.getSettings();
   }

@@ -1,5 +1,10 @@
 import { logger } from "../../config/logger";
-import type { DailyForecastItem, ForecastSnapshot, IForecastFetcher } from "./flood-prediction.types";
+import {
+  LIVE_FORECAST_DAYS,
+  type DailyForecastItem,
+  type ForecastSnapshot,
+  type IForecastFetcher,
+} from "./flood-prediction.types";
 
 const WEATHER_API = "https://api.open-meteo.com/v1/forecast";
 const FLOOD_API = "https://flood-api.open-meteo.com/v1/flood";
@@ -25,8 +30,8 @@ function formatDateYmd(date: Date): string {
 }
 
 /**
- * Builds a deterministic 7-day baseline forecast from latitude/longitude and month when the external
- * weather API is offline or rate-limited, so the platform never breaks offline.
+ * Builds a deterministic baseline forecast (LIVE_FORECAST_DAYS days) from latitude/longitude and month
+ * when the external weather API is offline or rate-limited, so the platform never breaks offline.
  */
 export function buildClimatologyFallback(lon: number, lat: number, now = new Date()): ForecastSnapshot {
   const month = now.getUTCMonth() + 1;
@@ -37,7 +42,7 @@ export function buildClimatologyFallback(lon: number, lat: number, now = new Dat
   const seed = Math.abs(Math.round(lon * 1000 + lat * 1000));
 
   const days: DailyForecastItem[] = [];
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < LIVE_FORECAST_DAYS; i++) {
     const dayDate = new Date(now.getTime() + i * 86_400_000);
     // Create realistic day-to-day variation (e.g. one stormier day mid-week)
     const wave = ((seed + i * 3) % 7 === 2 ? 2.4 : (seed + i) % 3 === 0 ? 1.2 : 0.45);
@@ -65,8 +70,9 @@ export function buildClimatologyFallback(lon: number, lat: number, now = new Dat
 }
 
 /**
- * Fetches 7-day daily precipitation from Open-Meteo and river discharge from Open-Meteo GloFAS.
- * Falls back cleanly to seasonal climatology if the external API cannot be reached.
+ * Fetches daily precipitation (LIVE_FORECAST_DAYS days, the most Open-Meteo forecasts) and river
+ * discharge from Open-Meteo GloFAS. Falls back cleanly to seasonal climatology if the external API
+ * cannot be reached.
  */
 export class OpenMeteoForecastFetcher implements IForecastFetcher {
   private static _instance?: OpenMeteoForecastFetcher;
@@ -74,14 +80,14 @@ export class OpenMeteoForecastFetcher implements IForecastFetcher {
     return (this._instance ??= new OpenMeteoForecastFetcher());
   }
 
-  async fetch7Day(lon: number, lat: number, now = new Date()): Promise<ForecastSnapshot> {
+  async fetchForecast(lon: number, lat: number, now = new Date()): Promise<ForecastSnapshot> {
     try {
       const weatherUrl = `${WEATHER_API}?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(
         lon,
-      )}&daily=precipitation_sum,precipitation_probability_max&forecast_days=7&timezone=UTC`;
+      )}&daily=precipitation_sum,precipitation_probability_max&forecast_days=${LIVE_FORECAST_DAYS}&timezone=UTC`;
       const floodUrl = `${FLOOD_API}?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(
         lon,
-      )}&daily=river_discharge,river_discharge_mean&forecast_days=7`;
+      )}&daily=river_discharge,river_discharge_mean&forecast_days=${LIVE_FORECAST_DAYS}`;
 
       const [weatherRes, floodRes] = await Promise.all([
         fetch(weatherUrl, { signal: AbortSignal.timeout(8_000) }),
@@ -116,7 +122,7 @@ export class OpenMeteoForecastFetcher implements IForecastFetcher {
         return buildClimatologyFallback(lon, lat, now);
       }
 
-      const days: DailyForecastItem[] = times.slice(0, 7).map((date, idx) => ({
+      const days: DailyForecastItem[] = times.slice(0, LIVE_FORECAST_DAYS).map((date, idx) => ({
         date,
         rainfallMm: Math.max(0, Math.round((weatherJson.daily?.precipitation_sum?.[idx] ?? 0) * 10) / 10),
         probabilityPercent: weatherJson.daily?.precipitation_probability_max?.[idx] ?? null,

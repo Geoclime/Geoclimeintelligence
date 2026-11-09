@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { ok } from "../../common/response/api-response";
 import { FloodPredictionService } from "./flood-prediction.service";
 import type {
+  AreaPredictionQuery,
   DraftAlertBody,
   GenerateAiOutlookBody,
   ListPredictionsQuery,
@@ -12,8 +13,8 @@ import type {
 export class FloodPredictionController {
   static async list(req: Request, res: Response, next: NextFunction) {
     try {
-      const { countryCode, horizon } = req.query as unknown as ListPredictionsQuery;
-      const items = await FloodPredictionService.Instance.list(countryCode, horizon);
+      const { countryCode, days } = req.query as unknown as ListPredictionsQuery;
+      const items = await FloodPredictionService.Instance.list(countryCode, days);
       return res.json(ok(items));
     } catch (err) {
       next(err);
@@ -22,7 +23,8 @@ export class FloodPredictionController {
 
   static async area(req: Request<{ adminUnitId: string }>, res: Response, next: NextFunction) {
     try {
-      const outlook = await FloodPredictionService.Instance.area(req.params.adminUnitId);
+      const { days } = req.query as unknown as AreaPredictionQuery;
+      const outlook = await FloodPredictionService.Instance.area(req.params.adminUnitId, days);
       return res.json(ok(outlook));
     } catch (err) {
       next(err);
@@ -37,7 +39,7 @@ export class FloodPredictionController {
     try {
       const updated = await FloodPredictionService.Instance.generateAiOutlook(
         req.params.adminUnitId,
-        req.body.horizon,
+        req.body.days,
         req.user!,
       );
       return res.json(ok(updated));

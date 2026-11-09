@@ -6,42 +6,51 @@ import type {
   FloodPrediction,
   FloodPredictionList,
   FloodPredictionSettings,
-  PredictionHorizon,
   PublicFloodOutlook,
 } from "../types/flood-prediction.types";
+import { DEFAULT_OUTLOOK_DAYS } from "../types/flood-prediction.types";
 
 export async function fetchFloodPredictions(
   countryCode = "NGA",
-  horizon: PredictionHorizon = "7d",
+  days = DEFAULT_OUTLOOK_DAYS,
 ): Promise<ApiResponse<FloodPredictionList>> {
   const { data } = await httpClient.get<ApiResponse<FloodPredictionList>>("/api/v1/flood-predictions", {
-    params: { countryCode, horizon },
+    params: { countryCode, days },
   });
   return data;
 }
 
-export async function fetchAreaFloodOutlook(adminUnitId: string): Promise<ApiResponse<AreaFloodOutlook>> {
+export async function fetchAreaFloodOutlook(
+  adminUnitId: string,
+  days = DEFAULT_OUTLOOK_DAYS,
+): Promise<ApiResponse<AreaFloodOutlook>> {
   const { data } = await httpClient.get<ApiResponse<AreaFloodOutlook>>(
     `/api/v1/flood-predictions/areas/${encodeURIComponent(adminUnitId)}`,
+    { params: { days } },
   );
   return data;
 }
 
 export async function generateAreaAiOutlook(
   adminUnitId: string,
-  horizon: PredictionHorizon = "7d",
+  days = DEFAULT_OUTLOOK_DAYS,
 ): Promise<ApiResponse<FloodPrediction>> {
   const { data } = await httpClient.post<ApiResponse<FloodPrediction>>(
     `/api/v1/flood-predictions/areas/${encodeURIComponent(adminUnitId)}/ai-outlook`,
-    { horizon },
+    { days },
   );
   return data;
 }
 
+/** Recomputes every LGA from the weather API, so it takes far longer than the client's usual 20 seconds. */
+const REFRESH_TIMEOUT_MS = 120_000;
+
 export async function refreshFloodPredictions(countryCode = "NGA"): Promise<ApiResponse<FloodPredictionList>> {
-  const { data } = await httpClient.post<ApiResponse<FloodPredictionList>>("/api/v1/flood-predictions/refresh", {
-    countryCode,
-  });
+  const { data } = await httpClient.post<ApiResponse<FloodPredictionList>>(
+    "/api/v1/flood-predictions/refresh",
+    { countryCode },
+    { timeout: REFRESH_TIMEOUT_MS },
+  );
   return data;
 }
 
@@ -59,7 +68,7 @@ export async function fetchFloodPredictionSettings(): Promise<ApiResponse<FloodP
 
 export async function updateFloodPredictionSettings(patch: {
   showPublicFloodOutlook?: boolean;
-  publicOutlookHorizon?: PredictionHorizon;
+  publicOutlookDays?: number;
 }): Promise<ApiResponse<FloodPredictionSettings>> {
   const { data } = await httpClient.patch<ApiResponse<FloodPredictionSettings>>(
     "/api/v1/flood-predictions/settings",

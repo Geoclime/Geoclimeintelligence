@@ -15,16 +15,16 @@ import type {
   AreaFloodOutlook,
   FloodPredictionList,
   FloodPredictionSettings,
-  PredictionHorizon,
   PublicFloodOutlook,
 } from "../types/flood-prediction.types";
+import { DEFAULT_OUTLOOK_DAYS } from "../types/flood-prediction.types";
 import { useLoader } from "./useLoader";
 
-export function useFloodPredictions(countryCode: string | null = "NGA", horizon: PredictionHorizon = "7d", enabled = true) {
-  const key = enabled && countryCode ? [...QUERY_KEYS.floodPrediction, "list", countryCode, horizon] : null;
+export function useFloodPredictions(countryCode: string | null = "NGA", days = DEFAULT_OUTLOOK_DAYS, enabled = true) {
+  const key = enabled && countryCode ? [...QUERY_KEYS.floodPrediction, "list", countryCode, days] : null;
   const { data, loading, error, refetch } = useLoader<FloodPredictionList>(
     key,
-    async () => (await fetchFloodPredictions(countryCode!, horizon)).data!,
+    async () => (await fetchFloodPredictions(countryCode!, days)).data!,
     LIVE_POLICY,
   );
 
@@ -46,34 +46,28 @@ export function useFloodPredictions(countryCode: string | null = "NGA", horizon:
   };
 }
 
-export function useAreaFloodOutlook(adminUnitId: string | undefined) {
-  const key = adminUnitId ? [...QUERY_KEYS.floodPrediction, "area", adminUnitId] : null;
+export function useAreaFloodOutlook(adminUnitId: string | undefined, days = DEFAULT_OUTLOOK_DAYS) {
+  const key = adminUnitId ? [...QUERY_KEYS.floodPrediction, "area", adminUnitId, days] : null;
   const { data, loading, error, refetch, setData } = useLoader<AreaFloodOutlook>(
     key,
-    async () => (await fetchAreaFloodOutlook(adminUnitId!)).data!,
+    async () => (await fetchAreaFloodOutlook(adminUnitId!, days)).data!,
     LIVE_POLICY,
   );
   const [generatingAi, setGeneratingAi] = useState(false);
 
-  const generateAi = useCallback(
-    async (horizon: PredictionHorizon = "7d") => {
-      if (!adminUnitId) return null;
-      setGeneratingAi(true);
-      try {
-        const res = await generateAreaAiOutlook(adminUnitId, horizon);
-        const updated = res.data!;
-        setData((current) => {
-          if (!current) return current;
-          return horizon === "7d" ? { ...current, sevenDay: updated } : { ...current, seasonal: updated };
-        });
-        invalidateQueries(QUERY_KEYS.floodPrediction, key ?? undefined);
-        return updated;
-      } finally {
-        setGeneratingAi(false);
-      }
-    },
-    [adminUnitId, key, setData],
-  );
+  const generateAi = useCallback(async () => {
+    if (!adminUnitId) return null;
+    setGeneratingAi(true);
+    try {
+      const res = await generateAreaAiOutlook(adminUnitId, days);
+      const updated = res.data!;
+      setData((current) => (current ? { ...current, outlook: updated } : current));
+      invalidateQueries(QUERY_KEYS.floodPrediction, key ?? undefined);
+      return updated;
+    } finally {
+      setGeneratingAi(false);
+    }
+  }, [adminUnitId, days, key, setData]);
 
   return { outlook: data, loading, error, refetch, generateAi, generatingAi };
 }
@@ -86,7 +80,7 @@ export function useFloodPredictionSettings() {
   );
 
   const update = useCallback(
-    async (patch: { showPublicFloodOutlook?: boolean; publicOutlookHorizon?: PredictionHorizon }) => {
+    async (patch: { showPublicFloodOutlook?: boolean; publicOutlookDays?: number }) => {
       const res = await updateFloodPredictionSettings(patch);
       setData(() => res.data!);
       invalidateQueries(QUERY_KEYS.public);
