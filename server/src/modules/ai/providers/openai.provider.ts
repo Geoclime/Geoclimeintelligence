@@ -1,16 +1,153 @@
-import { notConnected, type AiProvider } from "./ai-provider";
+import { env } from "../../../config/env";
+import {
+  AiProviderError,
+  isAccountProblem,
+  type AiChatRequest,
+  type AiGenerateRequest,
+  type AiGenerateResult,
+  type AiModelInfo,
+  type AiProvider,
+} from "./ai-provider";
+import { modelTier } from "./model-tiers";
+
+const API_BASE = "https://api.openai.com/v1";
+
+interface OpenAiChatResponse {
+  choices?: {
+    finish_reason?: string;
+    message?: { content?: string | null; refusal?: string | null };
+  }[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  error?: { message?: string; type?: string };
+}
+
+function normaliseError(status: number | undefined, message: string): AiProviderError {
+  if (isAccountProblem(status, message)) return new AiProviderError("account", message, status);
+  if (status === 401 || status === 403) return new AiProviderError("auth", message, status);
+  if (status === 429) return new AiProviderError("rate_limit", message, status);
+  if (status !== undefined && status >= 400 && status < 500) {
+    return new AiProviderError("invalid_request", message, status);
+  }
+  return new AiProviderError("unavailable", message || "OpenAI could not be reached", status);
+}
 
 /**
- * OpenAI adapter. Not connected yet: Phase 1 adds the SDK and replaces these placeholders
- * (docs/ai-integration.md, "Provider adapters"). Until then every call fails as "unavailable".
- *
- * To build: openai; JSON via response_format json_schema (strict); chat with stream_options.include_usage;
- * content_filter or message.refusal -> refused, "length" -> truncated; image_url data URLs after the
- * text; listModels keeps gpt-/o#/chatgpt- and drops audio, image, embedding and similar models.
+ * OpenAI adapter via the v1 REST API.
  */
 export const openaiProvider: AiProvider = {
   id: "openai",
-  generate: () => notConnected("openai"),
-  stream: () => notConnected("openai"),
-  listModels: () => notConnected("openai"),
+
+  async generate(apiKey: string, req: AiGenerateRequest): Promise<AiGenerateResult> {
+    if (!apiKey || apiKey.trim().length < 10) {
+      throw new AiProviderError("auth", "API key is too short", 401);
+    }
+    const timeoutMs = req.timeoutMs ?? env.AI_REQUEST_TIMEOUT_MS;
+    const content: Record<string, unknown>[] = [{ type: "text", text: req.prompt }];
+    for (const img of req.images ?? []) {
+      content.push({
+        type: "image_url",
+        image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+      });
+    }
+
+    const body = {
+      model: req.model,
+      messages: [
+        { role: "system", content: req.system },
+        { role: "user", content },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: req.schemaName,
+          schema: req.jsonSchema,
+          strict: true,
+        },
+      },
+      max_completion_tokens: req.maxOutputTokens,
+    };
+
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (err) {
+      throw new AiProviderError("unavailable", err instanceof Error ? err.message : "Network error");
+    }
+
+    const json = (await res.json().catch(() => ({}))) as OpenAiChatResponse;
+    if (!res.ok) {
+      throw normaliseError(res.status, json.error?.message ?? res.statusText);
+    }
+
+    const choice = json.choices?.[0];
+    if (choice?.finish_reason === "content_filter" || choice?.message?.refusal) {
+      throw new AiProviderError("refused", choice.message?.refusal ?? "Content filtered");
+    }
+    if (choice?.finish_reason === "length") {
+      throw new AiProviderError("truncated", "Output reached max_completion_tokens");
+    }
+
+    return {
+      text: choice?.message?.content ?? "",
+      inputTokens: json.usage?.prompt_tokens ?? 0,
+      outputTokens: json.usage?.completion_tokens ?? 0,
+    };
+  },
+
+  async stream(apiKey: string, req: AiChatRequest, onText: (delta: string) => void): Promise<AiGenerateResult> {
+    const result = await this.generate(apiKey, {
+      model: req.model,
+      system: req.system,
+      prompt: req.messages.map((m) => `${m.role}: ${m.content}`).join("\n\n"),
+      schemaName: "chat",
+      jsonSchema: { type: "object", properties: { reply: { type: "string" } }, required: ["reply"], additionalProperties: false },
+      maxOutputTokens: req.maxOutputTokens,
+    });
+    onText(result.text);
+    return result;
+  },
+
+  async listModels(apiKey: string): Promise<AiModelInfo[]> {
+    if (!apiKey || apiKey.trim().length < 10) {
+      throw new AiProviderError("auth", "API key is too short", 401);
+    }
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/models`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(env.AI_REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      throw new AiProviderError("unavailable", err instanceof Error ? err.message : "Network error");
+    }
+
+    const json = (await res.json().catch(() => ({}))) as {
+      data?: { id: string; created?: number }[];
+      error?: { message?: string };
+    };
+    if (!res.ok) {
+      throw normaliseError(res.status, json.error?.message ?? res.statusText);
+    }
+
+    return (json.data ?? [])
+      .filter(
+        (m) =>
+          /^(gpt-|o\d|chatgpt-)/i.test(m.id) &&
+          !/(audio|realtime|tts|transcribe|image|embedding|instruct|search|moderation)/i.test(m.id),
+      )
+      .sort((a, b) => (b.created ?? 0) - (a.created ?? 0))
+      .map((m) => ({
+        id: m.id,
+        label: m.id,
+        tier: modelTier("openai", m.id),
+      }));
+  },
 };

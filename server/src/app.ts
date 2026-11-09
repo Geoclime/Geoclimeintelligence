@@ -8,7 +8,9 @@ import { authMiddleware, resolveUserMiddleware } from "./middleware/auth.middlew
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.middleware";
 import { adminUnitsRouter } from "./modules/admin-units/admin-unit.routes";
 import { alertsRouter } from "./modules/alerts/alert.routes";
+import { aiRouter } from "./modules/ai/ai.routes";
 import { floodReportsRouter } from "./modules/flood-reports/flood-report.routes";
+import { floodPredictionRouter } from "./modules/flood-prediction/flood-prediction.routes";
 import { notificationsRouter } from "./modules/notifications/notification.routes";
 import { countriesRouter } from "./modules/admin-units/country.routes";
 import { authRouter } from "./modules/auth/auth.routes";
@@ -84,6 +86,8 @@ export function createApp(): Express {
   app.use("/api/v1/alerts", alertsRouter);
   app.use("/api/v1/flood-reports", floodReportsRouter);
   app.use("/api/v1/notifications", notificationsRouter);
+  app.use("/api/v1/ai", aiRouter);
+  app.use("/api/v1/flood-predictions", floodPredictionRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

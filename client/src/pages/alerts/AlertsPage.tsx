@@ -1,10 +1,12 @@
-import { useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router";
 import { AlertCard } from "../../components/alerts/AlertCard";
 import { AlertMap } from "../../components/alerts/AlertMap";
 import { toAlertBody, toAlertUpdate } from "../../components/alerts/alert-form.schema";
 import { AlertFormDialog } from "../../components/alerts/AlertFormDialog";
+import { Badge } from "../../components/shared/Badge";
 import { Button, buttonClassName } from "../../components/shared/Button";
+import { Callout } from "../../components/shared/Callout";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { ErrorState } from "../../components/shared/ErrorState";
 import { Icon } from "../../components/shared/Icon";
@@ -13,11 +15,13 @@ import { Modal } from "../../components/shared/Modal";
 import { useAlerts } from "../../hooks/useAlerts";
 import { useAuth } from "../../hooks/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useFloodPredictions } from "../../hooks/useFloodPrediction";
 import { usePublicAlertMap } from "../../hooks/usePublicAlertMap";
 import { usePublicOutline } from "../../hooks/usePublicOutline";
 import { useToast } from "../../hooks/useToast";
 import { errorMessage } from "../../transport/api-error";
 import type { FloodAlert } from "../../types/alert.types";
+import { PREDICTION_RISK_INFO } from "../../types/flood-prediction.types";
 import { severityByLga, SEVERITY_INFO, sortAlerts } from "../../utils/alert-severity";
 import { can } from "../../utils/permissions";
 import "../../components/alerts/alerts.css";
@@ -33,10 +37,12 @@ export function AlertsPage() {
   useDocumentTitle("Alerts");
   const { user } = useAuth();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { alerts, loading, error, refetch, issue, update, remove, end } = useAlerts();
   const { outline, loading: outlineLoading } = usePublicOutline();
   const { alertMap, refetch: refetchMap } = usePublicAlertMap();
   const [issuing, setIssuing] = useState(0);
+  const [draftAreaIds, setDraftAreaIds] = useState<string[]>([]);
   const [ending, setEnding] = useState<FloodAlert | null>(null);
   const [endBusy, setEndBusy] = useState(false);
   const [editing, setEditing] = useState<FloodAlert | null>(null);
@@ -47,9 +53,40 @@ export function AlertsPage() {
   const canIssue = can(user, "alerts.issue");
   const canReview = can(user, "reports.review");
 
+  const { predictions } = useFloodPredictions("NGA", "7d", canIssue);
+
+  // Open the issue modal automatically if arrived via ?draftArea=<lgaId> from an LGA profile page
+  useEffect(() => {
+    const draftArea = searchParams.get("draftArea");
+    if (canIssue && draftArea) {
+      setDraftAreaIds([draftArea]);
+      setIssuing((n) => n + 1);
+      const next = new URLSearchParams(searchParams);
+      next.delete("draftArea");
+      setSearchParams(next, { replace: true });
+    }
+  }, [canIssue, searchParams, setSearchParams]);
+
   const sorted = useMemo(() => sortAlerts(alerts), [alerts]);
   const inForce = sorted.filter((a) => a.status === "active" || a.status === "scheduled");
   const past = sorted.filter((a) => a.status === "expired" || a.status === "ended");
+  const severities = useMemo(() => severityByLga(alerts), [alerts]);
+
+  // LGAs predicted at watch/warning/severe in the next 7 days that do not yet have an active alert in force
+  const flaggedPredictions = useMemo(
+    () => predictions.filter((p) => p.riskLevel !== "normal" && !(p.adminUnit.id in severities)),
+    [predictions, severities],
+  );
+
+  const openIssueBlank = () => {
+    setDraftAreaIds([]);
+    setIssuing((n) => n + 1);
+  };
+
+  const openIssueForFlagged = (areaIds: string[]) => {
+    setDraftAreaIds(areaIds);
+    setIssuing((n) => n + 1);
+  };
 
   const confirmEnd = async () => {
     if (!ending) return;
@@ -124,18 +161,47 @@ export function AlertsPage() {
             </Link>
           )}
           {canIssue && (
-            <Button icon={<Icon name="alert" size={16} />} onClick={() => setIssuing((n) => n + 1)} data-cy="open-issue-alert">
+            <Button icon={<Icon name="alert" size={16} />} onClick={openIssueBlank} data-cy="open-issue-alert">
               Issue an alert
             </Button>
           )}
         </div>
       </header>
 
+      {canIssue && flaggedPredictions.length > 0 && (
+        <div className="section-gap" data-cy="early-warning-banner">
+          <Callout tone="warning">
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
+              <div>
+                <strong>Early-warning forecast (Modelled, next 7 days):</strong>{" "}
+                {flaggedPredictions.length} {flaggedPredictions.length === 1 ? "LGA has" : "LGAs have"} elevated predicted flood risk without an active alert in force:
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.4rem" }}>
+                  {flaggedPredictions.slice(0, 8).map((pred) => (
+                    <Badge key={pred.adminUnit.id} tone={PREDICTION_RISK_INFO[pred.riskLevel].badgeTone}>
+                      {pred.adminUnit.unitName}: {PREDICTION_RISK_INFO[pred.riskLevel].label} ({pred.forecastRainfallMm} mm)
+                    </Badge>
+                  ))}
+                  {flaggedPredictions.length > 8 && <Badge tone="neutral">+{flaggedPredictions.length - 8} more</Badge>}
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => openIssueForFlagged(flaggedPredictions.slice(0, 10).map((p) => p.adminUnit.id))}
+                data-cy="draft-flagged-lgas-alert"
+              >
+                Draft alert for flagged LGAs
+              </Button>
+            </div>
+          </Callout>
+        </div>
+      )}
+
       <div className="flood-page__grid">
         <AlertMap
           outline={outline}
           loading={outlineLoading}
-          severities={severityByLga(alerts)}
+          severities={severities}
           reports={alertMap?.reports ?? []}
           reportDays={alertMap?.reportDays ?? 7}
           floods={alertMap?.floods ?? []}
@@ -179,6 +245,7 @@ export function AlertsPage() {
         <AlertFormDialog
           key={issuing}
           open
+          initialAreaIds={draftAreaIds}
           onClose={() => setIssuing(0)}
           onSubmit={(values) => issue(toAlertBody(values))}
           onDone={(alert) => {

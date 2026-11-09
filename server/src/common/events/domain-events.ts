@@ -30,6 +30,7 @@ export interface DomainEvents {
   "drain.deleted": { drainId: string };
   "role.requested": { userId: string };
   "role.answered": { userId: string; role: string; approved: boolean };
+  "prediction.updated": { countryCode: string };
 }
 
 type Handler<K extends keyof DomainEvents> = (payload: DomainEvents[K]) => Promise<void> | void;

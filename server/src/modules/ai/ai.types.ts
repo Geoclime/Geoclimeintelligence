@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { AiFeature } from "./domain/ai-features";
-import type { AiChatMessage, AiImage, AiProviderId } from "./providers/ai-provider";
+import type { AiChatMessage, AiImage, AiModelInfo, AiProviderId } from "./providers/ai-provider";
 
 /** Whose key paid for a request: the person's own, or the platform default an admin set. */
 export type AiKeySource = "user" | "platform";
@@ -16,9 +16,66 @@ export interface ResolvedCredential {
   source: AiKeySource;
 }
 
+/** Stored credential row in ai_credentials. */
+export interface AiCredentialRecord {
+  id: string;
+  userId: string | null;
+  provider: AiProviderId;
+  model: string;
+  chatModel: string | null;
+  featureModels: Record<string, string>;
+  baseUrl: string | null;
+  keyCiphertext: string;
+  keyLast4: string;
+  isActive: boolean;
+  updatedBy: string;
+  updatedAt: Date;
+}
+
+export interface AiCredentialDto {
+  id: string;
+  provider: AiProviderId;
+  providerLabel: string;
+  model: string;
+  chatModel: string | null;
+  featureModels: Record<string, string>;
+  baseUrl: string | null;
+  keyLast4: string;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface SaveAiCredentialInput {
+  userId: string | null;
+  provider: AiProviderId;
+  model: string;
+  chatModel?: string | null;
+  baseUrl?: string | null;
+  apiKey?: string;
+  updatedBy: string;
+}
+
+export interface IAiCredentialRepository {
+  findByOwner(userId: string | null): Promise<AiCredentialRecord[]>;
+  findByOwnerAndProvider(userId: string | null, provider: AiProviderId): Promise<AiCredentialRecord | null>;
+  upsert(input: {
+    userId: string | null;
+    provider: AiProviderId;
+    model: string;
+    chatModel: string | null;
+    baseUrl: string | null;
+    keyCiphertext: string;
+    keyLast4: string;
+    isActive: boolean;
+    updatedBy: string;
+  }): Promise<AiCredentialRecord>;
+  activate(userId: string | null, provider: AiProviderId, updatedBy: string): Promise<boolean>;
+  remove(userId: string | null, provider: AiProviderId): Promise<boolean>;
+}
+
 /**
  * Picks the key for a request: the user's own (feature-pinned, then active), then the platform's
- * (same order). Phase 1 builds AiCredentialService on an `ai_credentials` table to do this.
+ * (same order).
  */
 export interface IAiCredentialResolver {
   resolveFor(userId: string, feature?: AiFeature): Promise<ResolvedCredential | null>;
@@ -74,7 +131,7 @@ export interface StreamTextRequest {
   maxOutputTokens?: number;
 }
 
-/** GET /api/v1/ai/status (Phase 1). Mirrored by AiStatus in client/src/types/ai.types.ts. */
+/** GET /api/v1/ai/status. Mirrored by AiStatus in client/src/types/ai.types.ts. */
 export interface AiStatusDto {
   available: boolean;
   source: AiKeySource | null;
@@ -84,3 +141,5 @@ export interface AiStatusDto {
   /** false when AI_KEYS_SECRET is unset, so no key can be saved. */
   storageReady: boolean;
 }
+
+export type { AiModelInfo };

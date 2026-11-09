@@ -1,11 +1,14 @@
 import { Link } from "react-router";
+import { usePublicFloodOutlook } from "../../hooks/useFloodPrediction";
 import { ALERT_SEVERITIES } from "../../types/alert.types";
+import { PREDICTION_RISK_INFO } from "../../types/flood-prediction.types";
 import type { PublicAlertMap, PublicOutline } from "../../types/public.types";
 import { SEVERITY_INFO, severityByLga, sortAlerts } from "../../utils/alert-severity";
-import { SeverityBadge } from "../alerts/SeverityBadge";
 import { formatDateTime } from "../../utils/formatDate";
 import { AlertCard } from "../alerts/AlertCard";
 import { AlertMap } from "../alerts/AlertMap";
+import { SeverityBadge } from "../alerts/SeverityBadge";
+import { Badge } from "../shared/Badge";
 import { buttonClassName } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 
@@ -20,10 +23,12 @@ interface AlertsSectionProps {
 /**
  * The landing page's national alert map: LGAs coloured by the alerts in force, recently published
  * flood reports, the alerts themselves, and a way to report flooding. Refreshed every 30 seconds
- * (usePublicAlertMap).
+ * (usePublicAlertMap). When an administrator enables `showPublicFloodOutlook`, also displays the
+ * clearly badged Modelled Flood Outlook section below the official alerts.
  */
 export function AlertsSection({ alertMap, error, outline, outlineLoading, signedIn }: AlertsSectionProps) {
   const alerts = sortAlerts(alertMap?.alerts ?? []);
+  const { outlook: publicOutlook } = usePublicFloodOutlook();
 
   return (
     <section id="alerts" className="landing-section" aria-labelledby="alerts-title">
@@ -102,6 +107,51 @@ export function AlertsSection({ alertMap, error, outline, outlineLoading, signed
             </div>
           </div>
         </div>
+
+        {publicOutlook?.enabled && publicOutlook.items.length > 0 && (
+          <div className="card card__body section-gap" data-cy="public-flood-outlook">
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.75rem" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <h3 className="card__title" style={{ margin: 0 }}>
+                    {publicOutlook.horizon === "7d" ? "7-Day Flood Outlook" : "30-Day Seasonal Flood Outlook"}
+                  </h3>
+                  <Badge tone="neutral">Modelled</Badge>
+                </div>
+                <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.9rem" }}>
+                  Modelled weather &amp; river discharge outlook by LGA ({publicOutlook.weatherProvider}). Distinct from official alerts in force above.
+                </p>
+              </div>
+              {publicOutlook.generatedAt && (
+                <span className="muted" style={{ fontSize: "0.82rem" }}>
+                  Computed {formatDateTime(publicOutlook.generatedAt)}
+                </span>
+              )}
+            </div>
+
+            <div className="ward-grid">
+              {publicOutlook.items.slice(0, 12).map((item) => {
+                const info = PREDICTION_RISK_INFO[item.riskLevel];
+                return (
+                  <div key={item.adminUnit.id} className="card card__body" style={{ padding: "0.75rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                      <strong>{item.adminUnit.unitName}</strong>
+                      <Badge tone={info.badgeTone}>{info.label}</Badge>
+                    </div>
+                    <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.84rem" }}>
+                      {item.forecastRainfallMm} mm forecast rain · Score {item.likelihoodScore}/100
+                    </p>
+                    {item.topFactors[0] && (
+                      <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
+                        {item.topFactors[0]}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

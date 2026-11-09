@@ -25,7 +25,7 @@ export type SurveyLayerId = "floodExtents" | "drainage";
  * A modelled surface drawn under everything else, bundled with the app rather than fetched by area
  * (data/flood-risk). It is a judgement about where it could flood, not a record of where it did.
  */
-export type HazardLayerId = "floodRisk" | "satelliteFlood";
+export type HazardLayerId = "floodRisk" | "satelliteFlood" | "floodPrediction";
 
 /** People's own homes, private to them and staff (HouseholdLayer.tsx). */
 export type PersonalLayerId = "households";
@@ -36,7 +36,7 @@ export const BOUNDARY_LAYER_IDS: BoundaryLayerId[] = ["state", "lga", "ward"];
 export const OVERLAY_LAYER_IDS: OverlayLayerId[] = ["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"];
 export const SURVEY_LAYER_IDS: SurveyLayerId[] = ["floodExtents", "drainage"];
 /** satelliteFlood: one month of water seen by Sentinel-1, chosen on the map (SatelliteFloodLayer.tsx). */
-export const HAZARD_LAYER_IDS: HazardLayerId[] = ["floodRisk", "satelliteFlood"];
+export const HAZARD_LAYER_IDS: HazardLayerId[] = ["floodRisk", "satelliteFlood", "floodPrediction"];
 export const PERSONAL_LAYER_IDS: PersonalLayerId[] = ["households"];
 
 /** Buildings are only fetched and drawn from street level. Mirrors BUILDING_MIN_ZOOM in server/src/modules/map-layers/layer-rules.ts. */

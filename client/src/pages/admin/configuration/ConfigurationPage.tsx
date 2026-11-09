@@ -1,7 +1,9 @@
+import { AiSettingsSection } from "../../../components/configuration/AiSettingsSection";
 import { DataSourcesSection } from "../../../components/configuration/DataSourcesSection";
+import { FloodPredictionSettingsSection } from "../../../components/configuration/FloodPredictionSettingsSection";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 
-/** Platform settings for Administrators. For now that is the data sources; more sections join here. */
+/** Platform settings for Administrators: data sources, flood forecast settings, and AI providers. */
 export function ConfigurationPage() {
   useDocumentTitle("Configuration");
 
@@ -11,10 +13,12 @@ export function ConfigurationPage() {
         <div>
           <p className="page__eyebrow">Administration</p>
           <h1 className="page__title">Configuration</h1>
-          <p className="page__lead">Settings that the rest of the platform builds on. Data sources come first.</p>
+          <p className="page__lead">Settings that the rest of the platform builds on: data sources, flood forecasting, and AI providers.</p>
         </div>
       </header>
       <DataSourcesSection />
+      <FloodPredictionSettingsSection />
+      <AiSettingsSection />
     </div>
   );
 }

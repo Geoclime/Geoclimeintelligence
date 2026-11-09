@@ -2,7 +2,20 @@
  * The XML-style tags prompts wrap their material in. Each feature adds its own tags here, so
  * inert() neutralises them all.
  */
-export const PROMPT_TAGS = ["not_visible_to_you", "conversation", "description", "notes", "file_content", "link_content"] as const;
+export const PROMPT_TAGS = [
+  "not_visible_to_you",
+  "conversation",
+  "description",
+  "notes",
+  "file_content",
+  "link_content",
+  "area_context",
+  "forecast_data",
+  "susceptibility",
+  "drainage_status",
+  "flood_history",
+  "seasonal_baseline",
+] as const;
 
 const TAG_PATTERN = new RegExp(`<\\/?(${PROMPT_TAGS.join("|")})\\b`, "gi");
 

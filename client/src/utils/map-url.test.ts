@@ -51,14 +51,14 @@ describe("map URL state", () => {
     expect(readPin(new URLSearchParams("pin=abc,4"))).toBeNull();
   });
 
-  // The default view: every layer but the satellite flood one, which is off until someone turns it on.
+  // The default view: every layer but the satellite flood and flood prediction ones, which are off until someone turns them on.
   const everything = {
     state: true, lga: true, ward: true, roads: true, waterways: true, settlements: true, infrastructure: true, buildings: true,
-    wetlands: true, floodExtents: true, drainage: true, floodRisk: true, satelliteFlood: false, households: true,
+    wetlands: true, floodExtents: true, drainage: true, floodRisk: true, satelliteFlood: false, floodPrediction: false, households: true,
   };
   const nothing = {
     state: false, lga: false, ward: false, roads: false, waterways: false, settlements: false, infrastructure: false, buildings: false,
-    wetlands: false, floodExtents: false, drainage: false, floodRisk: false, satelliteFlood: false, households: false,
+    wetlands: false, floodExtents: false, drainage: false, floodRisk: false, satelliteFlood: false, floodPrediction: false, households: false,
   };
 
   it("shows every layer by default and only lists layers when some are off", () => {

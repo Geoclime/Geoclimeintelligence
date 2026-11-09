@@ -22,10 +22,29 @@ export const AUDIT_ACTIONS = [
   "role.updated",
   "role.deleted",
   "user.access_changed",
+  "ai.platform_key_saved",
+  "ai.user_key_saved",
+  "ai.platform_key_activated",
+  "ai.user_key_activated",
+  "ai.platform_key_removed",
+  "ai.user_key_removed",
+  "flood_prediction.refreshed",
+  "flood_prediction.settings_updated",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const AUDIT_ENTITY_TYPES = ["flood_extent", "drain", "place", "household", "photo", "role", "user"] as const;
+export const AUDIT_ENTITY_TYPES = [
+  "flood_extent",
+  "drain",
+  "place",
+  "household",
+  "photo",
+  "role",
+  "user",
+  "ai_credential",
+  "flood_prediction",
+  "platform_settings",
+] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 
 /** Who did it, copied onto the row so it still reads after the account is deleted. */

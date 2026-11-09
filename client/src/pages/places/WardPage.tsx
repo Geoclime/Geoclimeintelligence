@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router";
 import { DrainageCard } from "../../components/floods/DrainageCard";
 import { FloodHistoryCard } from "../../components/floods/FloodHistoryCard";
+import { FloodOutlookCard } from "../../components/floods/FloodOutlookCard";
 import { FloodRiskCard } from "../../components/floods/FloodRiskCard";
 import { SatelliteWaterCard } from "../../components/floods/SatelliteWaterCard";
 import { AreaOutlineMap } from "../../components/map/AreaOutlineMap";
@@ -108,6 +109,10 @@ export function WardPage() {
         >
           <AreaSurveyPopup selected={area.selected} onClose={area.close} />
         </AreaOutlineMap>
+      </div>
+
+      <div className="section-gap">
+        <FloodOutlookCard areaId={ward.id} areaName={ward.unitName} />
       </div>
 
       <div className="section-gap">

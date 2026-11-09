@@ -47,6 +47,7 @@ export const QUERY_KEYS = {
   mapLayers: ["map-layers"],
   rainfall: ["rainfall"],
   floodRisk: ["flood-risk"],
+  floodPrediction: ["flood-prediction"],
   satelliteFlood: ["satellite-flood"],
   public: ["public"],
   alerts: ["alerts"],
@@ -58,6 +59,7 @@ export const QUERY_KEYS = {
   roles: ["roles"],
   audit: ["audit"],
   photos: ["photos"],
+  ai: ["ai"],
 } as const satisfies Record<string, QueryKey>;
 
 /**

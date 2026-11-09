@@ -100,10 +100,10 @@ export function writePin(params: URLSearchParams, point: LonLat | null, label?: 
 }
 
 /**
- * Off until someone turns it on: a month of water seen from space, drawn over the flood risk
- * surface, would hide it on everyone's first view.
+ * Off until someone turns it on: a month of water seen from space, or the 7-day forecast choropleth,
+ * drawn over the flood risk surface, would hide it on everyone's first view.
  */
-const OFF_BY_DEFAULT: MapLayerId[] = ["satelliteFlood"];
+const OFF_BY_DEFAULT: MapLayerId[] = ["satelliteFlood", "floodPrediction"];
 const DEFAULT_LAYERS = ALL_LAYERS.filter((id) => !OFF_BY_DEFAULT.includes(id));
 
 /** Every layer but the satellite flood one is on unless the link says otherwise; unknown names are ignored. */

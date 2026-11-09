@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { ok } from "../../common/response/api-response";
+import { FloodPredictionService } from "../flood-prediction/flood-prediction.service";
 import { PublicService } from "./public.service";
 import type { PublicLocateQuery, PublicSearchQuery } from "./public.validation";
 
@@ -39,6 +40,15 @@ export class PublicController {
     try {
       const map = await PublicService.Instance.alertMap();
       return res.set("Cache-Control", REVALIDATE).json(ok(map));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async floodOutlook(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const outlook = await FloodPredictionService.Instance.publicOutlook("NGA");
+      return res.set("Cache-Control", REVALIDATE).json(ok(outlook));
     } catch (err) {
       next(err);
     }

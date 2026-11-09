@@ -1,7 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { useAiStatus } from "../../hooks/useAi";
+import { useDraftAlertWithAi } from "../../hooks/useFloodPrediction";
+import { useToast } from "../../hooks/useToast";
+import { errorMessage } from "../../transport/api-error";
 import { ALERT_SEVERITIES, type FloodAlert } from "../../types/alert.types";
+import type { AlertDraft } from "../../types/flood-prediction.types";
 import { SEVERITY_INFO } from "../../utils/alert-severity";
 import { applySubmitError } from "../../utils/form-errors";
 import { Button } from "../shared/Button";
@@ -20,17 +25,19 @@ interface AlertFormDialogProps {
   onClose: () => void;
   /** The alert being edited. Leave out to issue a new one. */
   alert?: FloodAlert;
+  /** Optional area IDs pre-selected when opening from the forecast early-warning banner. */
+  initialAreaIds?: string[];
   /** Saves the form. Rejects with an ApiError so the form can show a 400's field errors. */
   onSubmit: (values: AlertFormValues) => Promise<FloodAlert>;
   onDone: (alert: FloodAlert) => void;
 }
 
-const issueDefaults = (): AlertFormValues => ({
+const issueDefaults = (initialAreaIds: string[] = []): AlertFormValues => ({
   severity: "warning",
   title: "",
   message: "",
   actions: SEVERITY_INFO.warning.defaultActions.join("\n"),
-  areaIds: [],
+  areaIds: initialAreaIds,
   durationHours: "24",
   customDays: "7",
   notify: false,
@@ -53,18 +60,27 @@ const editDefaults = (alert: FloodAlert): AlertFormValues => ({
  * it is saved. Editing starts from what was issued, and sends nobody a message unless the editor
  * ticks "Notify people about this change". Render it with a fresh `key` each time it opens.
  */
-export function AlertFormDialog({ open, onClose, alert, onSubmit, onDone }: AlertFormDialogProps) {
+export function AlertFormDialog({ open, onClose, alert, initialAreaIds, onSubmit, onDone }: AlertFormDialogProps) {
   const formId = useId();
   const editing = alert !== undefined;
+  const { showToast } = useToast();
+  const { status: aiStatus } = useAiStatus();
+  const { draftAlert, drafting } = useDraftAlertWithAi();
+  const [aiDraftMeta, setAiDraftMeta] = useState<Pick<AlertDraft, "provider" | "model" | "caveats"> | null>(null);
+
   const {
     register,
     handleSubmit,
     setError,
     setValue,
+    getValues,
     control,
     getFieldState,
     formState: { errors, isSubmitting },
-  } = useForm<AlertFormValues>({ resolver: zodResolver(alertFormSchema), defaultValues: alert ? editDefaults(alert) : issueDefaults() });
+  } = useForm<AlertFormValues>({
+    resolver: zodResolver(alertFormSchema),
+    defaultValues: alert ? editDefaults(alert) : issueDefaults(initialAreaIds),
+  });
   const severity = useWatch({ control, name: "severity" });
   const areaIds = useWatch({ control, name: "areaIds" });
   const durationHours = useWatch({ control, name: "durationHours" });
@@ -78,6 +94,34 @@ export function AlertFormDialog({ open, onClose, alert, onSubmit, onDone }: Aler
       if (!editing && !getFieldState("actions").isDirty) setValue("actions", SEVERITY_INFO[event.target.value].defaultActions.join("\n"));
     },
   });
+
+  const handleDraftWithAi = async () => {
+    if (areaIds.length === 0) return;
+    const currentTitle = getValues("title").trim();
+    const currentMessage = getValues("message").trim();
+    if (
+      (currentTitle.length > 0 || currentMessage.length > 0) &&
+      !window.confirm("Replace your current title, message and actions with the AI forecast draft?")
+    ) {
+      return;
+    }
+
+    try {
+      const draft = await draftAlert(areaIds);
+      setValue("severity", draft.severity, { shouldDirty: true, shouldValidate: true });
+      setValue("title", draft.title, { shouldDirty: true, shouldValidate: true });
+      setValue("message", draft.message, { shouldDirty: true, shouldValidate: true });
+      setValue("actions", draft.actions.join("\n"), { shouldDirty: true, shouldValidate: true });
+      const matchingDuration = DURATIONS.find((d) => Number(d.hours) === draft.suggestedDurationHours);
+      if (!editing && matchingDuration) {
+        setValue("durationHours", String(matchingDuration.hours), { shouldDirty: true });
+      }
+      setAiDraftMeta({ provider: draft.provider, model: draft.model, caveats: draft.caveats });
+      showToast({ type: "info", message: "Drafted alert from 7-day forecast. Review before issuing." });
+    } catch (err) {
+      showToast({ type: "error", message: errorMessage(err) });
+    }
+  };
 
   const onFormSubmit = handleSubmit(async (values) => {
     try {
@@ -97,11 +141,11 @@ export function AlertFormDialog({ open, onClose, alert, onSubmit, onDone }: Aler
           : "It is public as soon as it is issued: on the home page, the alert map and every signed-in screen."
       }
       onClose={onClose}
-      dismissible={!isSubmitting}
+      dismissible={!isSubmitting && !drafting}
       dataCy={editing ? "edit-alert-dialog" : "issue-alert-dialog"}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
+          <Button variant="secondary" onClick={onClose} disabled={isSubmitting || drafting}>
             Cancel
           </Button>
           <Button
@@ -110,6 +154,7 @@ export function AlertFormDialog({ open, onClose, alert, onSubmit, onDone }: Aler
             variant={severity === "severe" ? "danger" : "primary"}
             loading={isSubmitting}
             loadingLabel={editing ? "Saving…" : "Issuing…"}
+            disabled={drafting}
             data-cy={editing ? "save-alert" : "issue-alert"}
           >
             {editing ? "Save changes" : `Issue ${SEVERITY_INFO[severity].label.toLowerCase()}`}
@@ -141,6 +186,32 @@ export function AlertFormDialog({ open, onClose, alert, onSubmit, onDone }: Aler
           onChange={(ids) => setValue("areaIds", ids, { shouldValidate: true, shouldDirty: true })}
           error={errors.areaIds?.message}
         />
+
+        {areaIds.length > 0 && aiStatus?.available && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
+            <span className="muted" style={{ fontSize: "0.85rem" }}>
+              Pre-fill this alert from the 7-day forecast, terrain susceptibility, and drainage records for the selected area{areaIds.length === 1 ? "" : "s"}.
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={drafting}
+              loadingLabel="Drafting with AI…"
+              onClick={handleDraftWithAi}
+              data-cy="draft-alert-with-ai"
+            >
+              Draft from forecast with AI
+            </Button>
+          </div>
+        )}
+
+        {aiDraftMeta && (
+          <Callout tone="info" dataCy="ai-draft-callout">
+            <strong>AI-assisted forecast draft ({aiDraftMeta.provider} · {aiDraftMeta.model}):</strong> {aiDraftMeta.caveats} Review and verify all details before issuing.
+          </Callout>
+        )}
+
         <TextField label="Title" placeholder="e.g. River Bonny rising at Port Harcourt" error={errors.title?.message} data-cy="alert-title" {...register("title")} />
         <TextAreaField label="What is happening" rows={3} maxLength={2000} error={errors.message?.message} data-cy="alert-message" {...register("message")} />
         <TextAreaField label="What people should do (one per line)" rows={4} error={errors.actions?.message} data-cy="alert-actions" {...register("actions")} />

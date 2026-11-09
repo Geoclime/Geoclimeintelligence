@@ -98,3 +98,8 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 ## Adding a new doc
 
 Every feature, endpoint or migration ships with its own `docs/<feature-name>.md` (backend) or `docs/features/<feature-name>.md` (client) in the four-part format above. It isn't finished without one (standard sections 12, 13 and 18). Add it to this list, and link to it from any related doc.
+
+## Flood Prediction & AI Early Warning
+
+47. [flood-prediction.md](flood-prediction.md): predicting 7-day and 30-day seasonal flood likelihood per LGA and ward from Open-Meteo weather, GloFAS river discharge, terrain susceptibility, and drainage records, with AI outlook synthesis and alert drafting.
+48. [features/flood-prediction-ui.md](features/flood-prediction-ui.md): the Flood Forecast card on LGA and ward pages, the 7-day forecast map layer, the early-warning banner and AI alert drafting button on the Alerts screen, and the admin toggle for the public landing page outlook.

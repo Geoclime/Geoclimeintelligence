@@ -6,6 +6,7 @@ import { ClimateMap, type MapView } from "../../components/map/ClimateMap";
 import { DeletePlaceDialog } from "../../components/map/DeletePlaceDialog";
 import { FieldSurveyDock } from "../../components/map/FieldSurveyDock";
 import { FieldSurveyForms, SurveyOnMap } from "../../components/map/FieldSurveyParts";
+import { FLOOD_PREDICTION_LEGEND, FLOOD_PREDICTION_NOTE, FloodPredictionLayer } from "../../components/map/FloodPredictionLayer";
 import { LayerToggle, type LayerOption } from "../../components/map/LayerToggle";
 import { LocationTrace } from "../../components/map/LocationTrace";
 import { MapLayerSources } from "../../components/map/MapLayerSources";
@@ -37,6 +38,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useCountries } from "../../hooks/useCountries";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useFieldSurvey } from "../../hooks/useFieldSurvey";
+import { useFloodPredictions } from "../../hooks/useFloodPrediction";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useLocatePoint } from "../../hooks/useLocatePoint";
 import { useFloodRisk } from "../../hooks/useFloodRisk";
@@ -160,6 +162,9 @@ export function MapPage() {
   const satellite = useSatelliteFlood(country?.countryCode ?? null, readFloodMonth(searchParams), layers.satelliteFlood);
   const satelliteLayer = satellite.layer;
   const satelliteOn = layers.satelliteFlood && satelliteLayer !== null;
+  // 7-day modelled flood prediction choropleth across LGAs
+  const floodPrediction = useFloodPredictions(country?.countryCode ?? null, "7d", layers.floodPrediction);
+  const floodPredictionOn = layers.floodPrediction;
   const selectedLga = lgaList.find((lga) => lga.id === selectedLgaId) ?? null;
   const isAdmin = user ? hasAnyRole(user.role, ["administrator"]) : false;
   const can = useCan();
@@ -405,6 +410,14 @@ export function MapPage() {
       hint: surveyData.drainage.data?.truncated ? "Zoom in to see them all" : undefined,
       group: GROUP.survey,
     },
+    {
+      id: "floodPrediction",
+      label: "Flood forecast (7-day)",
+      checked: layers.floodPrediction,
+      loading: floodPredictionOn && floodPrediction.loading,
+      hint: "Modelled 7-day LGA flood likelihood",
+      group: GROUP.hazard,
+    },
     ...(floodRiskLayer
       ? [{ id: "floodRisk" as const, label: "Flood risk", checked: layers.floodRisk, loading: floodRisk.loading, hint: "Relative risk, not a forecast", group: GROUP.hazard }]
       : []),
@@ -422,11 +435,18 @@ export function MapPage() {
       : []),
   ];
   const fix = geolocation.fix;
-  const layerProblem = layerError ?? surveyData.floodExtents.error ?? surveyData.drainage.error ?? floodRisk.error ?? (satelliteOn ? satellite.error : null);
+  const layerProblem =
+    layerError ??
+    surveyData.floodExtents.error ??
+    surveyData.drainage.error ??
+    floodRisk.error ??
+    (floodPredictionOn ? floodPrediction.error : null) ??
+    (satelliteOn ? satellite.error : null);
   const legendItems = [
     ...LEGEND,
     ...(pin ? [{ key: "pin", label: "Pinned place", swatch: "pin" }] : []),
     ...(fix ? [{ key: "you", label: "Your location", swatch: "you" }] : []),
+    ...(floodPredictionOn ? FLOOD_PREDICTION_LEGEND : []),
     ...(floodRiskOn ? floodRiskLegend(floodRiskLayer.classes) : []),
     ...(satelliteOn ? satelliteFloodLegend(satelliteLayer) : []),
     ...legendFor(OVERLAY_LEGEND, layers),
@@ -434,7 +454,12 @@ export function MapPage() {
     ...(impactFloodId ? [{ key: "impact", label: "What the chosen flood reaches", swatch: "impact" }] : []),
     ...(layers.households && can("households.view") ? [{ key: "household-other", label: "Other people's households (staff only)", swatch: "household-other" }] : []),
   ];
-  const legendNote = [BOUNDARY_NOTE, floodRiskOn ? floodRiskNote(floodRiskLayer) : null, satelliteOn ? satelliteFloodNote(satelliteLayer) : null]
+  const legendNote = [
+    BOUNDARY_NOTE,
+    floodPredictionOn ? FLOOD_PREDICTION_NOTE : null,
+    floodRiskOn ? floodRiskNote(floodRiskLayer) : null,
+    satelliteOn ? satelliteFloodNote(satelliteLayer) : null,
+  ]
     .filter(Boolean)
     .join(" ");
   // Mapbox stacks layers in the order they were added, and a boundary layer is added when its data
@@ -484,6 +509,7 @@ export function MapPage() {
         <Fragment key={`${base}-${palette.name}`}>
         <FloodRiskLayer visible={floodRiskOn} imageUrl={floodRisk.imageUrl} coordinates={floodRiskLayer?.coordinates ?? null} />
         <SatelliteFloodLayer visible={satelliteOn} imageUrl={satellite.imageUrl} coordinates={satelliteLayer?.coordinates ?? null} />
+        <FloodPredictionLayer visible={floodPredictionOn} lgas={lgaLayer.data} predictions={floodPrediction.predictions} />
         <MapOverlayLayers
           palette={palette}
           roads={roadLayer.data}
