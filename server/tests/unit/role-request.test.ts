@@ -3,7 +3,7 @@ import { ConflictError } from "../../src/common/errors/app-error";
 import { AuthService } from "../../src/modules/auth/auth.service";
 import { roleRequestSchema } from "../../src/modules/auth/auth.validation";
 import { UserService } from "../../src/modules/users/user.service";
-import { asAuthUser, fakeRegions, FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
+import { asAuthUser, fakeAudit, fakeRegions, fakeRoles, FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
 
 const REGION = "11111111-1111-4111-8111-111111111111";
 
@@ -16,7 +16,7 @@ function setup() {
     member,
     repo,
     auth: new AuthService(repo, new FakeTokenVerifier()),
-    users: new UserService(repo, fakeRegions([REGION])),
+    users: new UserService(repo, fakeRegions([REGION]), fakeRoles(), fakeAudit()),
   };
 }
 

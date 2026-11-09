@@ -4,7 +4,7 @@ import { createApp } from "../../src/app";
 import { AuthService } from "../../src/modules/auth/auth.service";
 import { DrainageService } from "../../src/modules/field-survey/drainage.service";
 import { FloodExtentService } from "../../src/modules/field-survey/flood-extent.service";
-import { FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
+import { fakeAudit, fakePhotos, FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
 import { InMemoryDrainageRepository, InMemoryFloodExtentRepository } from "../field-survey-fakes";
 import { InMemoryAdminUnitRepository, makeUnit } from "../geo-fakes";
 
@@ -32,8 +32,8 @@ beforeEach(() => {
   units.containing = [state, ward];
   const regions = { assert: async () => {} };
   vi.spyOn(AuthService, "Instance", "get").mockReturnValue(new AuthService(users, new FakeTokenVerifier()));
-  vi.spyOn(FloodExtentService, "Instance", "get").mockReturnValue(new FloodExtentService(extents, units, regions));
-  vi.spyOn(DrainageService, "Instance", "get").mockReturnValue(new DrainageService(drains, units, regions));
+  vi.spyOn(FloodExtentService, "Instance", "get").mockReturnValue(new FloodExtentService(extents, units, regions, fakeAudit(), fakePhotos()));
+  vi.spyOn(DrainageService, "Instance", "get").mockReturnValue(new DrainageService(drains, units, regions, fakeAudit(), fakePhotos()));
 });
 
 afterEach(() => {

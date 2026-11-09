@@ -6,6 +6,7 @@ import { DrainageService } from "../../src/modules/field-survey/drainage.service
 import { createDrainageSchema, createFloodExtentSchema, updateDrainageSchema } from "../../src/modules/field-survey/field-survey.validation";
 import { FloodExtentService } from "../../src/modules/field-survey/flood-extent.service";
 import { distinctPoints, isLineKind, meanPoint, needsAttention } from "../../src/modules/field-survey/survey-rules";
+import { fakeAudit, fakePhotos } from "../fakes";
 import { InMemoryAdminUnitRepository, makeUnit } from "../geo-fakes";
 import { EMPTY_IMPACT, InMemoryDrainageRepository, InMemoryFloodExtentRepository } from "../field-survey-fakes";
 import { validationMessageAsync } from "../map-layer-fakes";
@@ -49,14 +50,14 @@ function floodService(containing = [state, lga, ward], gate = regions()) {
   const extents = new InMemoryFloodExtentRepository();
   const units = new InMemoryAdminUnitRepository([state, lga, ward]);
   units.containing = containing;
-  return { service: new FloodExtentService(extents, units, gate), extents, gate };
+  return { service: new FloodExtentService(extents, units, gate, fakeAudit(), fakePhotos()), extents, gate };
 }
 
 function drainService(containing = [state, lga, ward], gate = regions()) {
   const drains = new InMemoryDrainageRepository();
   const units = new InMemoryAdminUnitRepository([state, lga, ward]);
   units.containing = containing;
-  return { service: new DrainageService(drains, units, gate), drains, gate };
+  return { service: new DrainageService(drains, units, gate, fakeAudit(), fakePhotos()), drains, gate };
 }
 
 describe("survey rules", () => {

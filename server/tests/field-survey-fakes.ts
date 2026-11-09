@@ -3,12 +3,16 @@ import type {
   DrainageDto,
   DrainageRecord,
   DrainageSummary,
+  DrainInspectionDto,
+  DrainPeople,
   FloodExtentDto,
   FloodExtentRecord,
   FloodHistory,
   FloodImpact,
+  FloodPeople,
   IDrainageRepository,
   IFloodExtentRepository,
+  InspectionContext,
   NewDrainage,
   NewFloodExtent,
 } from "../src/modules/field-survey/field-survey.types";
@@ -20,6 +24,7 @@ import type {
 export const EMPTY_IMPACT: FloodImpact = {
   areaM2: 1_000,
   buildings: 0,
+  households: 0,
   roadMetres: 0,
   facilities: { total: 0, items: [] },
   settlements: [],
@@ -88,6 +93,14 @@ export class InMemoryFloodExtentRepository implements IFloodExtentRepository {
 
   async impactOf(id: string) {
     return this.rows.has(id) ? this.impact : null;
+  }
+
+  async findPeople(id: string): Promise<FloodPeople | null> {
+    return this.rows.has(id) ? { recordedBy: null, recededBy: null, recededAt: null, reopenedBy: null, reopenedAt: null } : null;
+  }
+
+  async impactFeatures(id: string) {
+    return this.rows.has(id) ? { type: "FeatureCollection" as const, features: [], truncated: false } : null;
   }
 
   /** What the public alert map asked for, to check it asks for the days and the cap it should. */
@@ -171,6 +184,10 @@ export class InMemoryDrainageRepository implements IDrainageRepository {
       method: "walked",
       wardId: null,
       lgaId: null,
+      flowDirection: null,
+      diameterM: null,
+      material: null,
+      barrels: null,
       lastCheckedAt: "2026-10-30T09:00:00.000Z",
       longitude: 7.01,
       latitude: 4.78,
@@ -184,7 +201,22 @@ export class InMemoryDrainageRepository implements IDrainageRepository {
   async findById(id: string): Promise<DrainageRecord | null> {
     const row = this.rows.get(id);
     return row
-      ? { id, kind: row.kind, condition: row.condition, name: row.name, widthM: row.widthM, depthM: row.depthM, note: row.note, wardId: row.wardId, lgaId: row.lgaId, recordedBy: row.recordedBy }
+      ? {
+          id,
+          kind: row.kind,
+          condition: row.condition,
+          name: row.name,
+          widthM: row.widthM,
+          depthM: row.depthM,
+          note: row.note,
+          flowDirection: row.flowDirection,
+          diameterM: row.diameterM,
+          material: row.material,
+          barrels: row.barrels,
+          wardId: row.wardId,
+          lgaId: row.lgaId,
+          recordedBy: row.recordedBy,
+        }
       : null;
   }
 
@@ -199,6 +231,10 @@ export class InMemoryDrainageRepository implements IDrainageRepository {
       depthM: input.depthM,
       note: input.note,
       method: input.method,
+      flowDirection: input.flowDirection,
+      diameterM: input.diameterM,
+      material: input.material,
+      barrels: input.barrels,
       wardId: input.wardId,
       lgaId: input.lgaId,
       recordedBy: input.recordedBy,
@@ -207,11 +243,43 @@ export class InMemoryDrainageRepository implements IDrainageRepository {
     });
   }
 
-  async update(id: string, changes: DrainageChanges) {
+  /** Every inspection saved, so a test can check who looked and what they found. */
+  inspections: { id: string; changes: DrainageChanges; inspection: InspectionContext }[] = [];
+
+  async inspect(id: string, changes: DrainageChanges, inspection: InspectionContext) {
     const row = this.rows.get(id);
     if (!row) return null;
     Object.assign(row, changes, { lastCheckedAt: "2026-10-31T10:00:00.000Z" });
-    return row;
+    this.inspections.push({ id, changes, inspection });
+    return { drain: row, inspectionId: `90000000-0000-4000-8000-${String(this.inspections.length).padStart(12, "0")}`, distanceM: null };
+  }
+
+  async findInspections(id: string, limit: number): Promise<DrainInspectionDto[]> {
+    return this.inspections
+      .filter((saved) => saved.id === id)
+      .slice(0, limit)
+      .map((saved, index) => ({
+        id: `90000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+        inspectedAt: "2026-10-31T10:00:00.000Z",
+        inspectedBy: saved.inspection.inspectedBy,
+        inspectorName: saved.inspection.inspectorName,
+        inspectorRole: saved.inspection.inspectorRole,
+        conditionBefore: saved.inspection.conditionBefore,
+        conditionAfter: saved.changes.condition,
+        note: saved.inspection.note,
+        distanceM: null,
+        accuracyM: saved.inspection.accuracyM,
+        photoCount: 0,
+      }));
+  }
+
+  async findPeople(id: string): Promise<DrainPeople | null> {
+    const row = this.rows.get(id);
+    return row ? { recordedBy: null, lastCheckedBy: null, lastCheckedAt: row.lastCheckedAt } : null;
+  }
+
+  async importMany(drains: unknown[]) {
+    return { inserted: drains.length, alreadyPresent: 0, rejected: {} };
   }
 
   async findGeoJson() {

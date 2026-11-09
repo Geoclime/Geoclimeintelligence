@@ -12,6 +12,7 @@ import type {
   WardBatchContext,
   SettlementRow,
   WaterwayRow,
+  WetlandRow,
 } from "../src/modules/map-layers/map-layer-loader.types";
 import type { FacilityOrigin } from "../src/modules/map-layers/layer-rules";
 import type {
@@ -26,6 +27,7 @@ import type {
   IRoadRepository,
   ISettlementRepository,
   IWaterwayRepository,
+  IWetlandRepository,
   LayerGeoJsonQuery,
   LayerSummary,
   ManualFacilitySource,
@@ -33,13 +35,16 @@ import type {
   RoadFeatureCollection,
   SettlementFeatureCollection,
   WaterwayFeatureCollection,
+  WetlandFeatureCollection,
 } from "../src/modules/map-layers/map-layer.types";
 
 // In-memory stand-ins for the map-layer repositories, so services run with no database. Shapes
 // and SQL are never computed here; the spatial SQL is verified against PostGIS, not faked.
 
 /** Remembers the query it was given and returns an empty, untruncated layer. A name search returns `facilityHits`, and is remembered too. */
-export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepository, ISettlementRepository, IInfrastructureRepository, IBuildingRepository {
+export class RecordingLayerRepository
+  implements IRoadRepository, IWaterwayRepository, ISettlementRepository, IInfrastructureRepository, IBuildingRepository, IWetlandRepository
+{
   queries: LayerGeoJsonQuery[] = [];
   facilityHits: FacilityHit[] = [];
   searches: { q: string; limit: number }[] = [];
@@ -52,7 +57,8 @@ export class RecordingLayerRepository implements IRoadRepository, IWaterwayRepos
       WaterwayFeatureCollection &
       SettlementFeatureCollection &
       InfrastructureFeatureCollection &
-      BuildingFeatureCollection;
+      BuildingFeatureCollection &
+      WetlandFeatureCollection;
   }
 
   async searchByName(q: string, limit: number) {
@@ -130,7 +136,7 @@ export class InMemoryFacilityRepository implements IFacilityRepository {
   }
 }
 
-type StoredLayer = "roads" | "waterways" | "settlements" | "infrastructure" | "buildings";
+type StoredLayer = "roads" | "waterways" | "settlements" | "infrastructure" | "buildings" | "wetlands";
 
 export const EMPTY_BATCH: BatchResult = { received: 0, inserted: 0, alreadyPresent: 0, relinked: 0, unlinked: 0, rejected: {} };
 
@@ -147,6 +153,7 @@ export class FakeLoadTx implements LayerLoadTx {
   settlements: { rows: SettlementRow[]; context: WardBatchContext }[] = [];
   infrastructure: { rows: InfrastructureRow[]; context: WardBatchContext }[] = [];
   buildings: { rows: BuildingRow[]; context: WardBatchContext }[] = [];
+  wetlands: { rows: WetlandRow[]; context: BatchContext }[] = [];
 
   async ensureSource(input: NewLayerSource): Promise<EnsuredSource> {
     const index = this.sources.findIndex((source) => JSON.stringify(source) === JSON.stringify(input));
@@ -189,8 +196,13 @@ export class FakeLoadTx implements LayerLoadTx {
     return this.result(rows.map((row) => row.osmId));
   }
 
+  async insertWetlands(rows: WetlandRow[], context: BatchContext) {
+    this.wetlands.push({ rows, context });
+    return this.result(rows.map((row) => row.osmId));
+  }
+
   /** Rows each country "holds", for the clear tests; deleting empties the country's count. */
-  stored: Record<StoredLayer, Record<string, number>> = { roads: {}, waterways: {}, settlements: {}, infrastructure: {}, buildings: {} };
+  stored: Record<StoredLayer, Record<string, number>> = { roads: {}, waterways: {}, settlements: {}, infrastructure: {}, buildings: {}, wetlands: {} };
 
   async deleteRoads(countryCode: string) {
     return this.take("roads", countryCode);
@@ -210,6 +222,10 @@ export class FakeLoadTx implements LayerLoadTx {
 
   async deleteBuildings(countryCode: string) {
     return this.take("buildings", countryCode);
+  }
+
+  async deleteWetlands(countryCode: string) {
+    return this.take("wetlands", countryCode);
   }
 
   private take(layer: StoredLayer, countryCode: string): number {

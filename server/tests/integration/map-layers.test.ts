@@ -5,7 +5,7 @@ import { AuthService } from "../../src/modules/auth/auth.service";
 import { MapLayerLoaderService, type LoadReport } from "../../src/modules/map-layers/map-layer-loader.service";
 import { FacilityService } from "../../src/modules/map-layers/facility.service";
 import { MapLayerService } from "../../src/modules/map-layers/map-layer.service";
-import { FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
+import { fakeAudit, fakePhotos, FakeTokenVerifier, InMemoryUserRepository, makeUser } from "../fakes";
 import { InMemoryAdminUnitRepository, InMemoryDataSourceRepository, makeSource, makeUnit } from "../geo-fakes";
 import { InMemoryFacilityRepository, RecordingLayerRepository } from "../map-layer-fakes";
 
@@ -19,6 +19,7 @@ let waterways: RecordingLayerRepository;
 let settlements: RecordingLayerRepository;
 let infrastructure: RecordingLayerRepository;
 let buildings: RecordingLayerRepository;
+let wetlands: RecordingLayerRepository;
 
 beforeEach(() => {
   const users = new InMemoryUserRepository([
@@ -30,9 +31,10 @@ beforeEach(() => {
   settlements = new RecordingLayerRepository();
   infrastructure = new RecordingLayerRepository();
   buildings = new RecordingLayerRepository();
+  wetlands = new RecordingLayerRepository();
   vi.spyOn(AuthService, "Instance", "get").mockReturnValue(new AuthService(users, new FakeTokenVerifier()));
   vi.spyOn(MapLayerService, "Instance", "get").mockReturnValue(
-    new MapLayerService({ roads, waterways, settlements, infrastructure, buildings }, new InMemoryDataSourceRepository([source])),
+    new MapLayerService({ roads, waterways, settlements, infrastructure, buildings, wetlands }, new InMemoryDataSourceRepository([source])),
   );
 });
 
@@ -96,7 +98,7 @@ describe("saving a place by hand: /api/v1/infrastructure", () => {
     facilities = new InMemoryFacilityRepository();
     const units = new InMemoryAdminUnitRepository([state, ward]);
     units.containing = [state, ward];
-    vi.spyOn(FacilityService, "Instance", "get").mockReturnValue(new FacilityService(facilities, units, "https://geoclime.example.com"));
+    vi.spyOn(FacilityService, "Instance", "get").mockReturnValue(new FacilityService(facilities, units, "https://geoclime.example.com", fakeAudit(), fakePhotos()));
   });
 
   it("lets an administrator save a place and returns it", async () => {
@@ -140,7 +142,7 @@ describe("GET /api/v1/map-layers", () => {
   it("lists the layers with their sources for any signed-in user", async () => {
     const res = await request(app).get("/api/v1/map-layers").set(asMember);
     expect(res.status).toBe(200);
-    expect(res.body.data.map((layer: { id: string }) => layer.id)).toEqual(["roads", "waterways", "settlements", "infrastructure", "buildings"]);
+    expect(res.body.data.map((layer: { id: string }) => layer.id)).toEqual(["roads", "waterways", "settlements", "infrastructure", "buildings", "wetlands"]);
     expect(res.body.data[0]).toMatchObject({ featureCount: 47_507, sources: [{ provider: "OpenStreetMap contributors via HDX", license: "ODbL" }] });
   });
 

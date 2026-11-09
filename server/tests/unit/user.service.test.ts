@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../src/common/errors/app-error";
 import { UserService } from "../../src/modules/users/user.service";
-import { asAuthUser, fakeRegions, InMemoryUserRepository, makeUser } from "../fakes";
+import { asAuthUser, fakeAudit, fakeRegions, fakeRoles, InMemoryUserRepository, makeUser } from "../fakes";
 
 const ADMIN_UNIT = "11111111-1111-4111-8111-111111111111";
 
@@ -9,7 +9,7 @@ function setup() {
   const admin = makeUser({ role: "administrator" });
   const target = makeUser();
   const repo = new InMemoryUserRepository([admin, target]);
-  return { service: new UserService(repo, fakeRegions([ADMIN_UNIT])), admin: asAuthUser(admin), target };
+  return { service: new UserService(repo, fakeRegions([ADMIN_UNIT]), fakeRoles(), fakeAudit()), admin: asAuthUser(admin), target };
 }
 
 describe("UserService.updateAccess", () => {

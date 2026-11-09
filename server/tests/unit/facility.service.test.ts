@@ -3,6 +3,7 @@ import type { AuthUser } from "../../src/common/access/auth-user";
 import { ForbiddenError, NotFoundError } from "../../src/common/errors/app-error";
 import { FacilityService } from "../../src/modules/map-layers/facility.service";
 import { createFacilitySchema, updateFacilitySchema } from "../../src/modules/map-layers/facility.validation";
+import { fakeAudit, fakePhotos } from "../fakes";
 import { InMemoryAdminUnitRepository, makeUnit } from "../geo-fakes";
 import { InMemoryFacilityRepository, validationMessageAsync } from "../map-layer-fakes";
 
@@ -24,7 +25,7 @@ function build(containing = [state, lga, ward]) {
   const facilities = new InMemoryFacilityRepository();
   const units = new InMemoryAdminUnitRepository([state, lga, ward]);
   units.containing = containing;
-  return { service: new FacilityService(facilities, units, "https://geoclime.example.com"), facilities };
+  return { service: new FacilityService(facilities, units, "https://geoclime.example.com", fakeAudit(), fakePhotos()), facilities };
 }
 
 const hospital = { name: "St. Mary's Hospital", kind: "hospital", longitude: 7.0123, latitude: 4.8156 };
@@ -91,7 +92,7 @@ describe("FacilityService.update and remove", () => {
     const { service, facilities } = build();
     const place = facilities.seed({ name: "Old name", osmClass: "clinic", note: "keep me" });
 
-    const renamed = await service.update(place.id, { name: "New name" });
+    const renamed = await service.update(place.id, { name: "New name" }, admin);
     expect(renamed).toMatchObject({ name: "New name", osmClass: "clinic", facilityType: "health", note: "keep me" });
   });
 
@@ -99,7 +100,7 @@ describe("FacilityService.update and remove", () => {
     const { service, facilities } = build();
     const place = facilities.seed({ osmClass: "clinic", note: "old" });
 
-    const changed = await service.update(place.id, { kind: "school", note: "" });
+    const changed = await service.update(place.id, { kind: "school", note: "" }, admin);
     expect(changed).toMatchObject({ osmClass: "school", facilityType: "education", note: null });
   });
 
@@ -107,8 +108,8 @@ describe("FacilityService.update and remove", () => {
     const { service, facilities } = build();
     const imported = facilities.seed({ origin: "import" });
 
-    await expect(service.update(imported.id, { name: "Renamed" })).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(service.remove(imported.id)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(service.update(imported.id, { name: "Renamed" }, admin)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(service.remove(imported.id, admin)).rejects.toBeInstanceOf(ForbiddenError);
     expect(facilities.rows.get(imported.id)).toMatchObject({ name: "Seeded clinic" });
   });
 
@@ -116,10 +117,10 @@ describe("FacilityService.update and remove", () => {
     const { service, facilities } = build();
     const place = facilities.seed();
 
-    await service.remove(place.id);
+    await service.remove(place.id, admin);
     expect(facilities.rows.has(place.id)).toBe(false);
-    await expect(service.remove(place.id)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(service.update("50000000-0000-4000-8000-0000000000ff", { name: "Nobody" })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.remove(place.id, admin)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.update("50000000-0000-4000-8000-0000000000ff", { name: "Nobody" }, admin)).rejects.toBeInstanceOf(NotFoundError);
   });
 
 });
