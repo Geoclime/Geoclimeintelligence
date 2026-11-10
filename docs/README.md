@@ -34,7 +34,7 @@ Plain-language documentation for the Climate Intelligence & Disaster Management 
 
 **AI**
 - [ai-integration.md](ai-integration.md): the foundation for AI features. The provider contract, key encryption, error mapping and `AiService` skeleton, and what comes next.
-- [ai-assistant.md](ai-assistant.md): the AI assistant chat (`POST /api/v1/ai/chat`), what it is told and its rules, real multi-turn chat in the four provider adapters, and AI as two permissions (`ai.use`, `ai.own_keys`) on the Roles screen, with the app-wide permissions check.
+- [ai-assistant.md](ai-assistant.md): the AI assistant chat (`POST /api/v1/ai/chat`) and each person's chat history (`/api/v1/ai/conversations`), what it is told and its rules, real multi-turn chat in the four provider adapters, and AI as two permissions (`ai.use`, `ai.own_keys`) on the Roles screen, with the app-wide permissions check.
 
 **Phase 3: Map layers**
 17. [map-layers.md](map-layers.md): roads, waterways and settlements: the tables, the four read endpoints, thinning by zoom and the cap, the `npm run layers:load` and `npm run layers:clear` scripts, and the country-delete `409`.
@@ -60,7 +60,7 @@ Frontend docs live in [`features/`](features/), per section 22 of *Frontend Engi
 30. [features/email-verification-before-sign-in.md](features/email-verification-before-sign-in.md): new accounts aren't signed in until their email is verified.
 31. [features/usability-and-profile.md](features/usability-and-profile.md): the compact layout, the profile page, name at sign-up, quick search (Ctrl+K), the Help page, the admin setup checklist, and user search on the Users page.
 32. [features/map-layers.md](features/map-layers.md): the Roads, Waterways and Settlements toggles, their legend rows, the Data sources panel, and the layer-toggle fix on the home map.
-32a. [features/ai-assistant.md](features/ai-assistant.md): the AI assistant's top-bar button and chat panel, how it knows the place on screen, and the AI buttons that now follow the `ai.use` permission.
+32a. [features/ai-assistant.md](features/ai-assistant.md): the AI assistant's chat widget (draggable, expandable, with your past chats to reopen or delete), how it shares the bottom-right corner with toasts and map panels, how it knows the place on screen, and the AI buttons that now follow the `ai.use` permission.
 
 ## Phase 5: Rainfall
 

@@ -73,31 +73,49 @@ export interface AiModelOption {
   tier: "fast" | "balanced" | "capable" | null;
 }
 
-/** One turn of a conversation with the assistant. Kept only in the browser. */
+/** One turn of a chat with the assistant. */
 export interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
 }
 
-/** Body for POST /api/v1/ai/chat. Mirrors assistantChatSchema on the server. */
+/** Body for POST /api/v1/ai/chat. Mirrors assistantChatSchema on the server, which keeps the history. */
 export interface AssistantChatBody {
-  /** Takes turns, starting and ending with the person's question; at most MAX_CHAT_MESSAGES. */
-  messages: AssistantMessage[];
+  /** The chat to carry on; leave out to start a new one. */
+  conversationId?: string;
+  message: string;
   /** The place on screen, or the person's home area. */
   areaId?: string;
   /** The page they have open. */
   page?: string;
 }
 
-/** Mirrors MAX_CHAT_MESSAGES on the server. */
-export const MAX_CHAT_MESSAGES = 20;
-
 /** Mirrors AssistantReplyDto. */
 export interface AssistantReply {
+  conversationId: string;
+  title: string;
   reply: string;
   provider: AiProviderId;
   model: string;
   source: AiKeySource;
+}
+
+/** A chat in the history list. Mirrors AiConversationSummaryDto. */
+export interface AiConversationSummary {
+  id: string;
+  title: string;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One chat with every turn. Mirrors AiConversationDto. */
+export interface AiConversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: (AssistantMessage & { createdAt: string })[];
 }
 
 /** "1 credit" / "3 credits". */

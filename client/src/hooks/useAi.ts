@@ -2,6 +2,10 @@ import { useCallback } from "react";
 import { invalidateQueries, QUERY_KEYS, SETTINGS_POLICY } from "../cache/queryClient";
 import {
   activatePlatformAiCredential,
+  deleteAiConversation,
+  deleteAllAiConversations,
+  fetchAiConversation,
+  fetchAiConversations,
   fetchAiStatus,
   fetchPlatformAiCredentials,
   fetchPlatformProviderModels,
@@ -10,6 +14,8 @@ import {
   sendAssistantMessage,
 } from "../endpoints/ai.endpoints";
 import type {
+  AiConversation,
+  AiConversationSummary,
   AiCredential,
   AiModelOption,
   AiProviderId,
@@ -20,13 +26,38 @@ import type {
 } from "../types/ai.types";
 import { useLoader } from "./useLoader";
 
-/** Asks the AI assistant one question (with the conversation so far). Nothing is cached: every answer is fresh. */
-export function useAssistantChat() {
+const CONVERSATIONS_KEY = [...QUERY_KEYS.ai, "conversations"] as const;
+
+/**
+ * The AI assistant: ask a question, and the person's chat history (list, open, delete one, delete all).
+ * Answers are never cached; the history list is, and every send or delete refreshes it.
+ */
+export function useAssistantChat(historyWanted: boolean) {
+  const { data, loading, error, refetch } = useLoader<AiConversationSummary[]>(
+    historyWanted ? [...CONVERSATIONS_KEY] : null,
+    async () => (await fetchAiConversations()).data ?? [],
+    SETTINGS_POLICY,
+  );
+
   const ask = useCallback(async (body: AssistantChatBody): Promise<AssistantReply> => {
     const res = await sendAssistantMessage(body);
+    invalidateQueries([...CONVERSATIONS_KEY]);
     return res.data!;
   }, []);
-  return { ask };
+
+  const open = useCallback(async (id: string): Promise<AiConversation> => (await fetchAiConversation(id)).data!, []);
+
+  const remove = useCallback(async (id: string) => {
+    await deleteAiConversation(id);
+    invalidateQueries([...CONVERSATIONS_KEY]);
+  }, []);
+
+  const removeAll = useCallback(async () => {
+    await deleteAllAiConversations();
+    invalidateQueries([...CONVERSATIONS_KEY]);
+  }, []);
+
+  return { conversations: data ?? [], historyLoading: loading, historyError: error, refetchHistory: refetch, ask, open, remove, removeAll };
 }
 
 export function useAiStatus() {

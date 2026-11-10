@@ -23,6 +23,40 @@ export class AiController {
     }
   }
 
+  static async listConversations(req: Request, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await AssistantService.Instance.list(req.user!)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getConversation(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await AssistantService.Instance.get(req.params.id, req.user!)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async removeConversation(req: Request<{ id: string }>, res: Response, next: NextFunction) {
+    try {
+      await AssistantService.Instance.remove(req.params.id, req.user!);
+      return res.json(ok(null, "Chat deleted"));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async removeAllConversations(req: Request, res: Response, next: NextFunction) {
+    try {
+      const deleted = await AssistantService.Instance.removeAll(req.user!);
+      return res.json(ok({ deleted }, deleted === 1 ? "1 chat deleted" : `${deleted} chats deleted`));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async listOwn(req: Request, res: Response, next: NextFunction) {
     try {
       return res.json(ok(await AiCredentialService.Instance.list(req.user!.id)));

@@ -36,31 +36,19 @@ export const listModelsSchema = z.object({
 });
 export type ListModelsBody = z.infer<typeof listModelsSchema>["body"];
 
-/** The most of a conversation sent back each time: older turns are dropped by the client. */
-export const MAX_CHAT_MESSAGES = 20;
-
+/** The chat history is kept on the server, so a question carries only itself and which chat it belongs to. */
 export const assistantChatSchema = z.object({
   body: z
     .object({
-      messages: z
-        .array(
-          z
-            .object({
-              role: z.enum(["user", "assistant"]),
-              content: z.string().trim().min(1, "A message can't be empty").max(4000, "Keep each message under 4,000 characters"),
-            })
-            .strict(),
-        )
-        .min(1, "Ask a question")
-        .max(MAX_CHAT_MESSAGES, `Send at most ${MAX_CHAT_MESSAGES} messages; start a new chat for more`)
-        // Every AI provider expects the person and the assistant to take turns, starting and ending with the person.
-        .refine((messages) => messages.every((m, i) => m.role === (i % 2 === 0 ? "user" : "assistant")), {
-          message: "Messages must take turns, starting with yours",
-        })
-        .refine((messages) => messages[messages.length - 1]?.role === "user", { message: "The last message must be your question" }),
+      conversationId: z.uuid("Not a valid chat id").optional(),
+      message: z.string().trim().min(1, "Ask a question").max(4000, "Keep your question under 4,000 characters"),
       areaId: z.uuid("Not a valid area id").optional(),
       page: z.string().trim().max(200).optional(),
     })
     .strict(),
 });
 export type AssistantChatBody = z.infer<typeof assistantChatSchema>["body"];
+
+export const conversationIdSchema = z.object({
+  params: z.object({ id: z.uuid("Not a valid chat id") }),
+});

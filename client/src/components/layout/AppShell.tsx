@@ -103,7 +103,6 @@ export function AppShell() {
               <QuickSearch role={user.role} />
               <FloodAheadIndicator />
               <NotificationBell />
-              {can(user, "ai.use") && <AssistantLauncher user={user} />}
               <NavLink to="/help" className="app-topbar__help" aria-label="Help and guides" title="Help and guides">
                 <Icon name="info" size={18} />
               </NavLink>
@@ -119,6 +118,7 @@ export function AppShell() {
             </Suspense>
           </main>
         </div>
+        {can(user, "ai.use") && <AssistantLauncher user={user} />}
       </div>
     </NotificationProvider>
   );

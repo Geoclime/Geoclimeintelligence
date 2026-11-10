@@ -4,7 +4,7 @@ import { rateLimit } from "../../middleware/rate-limit.middleware";
 import { requirePermission } from "../../middleware/require-permission.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { AiController } from "./ai.controller";
-import { assistantChatSchema, listModelsSchema, providerParamSchema, saveAiCredentialSchema } from "./ai.validation";
+import { assistantChatSchema, conversationIdSchema, listModelsSchema, providerParamSchema, saveAiCredentialSchema } from "./ai.validation";
 
 /** For AI drafts and key checks: each one is a slow, paid request. */
 export const aiRateLimiter = rateLimit({ windowMs: 15 * 60_000, max: 30 });
@@ -18,8 +18,13 @@ export const aiRouter = Router();
 
 aiRouter.get("/status", AiController.status);
 
-// The in-app assistant
+// The in-app assistant. Asking needs ai.use; reading and deleting one's own chats needs only a sign-in,
+// so someone whose role loses AI can still see and delete what they wrote.
 aiRouter.post("/chat", requirePermission("ai.use"), aiChatRateLimiter, validate(assistantChatSchema), AiController.chat);
+aiRouter.get("/conversations", AiController.listConversations);
+aiRouter.delete("/conversations", AiController.removeAllConversations);
+aiRouter.get("/conversations/:id", validate(conversationIdSchema), AiController.getConversation);
+aiRouter.delete("/conversations/:id", validate(conversationIdSchema), AiController.removeConversation);
 
 // Personal keys
 aiRouter.get("/credentials", requirePermission("ai.own_keys"), AiController.listOwn);

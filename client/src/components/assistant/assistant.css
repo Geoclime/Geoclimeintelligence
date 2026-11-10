@@ -1,32 +1,406 @@
-/* The AI assistant: a panel on the right edge, over the page (and over the map), full width on phones. */
+/* The AI assistant widget: a round button in the bottom-right corner, and the chat card it opens above it.
+   On phones the chat fills the screen. Stacking: over the map and page (and the toasts, 60), under the
+   update banner (90) and the flood warning (100). */
 
+:root {
+  --assistant-fab-size: 56px;
+  --assistant-gap: var(--space-4);
+  /* How much room the button takes from the bottom of the screen. 0 unless the widget is on screen. */
+  --assistant-clearance: 0px;
+}
+
+:root.has-assistant {
+  --assistant-clearance: calc(var(--assistant-fab-size) + var(--assistant-gap));
+}
+
+/* Everything else that lives in the bottom-right corner moves up by the button's height. */
+.has-assistant .toast-viewport,
+.has-assistant .pwa-update {
+  bottom: calc(var(--space-4) + var(--assistant-clearance) + env(safe-area-inset-bottom));
+}
+
+.has-assistant .map-page__panels {
+  bottom: calc(var(--space-3) + 44px + var(--assistant-clearance));
+}
+
+@media (min-width: 640px) {
+  .has-assistant .map-page__panels,
+  .has-assistant .map-page__panels.is-open {
+    bottom: calc(var(--space-5) + 16px + var(--assistant-clearance));
+    max-height: calc(100% - 150px - var(--assistant-clearance));
+  }
+}
+
+/* An ordinary page can scroll its last line out from under the button. */
+.has-assistant .app-main:not(.app-main--full)::after {
+  content: "";
+  display: block;
+  height: var(--assistant-clearance);
+}
+
+/* Docked: against one side, --fab-offset from the bottom (set by useDockPosition), never under the top bar.
+   While dragged or gliding to its edge, inline left/top take over. */
+.assistant-fab {
+  position: fixed;
+  right: var(--assistant-gap);
+  left: auto;
+  bottom: clamp(
+    var(--assistant-gap),
+    var(--fab-offset, var(--assistant-gap)),
+    calc(100dvh - var(--assistant-fab-size) - var(--assistant-gap) - var(--header-height, 56px))
+  );
+  z-index: 86;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  display: grid;
+  place-items: center;
+  width: var(--assistant-fab-size);
+  height: var(--assistant-fab-size);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    background-color 150ms ease;
+}
+
+.assistant-fab:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.assistant-fab:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.assistant-fab.is-left {
+  left: var(--assistant-gap);
+  right: auto;
+}
+
+.assistant-fab.is-dragging {
+  cursor: grabbing;
+  transform: scale(1.06);
+  box-shadow: 0 20px 56px rgb(6 60 62 / 0.3);
+  transition: none;
+}
+
+.assistant-fab.is-settling {
+  transition:
+    left 180ms ease-out,
+    top 180ms ease-out;
+}
+
+/* Placed beside the button by panelPlacement (the --ap-* variables); these fallbacks are the corner. */
 .assistant {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: var(--ap-top, auto);
+  right: var(--ap-right, var(--assistant-gap));
+  bottom: var(--ap-bottom, calc(var(--assistant-gap) + var(--assistant-fab-size) + var(--space-3)));
+  left: var(--ap-left, auto);
   z-index: 85;
   display: flex;
   flex-direction: column;
-  width: min(420px, 100vw);
+  width: var(--ap-width, min(400px, calc(100vw - 2 * var(--assistant-gap))));
+  height: var(--ap-height, min(620px, calc(100dvh - 160px)));
+  overflow: hidden;
   background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding-bottom: env(safe-area-inset-bottom);
+  transform-origin: var(--ap-origin, bottom right);
+  animation: assistant-in 160ms ease-out;
+}
+
+.assistant__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.assistant__chat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The chat list: its own view in the small card, a column beside the chat when expanded. */
+.assistant__history {
+  display: none;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.assistant.is-history .assistant__history {
+  display: flex;
+  flex: 1;
+}
+
+.assistant.is-history .assistant__chat {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .assistant.is-expanded .assistant__history {
+    display: flex;
+    flex: 0 0 248px;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-surface-muted);
+  }
+
+  .assistant.is-expanded .assistant__chat {
+    display: flex;
+  }
+
+  /* The list is always beside the chat, so the toggle has nothing to do. */
+  .assistant.is-expanded .assistant__history-toggle {
+    display: none;
+  }
+
+  .assistant.is-expanded .assistant__message {
+    max-width: 75%;
+  }
+}
+
+.assistant__history-top {
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+
+.assistant__history-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-2) var(--space-2);
+}
+
+.assistant__history-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assistant__history-label {
+  margin: var(--space-3) var(--space-2) var(--space-1);
+  color: var(--color-text-subtle);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.assistant__history-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+}
+
+.assistant__history-item:hover,
+.assistant__history-item:focus-within {
+  background: var(--color-surface-muted);
+}
+
+.assistant.is-expanded .assistant__history-item:hover,
+.assistant.is-expanded .assistant__history-item:focus-within {
+  background: var(--color-surface);
+}
+
+.assistant__history-item.is-active {
+  background: var(--color-primary-soft);
+}
+
+.assistant__history-open {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.assistant__history-item.is-active .assistant__history-open {
+  font-weight: 600;
+}
+
+/* Shown on hover or focus with a mouse; always on touch screens, which have no hover. */
+.assistant__history-delete {
+  opacity: 0;
+}
+
+.assistant__history-item:hover .assistant__history-delete,
+.assistant__history-item:focus-within .assistant__history-delete,
+.assistant__history-item.is-active .assistant__history-delete {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .assistant__history-delete {
+    opacity: 1;
+  }
+}
+
+.assistant__history-delete:hover {
+  color: var(--color-danger);
+}
+
+.assistant__history-item.is-confirming {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-danger-soft);
+}
+
+.assistant__history-confirm {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.assistant__history-confirm-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.assistant__history-empty {
+  margin: var(--space-3) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.assistant__history-bottom {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.assistant__history-confirm-all {
+  display: grid;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+}
+
+.assistant__history-note {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: 0.75rem;
+}
+
+.assistant__link-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.assistant__link-button--danger {
+  color: var(--color-danger);
+}
+
+.assistant__icon-button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.assistant__icon-button:hover:not(:disabled),
+.assistant__icon-button[aria-pressed="true"] {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.assistant__icon-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.assistant__icon-button:focus-visible,
+.assistant__history-open:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+@keyframes assistant-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant,
+  .assistant-fab,
+  .assistant-fab.is-settling {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Phones: the chat takes the whole screen and has its own close button, so the round button steps aside.
+   It is already as big as it can be, so there is no expand button. */
+@media (max-width: 639px) {
+  .assistant {
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .assistant-fab.is-open,
+  .assistant__expand {
+    display: none;
+  }
 }
 
 .assistant__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
+}
+
+.assistant__heading {
+  flex: 1;
+  min-width: 0;
 }
 
 .assistant__title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .assistant__subtitle {
@@ -40,23 +414,6 @@
   align-items: center;
   gap: var(--space-1);
   flex-shrink: 0;
-}
-
-.assistant__close {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-
-.assistant__close:hover {
-  background: var(--color-surface-muted);
-  color: var(--color-text);
 }
 
 .assistant__body {
@@ -211,10 +568,4 @@
   padding: 0 var(--space-4) var(--space-3);
   color: var(--color-text-subtle);
   font-size: 0.78rem;
-}
-
-@media (max-width: 480px) {
-  .assistant {
-    border-left: 0;
-  }
 }
