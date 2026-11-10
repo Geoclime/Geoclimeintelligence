@@ -43,6 +43,7 @@ describe("FacilityService.create", () => {
         facilityType: "health",
         osmClass: "hospital",
         note: "Has a 24-hour emergency ward",
+        phone: null,
         longitude: 7.0123,
         latitude: 4.8156,
         sourceId: "60000000-0000-4000-8000-000000000001",
@@ -50,6 +51,14 @@ describe("FacilityService.create", () => {
       },
     ]);
     expect(saved).toMatchObject({ name: "St. Mary's Hospital", facilityType: "health", origin: "manual" });
+  });
+
+  it("keeps a phone number when one is given, and none otherwise", async () => {
+    const { service, facilities } = build();
+    await service.create({ ...hospital, phone: "+2348031234567" }, admin);
+    await service.create({ ...hospital }, admin);
+
+    expect(facilities.created.map((place) => place.phone)).toEqual(["+2348031234567", null]);
   });
 
   it("files every kind under the type the import would give it", async () => {

@@ -90,8 +90,8 @@ describe("repositories read UPDATE and DELETE results the way TypeORM returns th
   });
 
   it("changes a saved place and hands back the place", async () => {
-    useStub(stubQuery(() => [{ id: "p1", name: "St. Mary's", facilityType: "health", osmClass: "hospital", note: null, origin: "manual", longitude: 7, latitude: 4.8, adminUnitId: null, createdAt: new Date("2026-10-31T10:00:00Z") }]));
-    expect(await new FacilityRepository().update("p1", { name: "St. Mary's", facilityType: "health", osmClass: "hospital", note: null })).toMatchObject({
+    useStub(stubQuery(() => [{ id: "p1", name: "St. Mary's", facilityType: "health", osmClass: "hospital", note: null, phone: null, origin: "manual", longitude: 7, latitude: 4.8, adminUnitId: null, createdAt: new Date("2026-10-31T10:00:00Z") }]));
+    expect(await new FacilityRepository().update("p1", { name: "St. Mary's", facilityType: "health", osmClass: "hospital", note: null, phone: null })).toMatchObject({
       id: "p1",
       createdAt: "2026-10-31T10:00:00.000Z",
     });

@@ -177,14 +177,14 @@ describe("AiService", () => {
     const fakeProvider: AiProvider = {
       id: "gemini",
       listModels: async () => [],
-      completeJson: async () => {
+      generate: async () => {
         attempts += 1;
         if (attempts === 1) {
           return { text: '{"wrong": 1}', inputTokens: 10, outputTokens: 5 };
         }
         return { text: '{"summary": "Valid flood outlook"}', inputTokens: 12, outputTokens: 8 };
       },
-      streamText: async () => ({ inputTokens: 0, outputTokens: 0 }),
+      stream: async () => ({ text: "", inputTokens: 0, outputTokens: 0 }),
     };
 
     const recorded: unknown[] = [];
