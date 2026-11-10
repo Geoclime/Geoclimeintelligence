@@ -148,6 +148,7 @@ export function ImportNewPage() {
   // What a chosen folder (or several tiles) holds: months, gaps and what was left out, shown before checking.
   const [tileSet, setTileSet] = useState<MonthlyTiles | null>(null);
   const [existingSatellite, setExistingSatellite] = useState<{
+    countryCode: string;
     byMonth: Map<string, ExistingSatelliteMonth>;
     byFileName: Map<string, ExistingSatelliteMonth>;
   } | null>(null);
@@ -221,13 +222,10 @@ export function ImportNewPage() {
   // When importing a folder/batch of satellite flood tiles, look up which months have already been
   // checked or promoted for this country so we can tell the admin and skip re-checking them.
   useEffect(() => {
-    if (!satelliteChoice || !countryCode || files.length <= 1) {
-      setExistingSatellite(null);
-      return;
-    }
+    if (!satelliteChoice || !countryCode || files.length <= 1) return;
     let cancelled = false;
     void fetchExistingSatelliteMonths(countryCode).then((lookup) => {
-      if (!cancelled) setExistingSatellite(lookup);
+      if (!cancelled) setExistingSatellite({ countryCode, ...lookup });
     });
     return () => {
       cancelled = true;
@@ -372,13 +370,16 @@ export function ImportNewPage() {
     0,
   );
   const failedBatchCount = batch.items.filter((item) => item.state === "failed" || item.state === "waiting").length;
-  const alreadyImportedFilesCount =
-    files.length > 1 && existingSatellite
-      ? files.filter((f) => {
-          const ym = monthFromFileName(f.name);
-          return (ym && existingSatellite.byMonth.has(ym)) || existingSatellite.byFileName.has(f.name.toLowerCase());
-        }).length
-      : 0;
+  const activeExistingSatellite =
+    satelliteChoice && countryCode && files.length > 1 && existingSatellite?.countryCode === countryCode
+      ? existingSatellite
+      : null;
+  const alreadyImportedFilesCount = activeExistingSatellite
+    ? files.filter((f) => {
+        const ym = monthFromFileName(f.name);
+        return (ym && activeExistingSatellite.byMonth.has(ym)) || activeExistingSatellite.byFileName.has(f.name.toLowerCase());
+      }).length
+    : 0;
 
   const handleClearLayer = async () => {
     if (!countryCode || targetLayerIds.length === 0) return;
