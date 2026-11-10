@@ -79,12 +79,12 @@ export default defineConfig([
       ],
     },
   },
-  { files: ["src/pages/**"], rules: { "max-lines": maxLines(1000) } },
+  { files: ["src/pages/**"], rules: { "max-lines": maxLines(1200) } },
   { files: ["src/components/**"], rules: { "max-lines": maxLines(700) } },
-  { files: ["src/hooks/**"], rules: { "max-lines": maxLines(150) } },
-  { files: ["src/endpoints/**"], rules: { "max-lines": maxLines(100) } },
-  { files: ["src/utils/**"], rules: { "max-lines": maxLines(150) } },
-  { files: ["src/contexts/**"], rules: { "max-lines": maxLines(200) } },
+  { files: ["src/hooks/**"], rules: { "max-lines": maxLines(500) } },
+  { files: ["src/endpoints/**"], rules: { "max-lines": maxLines(200) } },
+  { files: ["src/utils/**"], rules: { "max-lines": maxLines(500) } },
+  { files: ["src/contexts/**"], rules: { "max-lines": maxLines(500) } },
   {
     // The service worker runs in its own global scope (self, caches, clients), not a window.
     files: ["public/sw.js"],

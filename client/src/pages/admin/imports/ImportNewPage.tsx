@@ -37,7 +37,12 @@ import { useDataSources } from "../../../hooks/useDataSources";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 import { useImportUpload } from "../../../hooks/useImportUpload";
 import { useMapLayerCatalog } from "../../../hooks/useMapLayerCatalog";
-import { useSatelliteFloodBatch, type BatchItem } from "../../../hooks/useSatelliteFloodBatch";
+import {
+  fetchExistingSatelliteMonths,
+  useSatelliteFloodBatch,
+  type BatchItem,
+  type ExistingSatelliteMonth,
+} from "../../../hooks/useSatelliteFloodBatch";
 import { useTemplateDownload } from "../../../hooks/useTemplateDownload";
 import { useToast } from "../../../hooks/useToast";
 import { errorMessage } from "../../../transport/api-error";
@@ -46,7 +51,7 @@ import type { MapLayerLoadReport, OverlayLayerId } from "../../../types/map-laye
 import { applySubmitError } from "../../../utils/form-errors";
 import { MAP_PATH } from "../../../utils/map-url";
 import { formatYearMonth } from "../../../utils/rainfall-summary";
-import { pickMonthlyTiles, type MonthlyTiles } from "../../../utils/monthly-tiles";
+import { monthFromFileName, pickMonthlyTiles, type MonthlyTiles } from "../../../utils/monthly-tiles";
 
 const FILE_TYPE_LABELS: Record<ImportFileType, string> = {
   xlsx: "Excel workbook",
@@ -116,10 +121,7 @@ export function ImportNewPage() {
     },
   });
   const { register, control, setValue, setError, clearErrors, handleSubmit, formState } = methods;
-  const [countryCode, levelText, headerRow] = useWatch({
-    control,
-    name: ["countryCode", "level", "headerRow"],
-  });
+  const [countryCode, levelText, headerRow] = useWatch({ control, name: ["countryCode", "level", "headerRow"] });
   const layerKind = parseLayerChoice(levelText);
   const rainfallLevel = parseRainfallChoice(levelText);
   const floodRiskChoice = isFloodRiskChoice(levelText);
@@ -145,6 +147,10 @@ export function ImportNewPage() {
   const [files, setFiles] = useState<File[]>([]);
   // What a chosen folder (or several tiles) holds: months, gaps and what was left out, shown before checking.
   const [tileSet, setTileSet] = useState<MonthlyTiles | null>(null);
+  const [existingSatellite, setExistingSatellite] = useState<{
+    byMonth: Map<string, ExistingSatelliteMonth>;
+    byFileName: Map<string, ExistingSatelliteMonth>;
+  } | null>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const batch = useSatelliteFloodBatch();
   const [filePreview, setFilePreview] = useState<ImportPreview | null>(null);
@@ -211,6 +217,22 @@ export function ImportNewPage() {
       setValue("parentId", onlyParentId);
     }
   }, [filePreview, onlyParentId, level, setValue]);
+
+  // When importing a folder/batch of satellite flood tiles, look up which months have already been
+  // checked or promoted for this country so we can tell the admin and skip re-checking them.
+  useEffect(() => {
+    if (!satelliteChoice || !countryCode || files.length <= 1) {
+      setExistingSatellite(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchExistingSatelliteMonths(countryCode).then((lookup) => {
+      if (!cancelled) setExistingSatellite(lookup);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [satelliteChoice, countryCode, files]);
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = Array.from(event.target.files ?? []);
@@ -297,13 +319,14 @@ export function ImportNewPage() {
     if (satelliteFor) {
       const results = await batch.checkAll({ files, countryCode: values.countryCode, sourceId: values.sourceId, yearMonth: values.yearMonth || undefined });
       const checked = results.filter((item) => item.state === "checked");
+      const ready = results.filter((item) => item.state === "checked" || item.state === "promoted");
       if (results.length === 1 && checked[0]?.run) {
         navigate(`/admin/imports/${checked[0].run.id}`);
         return;
       }
       showToast({
-        type: checked.length === results.length ? "success" : "error",
-        message: `Checked ${checked.length} of ${results.length} months.${checked.length < results.length ? " See the reasons below." : " Review them, or promote them all below."}`,
+        type: ready.length === results.length ? "success" : "error",
+        message: `Checked ${ready.length} of ${results.length} months.${ready.length < results.length ? " See the reasons below." : " Review them, or promote them all below."}`,
       });
       return;
     }
@@ -349,6 +372,13 @@ export function ImportNewPage() {
     0,
   );
   const failedBatchCount = batch.items.filter((item) => item.state === "failed" || item.state === "waiting").length;
+  const alreadyImportedFilesCount =
+    files.length > 1 && existingSatellite
+      ? files.filter((f) => {
+          const ym = monthFromFileName(f.name);
+          return (ym && existingSatellite.byMonth.has(ym)) || existingSatellite.byFileName.has(f.name.toLowerCase());
+        }).length
+      : 0;
 
   const handleClearLayer = async () => {
     if (!countryCode || targetLayerIds.length === 0) return;
@@ -512,15 +542,7 @@ export function ImportNewPage() {
                       <strong>{liveLayerCount.toLocaleString("en")}</strong> {LAYER_LABELS[layerKind]} features are currently loaded.
                       Re-uploading skips features already present, or you can clear them first to test a fresh import.
                     </span>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      icon={<Icon name="trash" size={16} />}
-                      loading={clearingLayers}
-                      loadingLabel="Clearing…"
-                      onClick={() => void handleClearLayer()}
-                      data-cy="clear-map-layer"
-                    >
+                    <Button variant="danger" size="sm" icon={<Icon name="trash" size={16} />} loading={clearingLayers} loadingLabel="Clearing…" onClick={() => void handleClearLayer()} data-cy="clear-map-layer">
                       Clear {LAYER_LABELS[layerKind]} ({liveLayerCount.toLocaleString("en")})
                     </Button>
                   </div>
@@ -715,10 +737,7 @@ export function ImportNewPage() {
                     </SelectField>
                     <div className="source-picker">
                       <TextField label="Heading row" inputMode="numeric" hint="Detected automatically; change it if the guess is wrong." error={formState.errors.headerRow?.message} {...register("headerRow")} />
-                      <Button
-                        variant="secondary"
-                        onClick={() => void readFile(file, { sheetName: filePreview.sheetName ?? undefined, headerRow: Number(headerRow) || undefined })}
-                      >
+                      <Button variant="secondary" onClick={() => void readFile(file, { sheetName: filePreview.sheetName ?? undefined, headerRow: Number(headerRow) || undefined })}>
                         Re-read
                       </Button>
                     </div>
@@ -756,7 +775,7 @@ export function ImportNewPage() {
                   <Callout tone="info" dataCy="satellite-flood-ready">
                     Ready to check <strong>{files.length === 1 ? file.name : `${files.length} months`}</strong> against every live LGA and ward. Each
                     takes a few seconds. Nothing goes live until it is promoted.
-                    {tileSet && <TileSetSummary tiles={tileSet} />}
+                    {tileSet && <TileSetSummary tiles={tileSet} alreadyImported={alreadyImportedFilesCount} />}
                   </Callout>
                 )}
                 {files.length === 1 && (
@@ -770,11 +789,7 @@ export function ImportNewPage() {
                   />
                 )}
                 {batch.items.length > 0 && (
-                  <SatelliteBatchList
-                    items={batch.items}
-                    running={batch.running}
-                    onRetryOne={(index) => void batch.retryOne(index)}
-                  />
+                  <SatelliteBatchList items={batch.items} running={batch.running} onRetryOne={(index) => void batch.retryOne(index)} />
                 )}
                 <div className="form-actions">
                   {batch.running ? (
@@ -787,29 +802,22 @@ export function ImportNewPage() {
                     </Button>
                   )}
                   {!batch.running && failedBatchCount > 0 && (
-                    <Button
-                      variant="secondary"
-                      icon={<Icon name="refresh" size={16} />}
-                      onClick={() => void handleRetryFailedBatch()}
-                      data-cy="satellite-flood-retry-failed"
-                    >
+                    <Button variant="secondary" icon={<Icon name="refresh" size={16} />} onClick={() => void handleRetryFailedBatch()} data-cy="satellite-flood-retry-failed">
                       Retry {failedBatchCount} failed {failedBatchCount === 1 ? "month" : "months"}
                     </Button>
                   )}
                   {batch.items.some((item) => item.state === "checked") ? (
-                    <Button
-                      icon={<Icon name="check" size={16} />}
-                      loading={batch.running}
-                      loadingLabel="Working…"
-                      onClick={() => void batch.promoteAll()}
-                      data-cy="satellite-flood-promote-all"
-                    >
+                    <Button icon={<Icon name="check" size={16} />} loading={batch.running} loadingLabel="Working…" onClick={() => void batch.promoteAll()} data-cy="satellite-flood-promote-all">
                       Promote {batch.items.filter((item) => item.state === "checked").length} checked months
                     </Button>
                   ) : (
                     batch.items.length === 0 && (
                       <Button type="submit" icon={<Icon name="check" size={16} />} loading={formState.isSubmitting} loadingLabel="Checking…" data-cy="start-import">
-                        {files.length === 1 ? "Check the month" : `Check ${files.length} months`}
+                        {files.length === 1
+                          ? "Check the month"
+                          : alreadyImportedFilesCount > 0 && alreadyImportedFilesCount < files.length
+                            ? `Check ${files.length - alreadyImportedFilesCount} remaining months`
+                            : `Check ${files.length} months`}
                       </Button>
                     )
                   )}
@@ -841,13 +849,7 @@ export function ImportNewPage() {
                   <Button variant="secondary" onClick={() => navigate(MAP_PATH)}>
                     Open map
                   </Button>
-                  <Button
-                    type="submit"
-                    icon={<Icon name="check" size={16} />}
-                    loading={formState.isSubmitting}
-                    loadingLabel="Loading map layer into PostGIS…"
-                    data-cy="start-import"
-                  >
+                  <Button type="submit" icon={<Icon name="check" size={16} />} loading={formState.isSubmitting} loadingLabel="Loading map layer into PostGIS…" data-cy="start-import">
                     Load {LAYER_LABELS[layerKind]}
                   </Button>
                 </div>
@@ -911,14 +913,21 @@ function someOf(names: string[]): string {
  * What a chosen folder of monthly tiles holds, before anything is sent: the months it covers, the
  * months with no file, what was left out and why, and how much there is to upload.
  */
-function TileSetSummary({ tiles }: { tiles: MonthlyTiles }) {
+function TileSetSummary({ tiles, alreadyImported = 0 }: { tiles: MonthlyTiles; alreadyImported?: number }) {
   const megabytes = tiles.files.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024;
+  const remaining = Math.max(0, tiles.files.length - alreadyImported);
   return (
     <ul className="import-folder__summary" data-cy="satellite-flood-folder-summary">
       {tiles.first && tiles.last && (
         <li>
           {formatYearMonth(tiles.first)} to {formatYearMonth(tiles.last)}, {megabytes >= 1024 ? `${(megabytes / 1024).toFixed(1)} GB` : `${Math.round(megabytes)} MB`} to upload.
           Keep this page open until the last month is checked.
+        </li>
+      )}
+      {alreadyImported > 0 && (
+        <li data-cy="satellite-flood-folder-already-imported">
+          {alreadyImported === 1 ? "1 month is" : `${alreadyImported} months are`} already imported and will be skipped
+          {remaining > 0 ? ` (${remaining} left to check).` : "."}
         </li>
       )}
       {tiles.missing.length > 0 && (
@@ -940,15 +949,7 @@ function TileSetSummary({ tiles }: { tiles: MonthlyTiles }) {
 }
 
 /** The months of a satellite flood batch: each file, its month, what happened to it, and a link to review or retry it. */
-function SatelliteBatchList({
-  items,
-  running,
-  onRetryOne,
-}: {
-  items: BatchItem[];
-  running: boolean;
-  onRetryOne: (index: number) => void;
-}) {
+function SatelliteBatchList({ items, running, onRetryOne }: { items: BatchItem[]; running: boolean; onRetryOne: (index: number) => void }) {
   return (
     <div className="data-table__scroll">
       <table className="data-table" data-cy="satellite-flood-batch">
@@ -962,34 +963,31 @@ function SatelliteBatchList({
           </tr>
         </thead>
         <tbody>
-          {items.map((item, index) => (
-            <tr key={item.fileName} data-cy="satellite-flood-batch-row" data-state={item.state}>
-              <td className="mono">{item.fileName}</td>
-              <td>{item.run?.options.yearMonth ? formatYearMonth(item.run.options.yearMonth) : <span className="muted">Not known yet</span>}</td>
-              <td>{BATCH_LABELS[item.state]}</td>
-              <td>
-                <div className="batch-row__details">
-                  {item.error && <span className="field__error">{item.error}</span>}
-                  {item.run && (
-                    <Link to={`/admin/imports/${item.run.id}`} target="_blank" rel="noreferrer">
-                      Review
-                    </Link>
-                  )}
-                  {!running && (item.state === "failed" || item.state === "waiting") && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={<Icon name="refresh" size={14} />}
-                      onClick={() => onRetryOne(index)}
-                      data-cy="satellite-flood-retry-one"
-                    >
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
+          {items.map((item, index) => {
+            const month = item.run?.options.yearMonth ?? item.yearMonth;
+            return (
+              <tr key={item.fileName} data-cy="satellite-flood-batch-row" data-state={item.state}>
+                <td className="mono">{item.fileName}</td>
+                <td>{month ? formatYearMonth(month) : <span className="muted">Not known yet</span>}</td>
+                <td>{BATCH_LABELS[item.state]}</td>
+                <td>
+                  <div className="batch-row__details">
+                    {item.error && <span className="field__error">{item.error}</span>}
+                    {item.run && (
+                      <Link to={`/admin/imports/${item.run.id}`} target="_blank" rel="noreferrer">
+                        Review
+                      </Link>
+                    )}
+                    {!running && (item.state === "failed" || item.state === "waiting") && (
+                      <Button variant="secondary" size="sm" icon={<Icon name="refresh" size={14} />} onClick={() => onRetryOne(index)} data-cy="satellite-flood-retry-one">
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

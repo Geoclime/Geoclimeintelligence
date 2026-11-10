@@ -1,14 +1,16 @@
 import { useCallback, useRef, useState } from "react";
 import { QUERY_KEYS, invalidateQueries } from "../cache/queryClient";
 import { IS_E2E } from "../config/env";
-import { promoteImportRun } from "../endpoints/import.endpoints";
-import { startSatelliteFloodImport } from "../endpoints/satellite-flood.endpoints";
+import { fetchImportRuns, promoteImportRun } from "../endpoints/import.endpoints";
+import { fetchSatelliteFloods, startSatelliteFloodImport } from "../endpoints/satellite-flood.endpoints";
 import { errorMessage, toApiError } from "../transport/api-error";
 import type { ImportRun } from "../types/import.types";
+import { monthFromFileName } from "../utils/monthly-tiles";
 
 /** One file of a batch: waiting, being checked, checked (a run), promoted, or refused with a reason. */
 export interface BatchItem {
   fileName: string;
+  yearMonth?: string | null;
   state: "waiting" | "checking" | "checked" | "promoting" | "promoted" | "failed";
   run: ImportRun | null;
   error: string | null;
@@ -22,6 +24,15 @@ export interface BatchInput {
   yearMonth?: string;
 }
 
+export interface ExistingSatelliteMonth {
+  yearMonth: string;
+  state: "checked" | "promoted";
+  run: ImportRun | null;
+}
+
+const RUN_PAGE_SIZE = 100;
+const MAX_RUN_PAGES = 5;
+
 /** True for a dropped connection, a timeout or a 5xx server blip: worth trying again automatically once. */
 function isTransientFailure(error: unknown): boolean {
   if (IS_E2E) return false;
@@ -30,6 +41,80 @@ function isTransientFailure(error: unknown): boolean {
 }
 
 const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function fetchAllSatelliteRuns(countryCode: string): Promise<ImportRun[]> {
+  const first = await fetchImportRuns({ page: 1, pageSize: RUN_PAGE_SIZE });
+  const all: ImportRun[] = [...(first.data ?? [])];
+  const total = first.meta?.total ?? all.length;
+  const totalPages = Math.min(MAX_RUN_PAGES, Math.ceil(total / RUN_PAGE_SIZE));
+  if (totalPages > 1) {
+    const pages = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, i) =>
+        fetchImportRuns({ page: i + 2, pageSize: RUN_PAGE_SIZE }).catch(() => null),
+      ),
+    );
+    for (const page of pages) {
+      if (page?.data) all.push(...page.data);
+    }
+  }
+  return all.filter(
+    (run) =>
+      run.target === "satellite_flood_layers" &&
+      run.options.countryCode === countryCode &&
+      run.passedCount > 0 &&
+      run.errorCount === 0,
+  );
+}
+
+/**
+ * Looks up which months of satellite flood extent have already been checked or promoted for a
+ * country, so re-selecting a folder skips files that were already imported.
+ */
+export async function fetchExistingSatelliteMonths(
+  countryCode: string,
+): Promise<{ byMonth: Map<string, ExistingSatelliteMonth>; byFileName: Map<string, ExistingSatelliteMonth> }> {
+  const byMonth = new Map<string, ExistingSatelliteMonth>();
+  const byFileName = new Map<string, ExistingSatelliteMonth>();
+  if (!countryCode) return { byMonth, byFileName };
+
+  const [liveRes, runs] = await Promise.all([
+    fetchSatelliteFloods(countryCode).catch(() => null),
+    fetchAllSatelliteRuns(countryCode).catch(() => [] as ImportRun[]),
+  ]);
+
+  const liveMonths = new Set((liveRes?.data?.months ?? []).map((m) => m.yearMonth));
+
+  // Runs arrive newest-first. Prefer a promoted/live month; otherwise keep the newest checked run.
+  for (const run of runs) {
+    const ym = run.options.yearMonth ?? monthFromFileName(run.fileName);
+    if (!ym) continue;
+    const state: "checked" | "promoted" =
+      run.status === "promoted" || liveMonths.has(ym) ? "promoted" : "checked";
+    const existing = byMonth.get(ym);
+    if (!existing || (existing.state !== "promoted" && state === "promoted")) {
+      const entry: ExistingSatelliteMonth = { yearMonth: ym, state, run };
+      byMonth.set(ym, entry);
+      byFileName.set(run.fileName.toLowerCase(), entry);
+    }
+  }
+
+  for (const layer of liveRes?.data?.months ?? []) {
+    if (!byMonth.has(layer.yearMonth)) {
+      byMonth.set(layer.yearMonth, { yearMonth: layer.yearMonth, state: "promoted", run: null });
+    }
+  }
+
+  return { byMonth, byFileName };
+}
+
+function matchExistingFile(
+  file: File,
+  lookup: { byMonth: Map<string, ExistingSatelliteMonth>; byFileName: Map<string, ExistingSatelliteMonth> },
+): ExistingSatelliteMonth | null {
+  const ym = monthFromFileName(file.name);
+  if (ym && lookup.byMonth.has(ym)) return lookup.byMonth.get(ym)!;
+  return lookup.byFileName.get(file.name.toLowerCase()) ?? null;
+}
 
 /**
  * Satellite flood extent arrives one file per month (129 of them for 2016 to 2026), so the import
@@ -69,7 +154,13 @@ export function useSatelliteFloodBatch() {
           yearMonth: singleYearMonth,
         });
         if (!response.data) throw new Error(response.message || "The server returned no import run.");
-        const next: BatchItem = { fileName: file.name, state: "checked", run: response.data, error: null };
+        const next: BatchItem = {
+          fileName: file.name,
+          yearMonth: response.data.options.yearMonth ?? monthFromFileName(file.name),
+          state: "checked",
+          run: response.data,
+          error: null,
+        };
         update(index, next);
         return next;
       } catch (error) {
@@ -89,14 +180,34 @@ export function useSatelliteFloodBatch() {
 
   const checkAll = useCallback(async (input: BatchInput): Promise<BatchItem[]> => {
     batchInputRef.current = input;
-    const queued: BatchItem[] = input.files.map((file) => ({ fileName: file.name, state: "waiting", run: null, error: null }));
-    setBatchItems(queued);
     setRunning(true);
     stopRef.current = false;
+
+    const existing =
+      input.files.length > 1
+        ? await fetchExistingSatelliteMonths(input.countryCode)
+        : { byMonth: new Map<string, ExistingSatelliteMonth>(), byFileName: new Map<string, ExistingSatelliteMonth>() };
+
+    const queued: BatchItem[] = input.files.map((file) => {
+      const matched = input.files.length > 1 ? matchExistingFile(file, existing) : null;
+      if (matched) {
+        return {
+          fileName: file.name,
+          yearMonth: matched.yearMonth,
+          state: matched.state,
+          run: matched.run,
+          error: null,
+        };
+      }
+      return { fileName: file.name, state: "waiting", run: null, error: null };
+    });
+
+    setBatchItems(queued);
     const done = [...queued];
     try {
       for (let index = 0; index < input.files.length; index++) {
         if (stopRef.current) break;
+        if (done[index]!.state !== "waiting") continue;
         done[index] = await checkFileAt(index, input);
       }
     } finally {
