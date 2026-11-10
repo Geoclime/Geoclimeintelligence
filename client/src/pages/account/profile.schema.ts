@@ -14,9 +14,11 @@ export const profileSchema = z.object({
     .min(1, { error: "Enter a phone number we can reach you on" })
     .refine(isValidPhone, { error: "Enter the full number after the country code, e.g. 803 123 4567" }),
   homeAdminUnitId: z.string().min(1, { error: "Choose the LGA you live or work in" }),
+  /** Optional: "" means no ward. */
+  homeWardId: z.string(),
   organisation: z.string().trim().max(200, { error: "Use 200 characters or fewer" }),
   jobTitle: z.string().trim().max(120, { error: "Use 120 characters or fewer" }),
 });
 export type ProfileInput = z.infer<typeof profileSchema>;
 
-export const PROFILE_FIELDS = ["displayName", "phone", "homeAdminUnitId", "organisation", "jobTitle"] as const;
+export const PROFILE_FIELDS = ["displayName", "phone", "homeAdminUnitId", "homeWardId", "organisation", "jobTitle"] as const;

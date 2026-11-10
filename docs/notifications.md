@@ -44,6 +44,13 @@ Each channel is isolated: one failing is logged and the others still go.
 - staff whose `scope_admin_unit_id` is the LGA, its state or one of its wards;
 - staff with no scope.
 
+An alert for a single ward (named on its own, not inside a covered LGA) reaches:
+- people whose `home_ward_id` is that ward (the optional ward on their profile, always inside their home LGA), and people with a household marked in it;
+- staff whose `scope_admin_unit_id` is the ward, its LGA or its state;
+- staff with no scope.
+
+Someone who gave only an LGA is **not** reached by an alert for one ward in it: the platform can't tell which ward they are in. That is why the profile asks for the ward.
+
 **4. Socket.IO** (`common/realtime/realtime-gateway.ts`) shares the API's port.
 - Everyone connects, signed in or not. A visitor with no token joins only the `public` room and hears that the public alert map changed. A token that is present must be a valid Firebase ID token, checked exactly like the REST API, and the connection then also joins `user:<id>` and the rooms of its role (`reviewers`, `administrators`). A forged or expired token is refused.
 - The client asks for a fresh token on every reconnect (`client/src/transport/realtime.ts`) and reconnects after signing in or out or a role change, so the server always knows who is listening.
@@ -69,7 +76,7 @@ The server drops its own copy of the public alert map before the signal goes out
 **Tables** (migration `1792100000000-AddNotificationsAndHomeArea`):
 - `notifications`, `notification_preferences` and `push_tokens`;
 - `email_outbox`;
-- `users.home_admin_unit_id`.
+- `users.home_admin_unit_id` and `users.home_ward_id`.
 
 **API** (`/api/v1/notifications`, each person's own data only):
 - `GET /`, `GET /unread-count`, `POST /:id/read`, `POST /read-all`;

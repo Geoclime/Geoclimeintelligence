@@ -96,14 +96,14 @@ export class AlertService {
     domainEvents.emit("alert.deleted", { alertId: id });
   }
 
-  /** Every area exists, is an LGA or a state, and is inside the user's region. Returns them without repeats. */
+  /** Every area exists, is a state, an LGA or a ward, and is inside the user's region. Returns them without repeats. */
   private async checkAreas(ids: string[], user: AuthUser): Promise<string[]> {
     const areaIds = [...new Set(ids)];
     for (const [index, id] of areaIds.entries()) {
       const unit = await this.units.findSummaryById(id);
       if (!unit) throw new ValidationError([{ field: `areaIds.${index}`, message: "No area with this id exists" }]);
       if (!(ALERT_AREA_LEVELS as readonly number[]).includes(unit.level)) {
-        throw new ValidationError([{ field: `areaIds.${index}`, message: `Alerts cover LGAs or states, not a ${unit.levelName.toLowerCase()}` }]);
+        throw new ValidationError([{ field: `areaIds.${index}`, message: `Alerts cover states, LGAs or wards, not a ${unit.levelName.toLowerCase()}` }]);
       }
       await this.regions.assert(user, id);
     }

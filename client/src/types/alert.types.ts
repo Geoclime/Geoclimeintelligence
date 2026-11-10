@@ -10,6 +10,8 @@ export interface AlertAreaRef {
   unitName: string;
   levelName: string;
   level: number;
+  /** The LGA a ward is in; wards share names across LGAs. Null for LGAs and states. */
+  parentName?: string | null;
 }
 
 export interface FloodAlert {
@@ -23,8 +25,12 @@ export interface FloodAlert {
   expiresAt: string;
   endedAt: string | null;
   areas: AlertAreaRef[];
-  /** Every LGA the alert covers, a state's LGAs included. */
+  /** Every LGA the alert covers whole, a state's LGAs included. A ward alone does not add its LGA. */
   lgaIds: string[];
+  /** The wards the alert names. Optional so a reply without it (an older cached one) still reads as "no wards". */
+  wardIds?: string[];
+  /** The LGAs that hold a ward the alert names. */
+  wardLgaIds?: string[];
   createdAt: string;
 }
 

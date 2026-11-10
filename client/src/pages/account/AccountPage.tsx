@@ -133,6 +133,7 @@ function toFormValues(user: AuthUser): ProfileInput {
     displayName: user.displayName ?? "",
     phone: normalisePhone(user.phone ?? ""),
     homeAdminUnitId: user.homeAdminUnitId ?? "",
+    homeWardId: user.homeWardId ?? "",
     organisation: user.organisation ?? "",
     jobTitle: user.jobTitle ?? "",
   };
@@ -210,7 +211,20 @@ function ProfileForm({ user }: { user: AuthUser }) {
             control={control}
             name="homeAdminUnitId"
             render={({ field, fieldState }) => (
-              <HomeAreaFields value={field.value} onChange={(id) => field.onChange(id)} error={fieldState.error?.message} />
+              <Controller
+                control={control}
+                name="homeWardId"
+                render={({ field: ward, fieldState: wardState }) => (
+                  <HomeAreaFields
+                    value={field.value}
+                    onChange={(id) => field.onChange(id)}
+                    error={fieldState.error?.message}
+                    wardValue={ward.value}
+                    onWardChange={(id) => ward.onChange(id)}
+                    wardError={wardState.error?.message}
+                  />
+                )}
+              />
             )}
           />
           <TextField

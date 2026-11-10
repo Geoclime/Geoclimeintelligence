@@ -44,6 +44,10 @@ export class User {
   @Column({ name: "home_admin_unit_id", type: "uuid", nullable: true })
   homeAdminUnitId!: string | null;
 
+  /** The ward inside that LGA, if they said: lets an alert for just their ward reach them. Never part of a complete profile. */
+  @Column({ name: "home_ward_id", type: "uuid", nullable: true })
+  homeWardId!: string | null;
+
   /** An open request for a staff role, set by the user and resolved by an administrator. All three are null together. */
   @Column({ name: "requested_role", type: "varchar", length: 32, nullable: true })
   requestedRole!: RequestableRole | null;

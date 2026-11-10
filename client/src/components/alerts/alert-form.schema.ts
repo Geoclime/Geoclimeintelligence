@@ -32,7 +32,7 @@ export const alertFormSchema = z
     message: z.string().trim().min(10, { error: "Say what is happening and where" }).max(2000),
     /** One action per line. */
     actions: z.string().max(3000),
-    areaIds: z.array(z.string()).min(1, { error: "Choose at least one LGA or state" }).max(100),
+    areaIds: z.array(z.string()).min(1, { error: "Choose at least one state, LGA or ward" }).max(100),
     /** A number of hours from DURATIONS, CUSTOM_DURATION, or (editing) KEEP_DURATION. */
     durationHours: z.string(),
     /** Used only when durationHours is CUSTOM_DURATION. */

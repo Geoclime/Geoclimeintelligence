@@ -3,7 +3,7 @@ import { usePublicFloodOutlook } from "../../hooks/useFloodPrediction";
 import { ALERT_SEVERITIES } from "../../types/alert.types";
 import { PREDICTION_RISK_INFO } from "../../types/flood-prediction.types";
 import type { PublicAlertMap, PublicOutline } from "../../types/public.types";
-import { SEVERITY_INFO, severityByLga, sortAlerts } from "../../utils/alert-severity";
+import { SEVERITY_INFO, severityByLga, severityByWardLga, sortAlerts } from "../../utils/alert-severity";
 import { formatDateTime } from "../../utils/formatDate";
 import { AlertCard } from "../alerts/AlertCard";
 import { AlertMap } from "../alerts/AlertMap";
@@ -39,7 +39,7 @@ export function AlertsSection({ alertMap, error, outline, outlineLoading, signed
             National alert map
           </h2>
           <p className="landing-section__lead">
-            Flood alerts issued by government officials, by LGA, with the flood reports coordinators have checked and published.
+            Flood alerts issued by government officials, by LGA or ward, with the flood reports coordinators have checked and published.
             {alertMap && ` Updated ${formatDateTime(alertMap.generatedAt)}.`}
           </p>
         </header>
@@ -49,6 +49,7 @@ export function AlertsSection({ alertMap, error, outline, outlineLoading, signed
             outline={outline}
             loading={outlineLoading}
             severities={severityByLga(alerts)}
+            wardSeverities={severityByWardLga(alerts)}
             reports={alertMap?.reports ?? []}
             reportDays={alertMap?.reportDays ?? 7}
             floods={alertMap?.floods ?? []}

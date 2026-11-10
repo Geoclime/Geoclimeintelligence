@@ -23,7 +23,7 @@ export function AlertCard({ alert, action }: { alert: FloodAlert; action?: React
         <span className="alert-card__status">{STATUS_TEXT[alert.status]}</span>
       </header>
       <h3 className="alert-card__title">{alert.title}</h3>
-      <p className="alert-card__areas">{alert.areas.map((area) => areaTitle(area.unitName, area.levelName)).join(", ")}</p>
+      <p className="alert-card__areas">{alert.areas.map((area) => `${areaTitle(area.unitName, area.levelName)}${area.level === 3 && area.parentName ? ` in ${area.parentName}` : ""}`).join(", ")}</p>
       <p className="alert-card__meaning">{SEVERITY_INFO[alert.severity].meaning}</p>
       <p className="alert-card__message">{alert.message}</p>
       {alert.actions.length > 0 && (

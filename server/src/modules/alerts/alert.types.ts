@@ -5,14 +5,16 @@ export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
 /** Worked out from the alert's times when it is read, never stored. */
 export type AlertStatus = "scheduled" | "active" | "expired" | "ended";
 
-/** Alerts cover LGAs or whole states; a ward is too small to warn about on its own. */
-export const ALERT_AREA_LEVELS = [1, 2] as const;
+/** Alerts cover whole states, LGAs or single wards (admin_units levels 1, 2 and 3). */
+export const ALERT_AREA_LEVELS = [1, 2, 3] as const;
 
 export interface AlertAreaRef {
   id: string;
   unitName: string;
   levelName: string;
   level: number;
+  /** The LGA a ward is in (wards share names across LGAs, so a ward is only clear with it). Null for LGAs and states. */
+  parentName?: string | null;
 }
 
 export interface FloodAlertDto {
@@ -26,15 +28,23 @@ export interface FloodAlertDto {
   startsAt: string;
   expiresAt: string;
   endedAt: string | null;
-  /** The areas as issued: LGAs and/or states. */
+  /** The areas as issued: states, LGAs and/or wards. */
   areas: AlertAreaRef[];
-  /** Every LGA the alert covers (a state's LGAs included), for colouring a map of LGAs. */
+  /** Every LGA the alert covers whole (a state's LGAs included), for colouring a map of LGAs. A ward alone never adds its LGA here. */
   lgaIds: string[];
+  /** The wards the alert names, so it can be shown and sent to just those wards. */
+  wardIds: string[];
+  /** The LGAs that hold a ward the alert names, so a map of LGAs can mark them without painting the whole LGA. */
+  wardLgaIds: string[];
   createdAt: string;
 }
 
 /** A row as the repository reads it, before the status is worked out. */
-export interface FloodAlertRow extends Omit<FloodAlertDto, "status" | "actions" | "startsAt" | "expiresAt" | "endedAt" | "createdAt"> {
+export interface FloodAlertRow
+  extends Omit<FloodAlertDto, "status" | "actions" | "startsAt" | "expiresAt" | "endedAt" | "createdAt" | "wardIds" | "wardLgaIds"> {
+  /** The repository always sends both ward lists; they are optional here so a row built without wards is still a row. */
+  wardIds?: string[];
+  wardLgaIds?: string[];
   actions: string;
   startsAt: Date;
   expiresAt: Date;
@@ -93,6 +103,8 @@ export function alertStatus(row: Pick<FloodAlertRow, "startsAt" | "expiresAt" | 
 export function toAlertDto(row: FloodAlertRow, now: Date): FloodAlertDto {
   return {
     ...row,
+    wardIds: row.wardIds ?? [],
+    wardLgaIds: row.wardLgaIds ?? [],
     status: alertStatus(row, now),
     actions: row.actions.split("\n").map((line) => line.trim()).filter(Boolean),
     startsAt: row.startsAt.toISOString(),

@@ -3,18 +3,22 @@ import { BaseRepository } from "../../common/repository/base.repository";
 import type { AlertListFilter, FloodAlertPatch, FloodAlertRow, IAlertRepository, NewFloodAlert } from "./alert.types";
 import { FloodAlert } from "./flood-alert.entity";
 
-// One query reads an alert with its areas and every LGA it covers: an LGA itself, or a state's
-// LGAs (alerts are only ever issued for levels 1 and 2).
+// One query reads an alert with its areas, every LGA it covers whole (an LGA itself, or a state's LGAs)
+// and the wards it names. A ward never makes its LGA "covered": wardIds are the wards named, and
+// wardLgaIds the LGAs that hold them.
 const SELECT_ALERTS = `
   SELECT a.id, a.severity, a.title, a.message, a.actions,
          a.starts_at AS "startsAt", a.expires_at AS "expiresAt", a.ended_at AS "endedAt", a.created_at AS "createdAt",
          COALESCE(
-           json_agg(DISTINCT jsonb_build_object('id', au.id, 'unitName', au.unit_name, 'levelName', au.level_name, 'level', au.level))
+           json_agg(DISTINCT jsonb_build_object('id', au.id, 'unitName', au.unit_name, 'levelName', au.level_name, 'level', au.level, 'parentName', par.unit_name))
              FILTER (WHERE au.id IS NOT NULL), '[]') AS areas,
-         COALESCE(array_agg(DISTINCT lga.id::text) FILTER (WHERE lga.id IS NOT NULL), '{}') AS "lgaIds"
+         COALESCE(array_agg(DISTINCT lga.id::text) FILTER (WHERE lga.id IS NOT NULL), '{}') AS "lgaIds",
+         COALESCE(array_agg(DISTINCT au.id::text) FILTER (WHERE au.level = 3), '{}') AS "wardIds",
+         COALESCE(array_agg(DISTINCT au.parent_id::text) FILTER (WHERE au.level = 3 AND au.parent_id IS NOT NULL), '{}') AS "wardLgaIds"
     FROM flood_alerts a
     LEFT JOIN flood_alert_areas fa ON fa.alert_id = a.id
     LEFT JOIN admin_units au ON au.id = fa.admin_unit_id
+    LEFT JOIN admin_units par ON par.id = au.parent_id
     LEFT JOIN admin_units lga ON lga.level = 2 AND (lga.id = au.id OR lga.parent_id = au.id)`;
 
 const ACTIVE = `a.ended_at IS NULL AND a.starts_at <= now() AND a.expires_at > now()`;

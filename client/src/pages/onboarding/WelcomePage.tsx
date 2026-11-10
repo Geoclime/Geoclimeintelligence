@@ -51,6 +51,7 @@ export function WelcomePage() {
       displayName: user?.displayName ?? "",
       phone: normalisePhone(user?.phone ?? ""),
       homeAdminUnitId: user?.homeAdminUnitId ?? "",
+      homeWardId: user?.homeWardId ?? "",
       organisation: user?.organisation ?? "",
       jobTitle: user?.jobTitle ?? "",
     },
@@ -65,6 +66,7 @@ export function WelcomePage() {
         displayName: values.displayName.trim(),
         phone: values.phone.trim(),
         homeAdminUnitId: values.homeAdminUnitId,
+        homeWardId: values.homeWardId || null,
         organisation: values.organisation.trim() || null,
         jobTitle: values.jobTitle.trim() || null,
       });
@@ -131,7 +133,22 @@ export function WelcomePage() {
         <Controller
           control={control}
           name="homeAdminUnitId"
-          render={({ field, fieldState }) => <HomeAreaFields value={field.value} onChange={(id) => field.onChange(id)} error={fieldState.error?.message} />}
+          render={({ field, fieldState }) => (
+            <Controller
+              control={control}
+              name="homeWardId"
+              render={({ field: ward, fieldState: wardState }) => (
+                <HomeAreaFields
+                  value={field.value}
+                  onChange={(id) => field.onChange(id)}
+                  error={fieldState.error?.message}
+                  wardValue={ward.value}
+                  onWardChange={(id) => ward.onChange(id)}
+                  wardError={wardState.error?.message}
+                />
+              )}
+            />
+          )}
         />
         <TextField label="Organisation (optional)" autoComplete="organization" error={errors.organisation?.message} data-cy="welcome-organisation" {...register("organisation")} />
         <TextField label="Job title (optional)" autoComplete="organization-title" error={errors.jobTitle?.message} data-cy="welcome-job-title" {...register("jobTitle")} />

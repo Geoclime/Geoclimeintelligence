@@ -30,10 +30,12 @@ export const updateProfileSchema = z.object({
       jobTitle: optionalText(120, "Job title"),
       // The LGA they live or work in (checked to be an LGA in the service).
       homeAdminUnitId: z.uuid("Choose your LGA").nullable().optional(),
+      // The ward they live or work in, inside that LGA (checked in the service). null clears it.
+      homeWardId: z.uuid("Choose your ward").nullable().optional(),
     })
     .strict()
     .refine((body) => Object.values(body).some((value) => value !== undefined), {
-      message: "Provide at least one of displayName, phone, organisation, jobTitle or homeAdminUnitId",
+      message: "Provide at least one of displayName, phone, organisation, jobTitle, homeAdminUnitId or homeWardId",
     }),
 });
 export type UpdateProfileBody = z.infer<typeof updateProfileSchema>["body"];

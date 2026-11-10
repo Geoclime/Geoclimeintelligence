@@ -152,7 +152,9 @@ export function RainfallCard({ adminUnitId, areaName }: { adminUnitId: string; a
         <div className="rainfall-card__chart-header">
           <div>
             <h3 className="rainfall-card__section-title">Month by month</h3>
-            <p className="rainfall-card__section-lead">Each month against the same month in the other years.</p>
+            <p className="rainfall-card__section-lead">
+              Each bar is the rainfall in that month. The short line across it is what that month usually gets, averaged over the other years.
+            </p>
           </div>
           <SelectField
             label="Show"
@@ -174,7 +176,7 @@ export function RainfallCard({ adminUnitId, areaName }: { adminUnitId: string; a
         <RainfallChart
           columns={monthColumns(shown)}
           valueLabel="Monthly rainfall"
-          averageLabel={shown.some((m) => m.averageMm !== null) ? "Average for the month (other years)" : null}
+          averageLabel={shown.some((m) => m.averageMm !== null) ? "Usual for the month" : null}
           ariaLabel={`Monthly rainfall for ${periodName}, with each month's average. The same values are in the table below.`}
         />
         <p className="rainfall-card__period-total" data-cy="rainfall-period-total">

@@ -22,7 +22,7 @@ import { useToast } from "../../hooks/useToast";
 import { errorMessage } from "../../transport/api-error";
 import type { FloodAlert } from "../../types/alert.types";
 import { DEFAULT_OUTLOOK_DAYS, PREDICTION_RISK_INFO } from "../../types/flood-prediction.types";
-import { severityByLga, SEVERITY_INFO, sortAlerts } from "../../utils/alert-severity";
+import { severityByLga, severityByWardLga, SEVERITY_INFO, sortAlerts } from "../../utils/alert-severity";
 import { can } from "../../utils/permissions";
 import "../../components/alerts/alerts.css";
 import "../../components/reports/reports.css";
@@ -82,6 +82,7 @@ export function AlertsPage() {
   const inForce = sorted.filter((a) => a.status === "active" || a.status === "scheduled");
   const past = sorted.filter((a) => a.status === "expired" || a.status === "ended");
   const severities = useMemo(() => severityByLga(alerts), [alerts]);
+  const wardSeverities = useMemo(() => severityByWardLga(alerts), [alerts]);
 
   // LGAs predicted at watch/warning/severe in the next 7 days that do not yet have an active alert in force
   const flaggedPredictions = useMemo(
@@ -158,7 +159,7 @@ export function AlertsPage() {
         <div>
           <p className="page__eyebrow">Flooding</p>
           <h1 className="page__title">Alerts</h1>
-          <p className="page__lead">Flood alerts in force, by LGA, with the reports coordinators have published. The map refreshes every 30 seconds.</p>
+          <p className="page__lead">Flood alerts in force, by LGA or ward, with the reports coordinators have published. The map refreshes every 30 seconds.</p>
         </div>
         <div className="page__actions">
           <Link to="/report" className={buttonClassName({ variant: "secondary" })}>
@@ -223,6 +224,7 @@ export function AlertsPage() {
           outline={outline}
           loading={outlineLoading}
           severities={severities}
+          wardSeverities={wardSeverities}
           reports={alertMap?.reports ?? []}
           reportDays={alertMap?.reportDays ?? 7}
           floods={alertMap?.floods ?? []}

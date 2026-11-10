@@ -29,9 +29,12 @@ function clip(text: string, max: number): string {
   return `${text.slice(0, max).replace(/\s+\S*$/, "")}…`;
 }
 
-/** "Port Harcourt LGA and Rivers State". */
-function placeList(areas: { unitName: string; levelName: string }[]): string {
-  const names = areas.map((a) => (a.unitName.toLowerCase().endsWith(a.levelName.toLowerCase()) ? a.unitName : `${a.unitName} ${a.levelName}`));
+/** "Port Harcourt LGA and Rivers State". A ward also says which LGA it is in ("Rumuola Ward in Obio/Akpor"), since many wards share a name. */
+function placeList(areas: { unitName: string; levelName: string; level?: number; parentName?: string | null }[]): string {
+  const names = areas.map((a) => {
+    const own = a.unitName.toLowerCase().endsWith(a.levelName.toLowerCase()) ? a.unitName : `${a.unitName} ${a.levelName}`;
+    return a.level === 3 && a.parentName ? `${own} in ${a.parentName}` : own;
+  });
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
 
@@ -49,7 +52,7 @@ export function registerNotificationListeners(): void {
     const alert = await AlertRepository.Instance.findAlert(alertId);
     if (!alert) return;
     await notify.notify({
-      userIds: await recipients.findAlertRecipients(alert.lgaIds, issuerId),
+      userIds: await recipients.findAlertRecipients(alert.lgaIds, issuerId, alert.wardIds ?? []),
       category: "flood_alerts",
       title: `${SEVERITY_LABEL[alert.severity]}: ${alert.title}`,
       body: clip(`${placeList(alert.areas)}. ${alert.message}`, 400),
@@ -65,7 +68,7 @@ export function registerNotificationListeners(): void {
     const alert = await AlertRepository.Instance.findAlert(alertId);
     if (!alert) return;
     await notify.notify({
-      userIds: await recipients.findAlertRecipients(alert.lgaIds, editorId),
+      userIds: await recipients.findAlertRecipients(alert.lgaIds, editorId, alert.wardIds ?? []),
       category: "flood_alerts",
       title: `Updated, ${SEVERITY_LABEL[alert.severity].toLowerCase()}: ${alert.title}`,
       body: clip(`${placeList(alert.areas)}. ${alert.message}`, 400),

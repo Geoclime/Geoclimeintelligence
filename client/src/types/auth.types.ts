@@ -78,6 +78,8 @@ export interface AuthUser {
   roleRequest?: RoleRequest | null;
   /** The LGA they live or work in: decides which flood alerts reach them. */
   homeAdminUnitId?: string | null;
+  /** The ward inside that LGA, if they chose one: lets an alert for just their ward reach them. */
+  homeWardId?: string | null;
   /**
    * Name, phone and home area are filled in. False sends them to "Finish setting up" before
    * anything else; absent (an older backend) counts as complete.
@@ -97,6 +99,8 @@ export interface ProfilePatch {
   organisation?: string | null;
   jobTitle?: string | null;
   homeAdminUnitId?: string | null;
+  /** Optional; null clears it. Must be a ward inside the home LGA. */
+  homeWardId?: string | null;
 }
 
 /**

@@ -46,6 +46,19 @@ export function severityByLga(alerts: FloodAlert[]): Record<string, AlertSeverit
   return result;
 }
 
+/** Each LGA that holds a ward under an alert in force, with the most severe one: marked on the LGA map without painting the whole LGA. */
+export function severityByWardLga(alerts: FloodAlert[]): Record<string, AlertSeverity> {
+  const result: Record<string, AlertSeverity> = {};
+  for (const alert of alerts) {
+    if (alert.status !== "active") continue;
+    for (const id of alert.wardLgaIds ?? []) {
+      const current = result[id];
+      if (!current || RANK[alert.severity] > RANK[current]) result[id] = alert.severity;
+    }
+  }
+  return result;
+}
+
 /** Alerts most severe first, then newest. */
 export function sortAlerts(alerts: FloodAlert[]): FloodAlert[] {
   return [...alerts].sort((a, b) => RANK[b.severity] - RANK[a.severity] || b.startsAt.localeCompare(a.startsAt));

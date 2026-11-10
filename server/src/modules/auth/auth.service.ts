@@ -96,9 +96,33 @@ export class AuthService {
       const area = await this.areas.findSummaryById(patch.homeAdminUnitId);
       if (!area || area.level !== 2) throw new ValidationError([{ field: "homeAdminUnitId", message: "Choose your LGA" }]);
     }
+    patch = await this.withHomeWard(user, patch);
     const row = await this.users.updateProfile(user.id, patch);
     if (!row) throw new NotFoundError("User");
     return toUserDto(row);
+  }
+
+  /**
+   * The home ward must be a ward inside the person's home LGA (the one being saved, or the one they have),
+   * and moving to another LGA drops the old ward unless a ward in the new one is sent with it. A ward
+   * without any LGA is refused: it is only ever a refinement of the LGA.
+   */
+  private async withHomeWard(user: AuthUser, patch: UserProfilePatch): Promise<UserProfilePatch> {
+    if (patch.homeWardId === undefined && patch.homeAdminUnitId === undefined) return patch;
+    const current = await this.users.findById(user.id);
+    if (!current) throw new NotFoundError("User");
+    const lgaId = patch.homeAdminUnitId ?? current.homeAdminUnitId;
+    if (patch.homeWardId) {
+      const ward = await this.areas.findSummaryById(patch.homeWardId);
+      if (!ward || ward.level !== 3 || !lgaId || ward.parentId !== lgaId) {
+        throw new ValidationError([{ field: "homeWardId", message: lgaId ? "Choose a ward inside your LGA" : "Choose your LGA first, then a ward in it" }]);
+      }
+      return patch;
+    }
+    if (patch.homeWardId === undefined && patch.homeAdminUnitId && patch.homeAdminUnitId !== current.homeAdminUnitId) {
+      return { ...patch, homeWardId: null };
+    }
+    return patch;
   }
 
   /**

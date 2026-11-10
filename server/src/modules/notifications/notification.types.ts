@@ -77,7 +77,8 @@ export interface INotificationRepository {
   findContacts(userIds: string[]): Promise<Contact[]>;
 
   // Who an event reaches.
-  findAlertRecipients(lgaIds: string[], excludeUserId: string | null): Promise<string[]>;
+  /** wardIds: wards named on their own (not inside a covered LGA); people there are reached by their household and by staff regions. */
+  findAlertRecipients(lgaIds: string[], excludeUserId: string | null, wardIds?: string[]): Promise<string[]>;
   findReviewers(lgaId: string | null, wardId: string | null, excludeUserId: string | null): Promise<string[]>;
   findAdministrators(): Promise<string[]>;
 }

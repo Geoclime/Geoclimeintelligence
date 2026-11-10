@@ -14,14 +14,14 @@ After signing in for the first time, a person sees **Finish setting up your acco
 
 Whatever page an unfinished profile asks for, it lands here first. A finished profile visiting `/welcome` goes straight on. *Sign out* is offered in case it's the wrong account.
 
-The same three details are on **Profile** and can be changed there, but never cleared. The home LGA decides which flood alerts reach the person ([notifications.md](../notifications.md)).
+The same three details are on **Profile** and can be changed there, but never cleared. The home LGA decides which flood alerts reach the person ([notifications.md](../notifications.md)). Under it, an optional **Ward** lets an alert issued for just that ward reach them too; it is not part of a complete profile, and picking another LGA clears it.
 
 ## How it works
 
 - **Server.**
   - A complete profile is `isProfileComplete(user)`: a name of 2+ characters, a phone number and a `home_admin_unit_id`.
   - It is returned as `profileComplete` on `GET /api/v1/auth/me` and carried on `req.user`.
-  - `PATCH /api/v1/auth/me` accepts `homeAdminUnitId` (it must be an LGA) and refuses to clear any of the three.
+  - `PATCH /api/v1/auth/me` accepts `homeAdminUnitId` (it must be an LGA) and refuses to clear any of the three. It also accepts `homeWardId` (a ward inside the home LGA, or `null` to clear it; moving to another LGA drops the old ward unless a ward in the new one is sent). The column is `users.home_ward_id`, from migration `1794000000000-AddHomeWardToUsers`.
   - `requireCompleteProfile` (`middleware/profile.middleware.ts`) refuses, with 403, the actions that need to know who is acting: sending a flood report, asking for a role, issuing an alert. The web app never meets this; it stops a direct API caller.
 - **Client.**
   - `RequireCompleteProfile` sits inside `RequireAuth` around the whole signed-in app and redirects to `/welcome` with the original destination.

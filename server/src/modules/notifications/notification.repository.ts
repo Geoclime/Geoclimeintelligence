@@ -112,23 +112,30 @@ export class NotificationRepository extends BaseRepository<Notification> impleme
   }
 
   /**
-   * People an alert for these LGAs reaches: everyone whose home area is one of them, everyone with a
-   * household marked in one of them, and staff whose
-   * region overlaps them (the LGA itself, its state, or one of its wards) or who have no region.
+   * People an alert reaches. For its LGAs (a state's included): everyone whose home area is one of them,
+   * everyone with a household marked in one of them, and staff whose region overlaps them (the LGA itself,
+   * its state, or one of its wards) or who have no region. For a ward named on its own: everyone whose home
+   * ward it is, everyone with a household marked in it, and staff whose region is the ward, its LGA or its
+   * state, or who have none. Someone who gave only an LGA is not reached by a ward alert: it can't tell which ward.
    */
-  async findAlertRecipients(lgaIds: string[], excludeUserId: string | null): Promise<string[]> {
+  async findAlertRecipients(lgaIds: string[], excludeUserId: string | null, wardIds: string[] = []): Promise<string[]> {
     const rows: { id: string }[] = await this.repo.query(
       `WITH lgas AS (SELECT unnest($1::uuid[]) AS id),
+            wards AS (SELECT unnest($3::uuid[]) AS id),
             area AS (
               SELECT id FROM lgas
               UNION SELECT au.parent_id FROM admin_units au JOIN lgas ON au.id = lgas.id WHERE au.parent_id IS NOT NULL
-              UNION SELECT au.id FROM admin_units au JOIN lgas ON au.parent_id = lgas.id)
+              UNION SELECT au.id FROM admin_units au JOIN lgas ON au.parent_id = lgas.id
+              UNION SELECT id FROM wards
+              UNION SELECT w.parent_id FROM admin_units w JOIN wards ON w.id = wards.id WHERE w.parent_id IS NOT NULL
+              UNION SELECT l.parent_id FROM admin_units w JOIN wards ON w.id = wards.id JOIN admin_units l ON l.id = w.parent_id WHERE l.parent_id IS NOT NULL)
        SELECT u.id FROM users u
         WHERE ($2::uuid IS NULL OR u.id <> $2)
           AND (u.home_admin_unit_id IN (SELECT id FROM lgas)
-               OR EXISTS (SELECT 1 FROM households h WHERE h.owner_id = u.id AND h.lga_id IN (SELECT id FROM lgas))
+               OR u.home_ward_id IN (SELECT id FROM wards)
+               OR EXISTS (SELECT 1 FROM households h WHERE h.owner_id = u.id AND (h.lga_id IN (SELECT id FROM lgas) OR h.ward_id IN (SELECT id FROM wards)))
                OR (${IS_STAFF} AND (u.scope_admin_unit_id IS NULL OR u.scope_admin_unit_id IN (SELECT id FROM area))))`,
-      [lgaIds, excludeUserId],
+      [lgaIds, excludeUserId, wardIds],
     );
     return rows.map((row) => row.id);
   }

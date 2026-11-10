@@ -13,6 +13,8 @@ interface AlertMapProps {
   loading: boolean;
   /** Each LGA's most severe alert in force. */
   severities: Record<string, AlertSeverity>;
+  /** LGAs holding a ward under an alert in force: outlined, not filled, since the alert is for part of the LGA. */
+  wardSeverities?: Record<string, AlertSeverity>;
   reports: PublicReportPoint[];
   reportDays: number;
   /** Floods a responder recorded on the ground and has not marked receded. */
@@ -31,7 +33,7 @@ const LEVELS: AlertSeverity[] = ["watch", "warning", "severe"];
  * outline, so it costs no map load and works without a map token. The legend and the alert list
  * beside it carry the same information as text.
  */
-export function AlertMap({ outline, loading, severities, reports, reportDays, floods, floodDays }: AlertMapProps) {
+export function AlertMap({ outline, loading, severities, wardSeverities = {}, reports, reportDays, floods, floodDays }: AlertMapProps) {
   const [hovered, setHovered] = useState<string | null>(null);
 
   const drawing = useMemo(() => {
@@ -49,13 +51,18 @@ export function AlertMap({ outline, loading, severities, reports, reportDays, fl
 
   const { frame, areas } = drawing;
   const alerted = areas.filter((a) => severities[a.id]).length;
+  const wardAlerted = areas.filter((a) => !severities[a.id] && wardSeverities[a.id]).length;
   const hoveredArea = areas.find((a) => a.id === hovered);
   const recorded = floods.length > 0 ? ` · ${floods.length} recorded ${floods.length === 1 ? "flood" : "floods"}` : "";
+  const hoveredWard = hoveredArea && !severities[hoveredArea.id] ? wardSeverities[hoveredArea.id] : undefined;
+  const wards = wardAlerted > 0 ? ` · ${wardAlerted} more with an alert for a ward` : "";
   const caption = hoveredArea
-    ? `${hoveredArea.name}: ${severities[hoveredArea.id] ? SEVERITY_INFO[severities[hoveredArea.id]!].label : "no alert in force"}`
+    ? `${hoveredArea.name}: ${severities[hoveredArea.id] ? SEVERITY_INFO[severities[hoveredArea.id]!].label : hoveredWard ? `${SEVERITY_INFO[hoveredWard].label} for a ward in it` : "no alert in force"}`
     : alerted > 0
-      ? `${alerted} of ${areas.length} LGAs under an alert${recorded}`
-      : `No alerts in force across ${areas.length} LGAs${recorded}`;
+      ? `${alerted} of ${areas.length} LGAs under an alert${wards}${recorded}`
+      : wardAlerted > 0
+        ? `No LGA-wide alerts in force across ${areas.length} LGAs${wards}${recorded}`
+        : `No alerts in force across ${areas.length} LGAs${recorded}`;
 
   return (
     <figure className="alert-map" data-cy="alert-map">
@@ -71,7 +78,7 @@ export function AlertMap({ outline, loading, severities, reports, reportDays, fl
             key={area.id}
             d={area.d}
             fillRule="evenodd"
-            className={`alert-map__area${severities[area.id] ? ` alert-map__area--${severities[area.id]}` : ""}`}
+            className={`alert-map__area${severities[area.id] ? ` alert-map__area--${severities[area.id]}` : wardSeverities[area.id] ? ` alert-map__area--ward alert-map__area--ward-${wardSeverities[area.id]}` : ""}`}
             onPointerEnter={() => setHovered(area.id)}
             data-cy="alert-map-area"
           >
@@ -107,6 +114,12 @@ export function AlertMap({ outline, loading, severities, reports, reportDays, fl
             {SEVERITY_INFO[level].label}
           </li>
         ))}
+        {Object.keys(wardSeverities).length > 0 && (
+          <li>
+            <span className="alert-map__swatch alert-map__swatch--ward" aria-hidden="true" />
+            Alert for a ward in the LGA
+          </li>
+        )}
         <li>
           <span className="alert-map__swatch alert-map__swatch--report" aria-hidden="true" />
           Published report (last {reportDays} days)

@@ -145,7 +145,9 @@ export function SatelliteWaterCard({
         <div className="rainfall-card__chart-header">
           <div>
             <h3 className="rainfall-card__section-title">Month by month</h3>
-            <p className="rainfall-card__section-lead">Water in each month against the same month in the other years.</p>
+            <p className="rainfall-card__section-lead">
+              Each bar is the water seen in that month. The short line across it is what that month usually has, averaged over the other years.
+            </p>
           </div>
           <SelectField
             label="Show"
@@ -167,7 +169,7 @@ export function SatelliteWaterCard({
         <RainfallChart
           columns={columns(shown)}
           valueLabel="Water seen"
-          averageLabel={shown.some((m) => m.averageKm2 !== null) ? "Average for the month (other years)" : null}
+          averageLabel={shown.some((m) => m.averageKm2 !== null) ? "Usual for the month" : null}
           ariaLabel={`Water seen by satellite over ${areaName} for ${periodName}, with each month's average. The same values are in the table below.`}
           unit="km²"
           format={km2}

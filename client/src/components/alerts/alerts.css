@@ -222,6 +222,29 @@
   fill-opacity: 0.75;
 }
 
+/* An alert for a ward, not the whole LGA: the LGA is outlined in the level's colour, not filled. */
+.alert-map__area--ward {
+  stroke-width: 2;
+  stroke-dasharray: 4 2;
+}
+
+.alert-map__area--ward-watch {
+  stroke: var(--severity-watch);
+}
+
+.alert-map__area--ward-warning {
+  stroke: var(--severity-warning);
+}
+
+.alert-map__area--ward-severe {
+  stroke: var(--severity-severe);
+}
+
+.alert-map__swatch--ward {
+  background: transparent;
+  border: 2px dashed var(--severity-warning);
+}
+
 .alert-map__report {
   fill: var(--color-info);
   stroke: var(--color-surface);

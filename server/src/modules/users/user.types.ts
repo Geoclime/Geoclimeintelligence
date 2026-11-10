@@ -24,6 +24,8 @@ export interface UserProfilePatch {
   organisation?: string | null;
   jobTitle?: string | null;
   homeAdminUnitId?: string | null;
+  /** A ward inside their home LGA, or null for none. */
+  homeWardId?: string | null;
 }
 
 /**
@@ -90,6 +92,8 @@ export interface UserDto {
   scopeAdminUnitId: string | null;
   /** The LGA they live or work in. */
   homeAdminUnitId: string | null;
+  /** The ward inside that LGA, if they chose one. */
+  homeWardId: string | null;
   /** Name, phone and home area are all filled in (isProfileComplete). */
   profileComplete: boolean;
   /** The user's open request for a staff role, if any. */
@@ -110,6 +114,7 @@ export function toUserDto(user: User): UserDto {
     role: user.role,
     scopeAdminUnitId: user.scopeAdminUnitId,
     homeAdminUnitId: user.homeAdminUnitId ?? null,
+    homeWardId: user.homeWardId ?? null,
     profileComplete: isProfileComplete(user),
     roleRequest:
       user.requestedRole && user.roleRequestedAt
