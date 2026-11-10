@@ -159,7 +159,7 @@ describe("GET /api/v1/infrastructure/search", () => {
     const res = await request(app).get(url).query({ q: " hos " }).set(asMember);
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual(infrastructure.facilityHits);
-    expect(infrastructure.searches).toEqual([{ q: "hos", limit: 8 }]);
+    expect(infrastructure.searches).toEqual([{ q: "hos", limit: 10 }]);
   });
 
   it("refuses a one-letter search (400)", async () => {

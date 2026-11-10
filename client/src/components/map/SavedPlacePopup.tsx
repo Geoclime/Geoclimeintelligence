@@ -25,7 +25,7 @@ interface SavedPlacePopupProps {
 export function SavedPlacePopup({ place, onEdit, onDelete, onClose, children }: SavedPlacePopupProps) {
   const savedByHand = (place.origin ?? "manual") === "manual";
   return (
-    <Popup longitude={place.point[0]} latitude={place.point[1]} anchor="bottom" offset={12} maxWidth="300px" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
+    <Popup longitude={place.point[0]} latitude={place.point[1]} offset={12} maxWidth="min(300px, calc(100vw - 2rem))" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
       <div className="saved-place" data-cy={savedByHand ? "saved-place" : "facility-popup"}>
         <p className="location-summary__title" data-cy="saved-place-name">
           {place.name ?? describeKind(place.osmClass)}

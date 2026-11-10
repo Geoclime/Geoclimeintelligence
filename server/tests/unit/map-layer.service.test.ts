@@ -92,6 +92,6 @@ describe("MapLayerService.searchFacilities", () => {
     ];
 
     await expect(service.searchFacilities({ q: "hos" })).resolves.toEqual(infrastructure.facilityHits);
-    expect(infrastructure.searches).toEqual([{ q: "hos", limit: 8 }]);
+    expect(infrastructure.searches).toEqual([{ q: "hos", limit: 10 }]);
   });
 });

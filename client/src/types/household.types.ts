@@ -58,6 +58,19 @@ export interface HouseholdFeatureProperties {
 
 export type HouseholdFeatureCollection = LayerFeatureCollection<Point, HouseholdFeatureProperties>;
 
+/** A household that matched a search. Mirrors HouseholdHitDto on the server. */
+export interface HouseholdHit {
+  id: string;
+  label: string;
+  homeType: HomeType | null;
+  mine: boolean;
+  /** The owner's name: only staff with households.view see someone else's. */
+  ownerName: string | null;
+  /** The ward and LGA it is in. */
+  area: string | null;
+  point: [number, number];
+}
+
 /** A household opened from the map. */
 export interface HouseholdOnMap extends HouseholdFeatureProperties {
   point: [number, number];

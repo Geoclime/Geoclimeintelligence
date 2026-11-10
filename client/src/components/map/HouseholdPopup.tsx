@@ -24,7 +24,7 @@ export function HouseholdPopup({ household, onEdit, onDelete, onClose }: Househo
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   return (
-    <Popup longitude={household.point[0]} latitude={household.point[1]} anchor="bottom" offset={14} maxWidth="280px" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
+    <Popup longitude={household.point[0]} latitude={household.point[1]} offset={14} maxWidth="min(280px, calc(100vw - 2rem))" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
       <div className="saved-place" data-cy="household-popup">
         <p className="location-summary__title">
           {household.label} {household.mine ? <Badge tone="primary">Yours</Badge> : <Badge tone="neutral">Household</Badge>}

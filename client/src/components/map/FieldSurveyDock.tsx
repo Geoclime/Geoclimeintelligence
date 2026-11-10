@@ -122,7 +122,7 @@ function Recorder({ survey }: { survey: Survey }) {
   const discard = () => (r.points.length > 0 ? setConfirming(true) : r.reset());
 
   return (
-    <section className="map-panel field-dock field-dock--card" aria-label={info.title} data-cy="survey-recorder">
+    <section className="map-panel field-dock field-dock--card field-dock--recorder" aria-label={info.title} data-cy="survey-recorder">
       <header className="field-dock__header">
         <h2 className="map-panel__title">{info.title}</h2>
         <span className={`field-dock__gps field-dock__gps--${quality ?? "none"}`} data-cy="survey-gps">

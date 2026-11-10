@@ -43,6 +43,8 @@ interface AreaOutlineMapProps {
    */
   countryCode?: string;
   onViewChange?: (view: MapView) => void;
+  /** A popup is open on the map: the switches and legend are hidden so the two never touch. */
+  popupOpen?: boolean;
   dataCy?: string;
   /** Anything else to draw on the map, such as the popup of the flood or drain that was clicked. */
   children?: ReactNode;
@@ -76,7 +78,7 @@ const NO_LAYERS = Object.fromEntries(Object.keys(CONTEXT_LAYERS).map((id) => [id
  * waterways and facilities around them, since a drain means little without the road it runs beside.
  * Given `areaId`, those are cut to the place's outline, as its flood risk is: the page is about what is inside it.
  */
-export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGeometry, innerAreas, floods, drains, onSelect, countryCode, onViewChange, dataCy, children }: AreaOutlineMapProps) {
+export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGeometry, innerAreas, floods, drains, onSelect, countryCode, onViewChange, popupOpen = false, dataCy, children }: AreaOutlineMapProps) {
   const palette = useMemo(() => mapPalette(theme), [theme]);
   // The same cached map as the home screen's: a profile opened after the home map asks nothing again.
   const floodRisk = useFloodRisk(countryCode ?? null);
@@ -117,7 +119,7 @@ export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGe
       className="detail-map"
       dataCy={dataCy}
       overlay={
-        <div className="area-map__legend" data-cy="area-flood-risk-legend">
+        <div className={`area-map__legend${popupOpen ? " is-hidden" : ""}`} data-cy="area-flood-risk-legend">
           <div className="map-panel layer-toggle">
             {riskLayer && (
               <label className="layer-toggle__option" data-cy="area-flood-risk-toggle">

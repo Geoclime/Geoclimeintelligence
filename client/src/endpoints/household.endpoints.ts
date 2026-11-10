@@ -1,13 +1,19 @@
 import { httpClient } from "../transport/http";
 import type { ApiResponse } from "../types/api.types";
 import type { BBox } from "../types/admin-unit.types";
-import type { Household, HouseholdFeatureCollection, HouseholdPatch, HouseholdPhoto, NewHouseholdBody } from "../types/household.types";
+import type { Household, HouseholdFeatureCollection, HouseholdHit, HouseholdPatch, HouseholdPhoto, NewHouseholdBody } from "../types/household.types";
 
 // server/src/modules/households/household.routes.ts. Anyone signed in manages their own households; the
 // map shows the viewer's own, or everyone's for staff with households.view. Never public.
 
 export async function fetchHouseholdGeoJson(bbox: BBox): Promise<ApiResponse<HouseholdFeatureCollection>> {
   const { data } = await httpClient.get<ApiResponse<HouseholdFeatureCollection>>("/api/v1/households/geojson", { params: { bbox: bbox.join(",") } });
+  return data;
+}
+
+/** Households matching `q` (at least 2 characters): the viewer's own, or everyone's for staff. */
+export async function searchHouseholds(q: string): Promise<ApiResponse<HouseholdHit[]>> {
+  const { data } = await httpClient.get<ApiResponse<HouseholdHit[]>>("/api/v1/households/search", { params: { q } });
   return data;
 }
 

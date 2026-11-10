@@ -5,6 +5,8 @@ import type { SVGProps } from "react";
  * icon inherits the text colour. Decorative by default: pair it with visible text or a label.
  */
 const PATHS = {
+  home: "M3 9.5 12 2l9 7.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2ZM9 22V12h6v10",
+  briefcase: "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16",
   droplet: "M12 2.7l5.66 5.65a8 8 0 1 1-11.31 0z",
   waves: "M2 9c2.5-3 5-3 7.5 0s5 3 7.5 0 3-2 5-1M2 16c2.5-3 5-3 7.5 0s5 3 7.5 0 3-2 5-1",
   alert: "M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z",

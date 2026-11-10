@@ -2,10 +2,13 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useFacilitySearch } from "../../hooks/useFacilitySearch";
+import { useHouseholdSearch } from "../../hooks/useHouseholdSearch";
 import { MIN_SEARCH_LENGTH, usePublicSearch } from "../../hooks/usePublicSearch";
 import type { UserRole } from "../../types/auth.types";
+import type { FacilityType } from "../../types/map-layer.types";
 import { describeKind } from "../../utils/facility-kinds";
-import { areaFocusLink, communityFocusLink, facilityFocusLink, type MapFocusLink } from "../../utils/map-focus";
+import { describeHomeType } from "../../utils/household-details";
+import { areaFocusLink, communityFocusLink, facilityFocusLink, householdFocusLink, type MapFocusLink } from "../../utils/map-focus";
 import { MAP_PATH } from "../../utils/map-url";
 import { hasAnyRole } from "../../utils/roles";
 import { can } from "../../utils/permissions";
@@ -21,8 +24,11 @@ interface Result {
   icon: IconName;
   title: string;
   detail: string;
-  group: "Pages" | "Places" | "Communities" | "Facilities";
+  group: "Pages" | "Places" | "Communities" | "Households" | "Facilities";
 }
+
+/** A fitting icon for a kind of facility; the rest get the map. */
+const FACILITY_ICONS: Partial<Record<FacilityType, IconName>> = { health: "plus", residence: "home", business: "briefcase" };
 
 const EXTRA_PAGES = [
   { to: "/account", label: "Your profile", icon: "user" as IconName, description: "Name, contact details and access" },
@@ -30,11 +36,13 @@ const EXTRA_PAGES = [
 ];
 
 /**
- * The top bar's search: jump to any page, or to any LGA, ward, community or facility on the map, by
- * typing part of its name. Opens with the button, "/" or Ctrl/Cmd+K; arrow keys move, Enter opens,
+ * The top bar's search: jump to any page, or to any LGA, ward, community, facility (a hospital, a school, a
+ * residence or business saved on the map) or household on the map, by typing part of its name, or a kind of
+ * place ("hospital", "church") and where it is ("clinic obio"). Households are your own, or everyone's for staff. Opens with the button, "/" or Ctrl/Cmd+K; arrow keys move, Enter opens,
  * Esc closes. Choosing a place takes you to the map, zoomed to it. Names are searched on the server
- * (name contains, debounced 250 ms): areas and communities through the public search, facilities
- * (which are behind sign-in, like the map's other layers) through their own route.
+ * (debounced 250 ms): areas and communities through the public search; facilities and households (which
+ * are behind sign-in, like the map's other layers) through their own routes, matching every word typed in
+ * the name, the kind or the area, ignoring punctuation.
  */
 export function QuickSearch({ role }: { role: UserRole }) {
   const { user } = useAuth();
@@ -51,9 +59,10 @@ export function QuickSearch({ role }: { role: UserRole }) {
   const searching = q.length >= MIN_SEARCH_LENGTH;
   const places = usePublicSearch(open ? q : "");
   const facilities = useFacilitySearch(open ? q : "");
+  const households = useHouseholdSearch(open ? q : "");
   const found = places.results;
-  const loading = places.loading || facilities.loading;
-  const problem = places.error ?? facilities.error;
+  const loading = places.loading || facilities.loading || households.loading;
+  const problem = places.error ?? facilities.error ?? households.error;
 
   // Global shortcuts. "/" is ignored while typing in a field, so it never steals a keystroke.
   useEffect(() => {
@@ -121,12 +130,28 @@ export function QuickSearch({ role }: { role: UserRole }) {
         }))
       : []),
     ...(searching
+      ? households.households.map((household) => ({
+          key: `household:${household.id}`,
+          ...householdFocusLink({ name: household.label, point: household.point }, mapParams),
+          icon: "home" as IconName,
+          title: household.label,
+          detail: [
+            household.mine ? "Your household" : household.ownerName ? `Added by ${household.ownerName}` : "Household",
+            describeHomeType(household.homeType),
+            household.area,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          group: "Households" as const,
+        }))
+      : []),
+    ...(searching
       ? facilities.facilities.map((facility) => ({
           key: `facility:${facility.id}`,
           ...facilityFocusLink(facility, mapParams),
-          icon: "map" as IconName,
+          icon: FACILITY_ICONS[facility.facilityType] ?? ("map" as IconName),
           title: facility.name,
-          detail: [describeKind(facility.osmClass), facility.origin === "manual" ? "Saved place" : null].filter(Boolean).join(" · "),
+          detail: [describeKind(facility.osmClass), facility.origin === "manual" ? "Saved place" : null, facility.area].filter(Boolean).join(" · "),
           group: "Facilities" as const,
         }))
       : []),
@@ -162,8 +187,8 @@ export function QuickSearch({ role }: { role: UserRole }) {
   let status: string;
   if (searching && loading) status = "Searching places…";
   else if (searching && problem) status = results.length > 0 ? `${count}, but some places couldn't be searched.` : `Places couldn't be searched: ${problem}`;
-  else if (results.length === 0) status = `Nothing matches "${query.trim()}". Try part of the name, e.g. "Obio".`;
-  else if (!searching) status = "Type two or more letters to search LGAs, wards, communities and facilities.";
+  else if (results.length === 0) status = `Nothing matches "${query.trim()}". Try part of the name or a kind of place, e.g. "Obio" or "hospital".`;
+  else if (!searching) status = "Type two or more letters to search LGAs, wards, communities, hospitals, schools, residences and households.";
   else status = `${count}. Use ↑ ↓ and Enter.`;
 
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -202,7 +227,7 @@ export function QuickSearch({ role }: { role: UserRole }) {
                 aria-controls={listId}
                 aria-activedescendant={results[activeIndex] ? `${listId}-${activeIndex}` : undefined}
                 aria-autocomplete="list"
-                placeholder="Type an LGA, ward, community, facility or page name…"
+                placeholder="Type a place, hospital, school, residence, household or page name…"
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);

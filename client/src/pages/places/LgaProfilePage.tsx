@@ -102,6 +102,7 @@ export function LgaProfilePage() {
             floods={area.floods}
             drains={area.drains}
             onSelect={area.select}
+            popupOpen={Boolean(area.selected)}
             dataCy="lga-map"
           >
             <AreaSurveyPopup selected={area.selected} onClose={area.close} />

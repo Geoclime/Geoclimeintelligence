@@ -50,7 +50,7 @@ export function FloodExtentPopup({ flood, abilities, onRecede, onReopen, onDelet
   const mayDelete = abilities.deleteAny || (abilities.deleteOwn && (!people || people.recordedBy?.id === abilities.userId));
 
   return (
-    <Popup longitude={point[0]} latitude={point[1]} anchor="bottom" offset={8} maxWidth="320px" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
+    <Popup longitude={point[0]} latitude={point[1]} offset={8} maxWidth="min(320px, calc(100vw - 2rem))" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
       <div className="survey-popup" data-cy="flood-popup">
         <p className="location-summary__title">
           Flood {properties.receded ? <Badge tone="neutral">Receded</Badge> : <Badge tone="info">Active</Badge>}

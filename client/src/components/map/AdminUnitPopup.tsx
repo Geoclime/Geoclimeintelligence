@@ -32,9 +32,8 @@ export function AdminUnitPopup({ point, result, loading, error, onClose, title, 
     <Popup
       longitude={point[0]}
       latitude={point[1]}
-      anchor="bottom"
       offset={8}
-      maxWidth="280px"
+      maxWidth="min(280px, calc(100vw - 2rem))"
       closeOnClick={false}
       onClose={onClose}
       className="admin-unit-popup"

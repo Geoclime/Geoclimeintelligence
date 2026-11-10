@@ -7,7 +7,7 @@ import { AuditService } from "../audit/audit.service";
 import { DEFAULT_WARD_LEVEL } from "../map-layers/layer-rules";
 import { HouseholdPhotoService } from "./household-photo.service";
 import { HouseholdRepository } from "./household.repository";
-import type { HouseholdDto, HouseholdFeatureCollection, IHouseholdRepository } from "./household.types";
+import type { HouseholdDto, HouseholdFeatureCollection, HouseholdHitDto, IHouseholdRepository } from "./household.types";
 import type { CreateHouseholdBody, UpdateHouseholdBody } from "./household.validation";
 
 /**
@@ -21,6 +21,9 @@ import type { CreateHouseholdBody, UpdateHouseholdBody } from "./household.valid
  *
  * The activity log records that a household was added, changed or removed, but never where it is.
  */
+/** How many households one search lists. */
+const HOUSEHOLD_HITS = 5;
+
 export class HouseholdService {
   private static _instance?: HouseholdService;
   static get Instance(): HouseholdService {
@@ -110,6 +113,11 @@ export class HouseholdService {
   /** The households in view: everyone's for staff with households.view, otherwise only the viewer's own. */
   async geoJson(bbox: [number, number, number, number], actor: AuthUser): Promise<HouseholdFeatureCollection> {
     return this.households.findGeoJson(bbox, actor.id, await this.permissions.has(actor, "households.view"));
+  }
+
+  /** Households matching a search: everyone's for staff with households.view, otherwise only the viewer's own. */
+  async search(q: string, actor: AuthUser): Promise<HouseholdHitDto[]> {
+    return this.households.search(q, actor.id, await this.permissions.has(actor, "households.view"), HOUSEHOLD_HITS);
   }
 
   /** Someone else's household is not even confirmed to exist: a 404, not a 403. Administrators may remove any. */

@@ -19,7 +19,7 @@ export const layerGeoJsonSchema = z.object({
 });
 export type LayerGeoJsonQueryInput = z.infer<typeof layerGeoJsonSchema>["query"];
 
-/** GET /api/v1/infrastructure/search?q=: facilities by name, for the top bar's search. */
+/** GET /api/v1/infrastructure/search?q=: facilities by name, kind or area, for the top bar's search. */
 export const facilitySearchSchema = z.object({
   query: z.object({
     q: z.string().trim().min(2, "Type at least 2 characters").max(60, "Keep the search under 60 characters"),

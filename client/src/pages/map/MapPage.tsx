@@ -496,11 +496,14 @@ export function MapPage() {
   const editableSelected = canManagePlaces && (savedPlaces.selected?.origin ?? "manual") === "manual";
   const popupTitle = sameSpot(located.point, fix?.point) ? "You are here" : sameSpot(located.point, pin) ? pinLabel : undefined;
   const visibleOverlays = OVERLAY_LAYER_IDS.filter((id) => layers[id]);
+  // One thing at a time: while a popup is open, the cards that would sit under or beside it are hidden
+  // (MapPage.css, "One thing at a time"), and they come back when it closes.
+  const popupOpen = Boolean(located.point || savedPlaces.selected || households.selected || survey.selection.selected);
 
   const noCountry = !countriesLoading && countries.length === 0;
 
   return (
-    <div className={`map-page${clean ? " is-clean" : ""}`} data-cy="map-page">
+    <div className={`map-page${clean ? " is-clean" : ""}${popupOpen ? " has-popup" : ""}${panelsOpen ? " panels-open" : ""}`} data-cy="map-page">
       <ClimateMap
         label="Map of the states on the platform, their local government areas and wards"
         theme={theme}

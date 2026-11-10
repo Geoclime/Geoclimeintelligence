@@ -190,6 +190,34 @@
   display: none;
 }
 
+/* ---------- One thing at a time ----------
+   Two cards never touch. While a popup is open, the overview card (with the layers, legend and sources
+   panels and the Field survey button) is hidden; the pinned place's card stays, as it is about the same
+   place as the popup, and a recording in progress keeps its card. On a phone, opening the Layers sheet or
+   the Field survey menu hides whatever it would cover. Everything returns when the popup or menu closes. */
+.map-page.has-popup .map-page__top > :not(.location-trace),
+.map-page.has-popup .map-page__panels,
+.map-page.has-popup .map-page__panels-toggle,
+.map-page.has-popup .field-dock:not(.field-dock--recorder) {
+  display: none;
+}
+
+/* Kept apart from the rule above: a browser without :has() drops a whole rule it can't read. */
+.map-page:has(.field-dock__menu) .map-page__top > :not(.location-trace) {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .map-page.panels-open .map-page__top > :not(.location-trace),
+  .map-page.panels-open .field-dock:not(.field-dock--recorder) {
+    display: none;
+  }
+
+  .map-page:has(.field-dock__menu) .map-page__panels {
+    display: none;
+  }
+}
+
 .map-page__empty {
   position: absolute;
   inset: 0;

@@ -1,5 +1,6 @@
 import { AppDataSource } from "../../config/data-source";
-import type { HouseholdChanges, HouseholdDto, HouseholdFeatureCollection, HouseholdRecord, IHouseholdRepository, NewHousehold } from "./household.types";
+import { householdSearchQuery } from "./household-search";
+import type { HouseholdChanges, HouseholdDto, HouseholdFeatureCollection, HouseholdHitDto, HouseholdRecord, IHouseholdRepository, NewHousehold } from "./household.types";
 
 /** The most households one map reply holds (staff zoomed out over a town). */
 export const HOUSEHOLD_FEATURE_CAP = 5_000;
@@ -96,6 +97,11 @@ export class HouseholdRepository implements IHouseholdRepository {
       [minLon, minLat, maxLon, maxLat, viewerId, all, HOUSEHOLD_FEATURE_CAP],
     );
     return rows[0]?.fc ?? { type: "FeatureCollection", features: [], truncated: false };
+  }
+
+  async search(q: string, viewerId: string, all: boolean, limit: number): Promise<HouseholdHitDto[]> {
+    const search = householdSearchQuery(q, viewerId, all, limit);
+    return search ? AppDataSource.query(search.sql, search.params) : [];
   }
 
   async ownersNearFlood(floodId: string, metres: number): Promise<{ ownerId: string; label: string; distanceM: number }[]> {

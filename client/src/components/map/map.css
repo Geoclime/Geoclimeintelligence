@@ -554,6 +554,10 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
+  /* A tall popup (photos, history) scrolls inside itself rather than running off the screen. */
+  max-height: min(60dvh, 28rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .admin-unit-popup .mapboxgl-popup-close-button {
@@ -562,8 +566,25 @@
   font-size: 18px;
 }
 
-.admin-unit-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+/* The popup sits on whichever side of its point fits the screen (Mapbox picks), so its tip is coloured on every side. */
+.admin-unit-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.admin-unit-popup.mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
+.admin-unit-popup.mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip {
   border-top-color: var(--color-surface);
+}
+
+.admin-unit-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
+.admin-unit-popup.mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
+.admin-unit-popup.mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {
+  border-bottom-color: var(--color-surface);
+}
+
+.admin-unit-popup.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
+  border-right-color: var(--color-surface);
+}
+
+.admin-unit-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
+  border-left-color: var(--color-surface);
 }
 
 /* ---------- Source badge ---------- */

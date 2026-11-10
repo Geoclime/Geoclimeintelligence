@@ -100,6 +100,7 @@ export function WardPage() {
             floods={area.floods}
             drains={area.drains}
             onSelect={area.select}
+            popupOpen={Boolean(area.selected)}
             dataCy="ward-map"
           >
             <AreaSurveyPopup selected={area.selected} onClose={area.close} />

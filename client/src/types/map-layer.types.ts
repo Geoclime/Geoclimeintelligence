@@ -82,6 +82,8 @@ export interface FacilityHit {
   osmClass: string;
   origin: FacilityOrigin;
   point: LonLat;
+  /** The ward and LGA it is in ("Rumuokoro, Obio-Akpor"), to tell two places of one name apart. */
+  area?: string | null;
 }
 
 /** A place an administrator saved from the map. Mirrors FacilityDto in server/src/modules/map-layers/map-layer.types.ts. */

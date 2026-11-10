@@ -46,6 +46,10 @@
 }
 
 /* The flood risk switch and legend on the small map of an LGA or ward page. */
+.area-map__legend.is-hidden {
+  display: none;
+}
+
 .area-map__legend {
   position: absolute;
   left: var(--space-3);

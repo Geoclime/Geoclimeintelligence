@@ -28,7 +28,7 @@ import { WaterwayRepository } from "./waterway.repository";
 import { WetlandRepository } from "./wetland.repository";
 
 /** How many facilities one search lists. */
-const FACILITY_HITS = 8;
+const FACILITY_HITS = 10;
 
 const LAYER_LABELS: Readonly<Record<MapLayerId, string>> = {
   roads: "Roads",
@@ -107,7 +107,7 @@ export class MapLayerService {
     return this.layers.infrastructure.findGeoJson(query);
   }
 
-  /** Named facilities (hospitals, schools, places saved by hand...) whose name contains the search. */
+  /** Named facilities (hospitals, schools, residences, places saved by hand...) matching the words of the search in their name, kind or area. */
   searchFacilities({ q }: FacilitySearchQuery): Promise<FacilityHit[]> {
     return this.layers.infrastructure.searchByName(q, FACILITY_HITS);
   }

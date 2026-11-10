@@ -34,6 +34,11 @@ export const updateHouseholdSchema = z.object({
 });
 export type UpdateHouseholdBody = z.infer<typeof updateHouseholdSchema>["body"];
 
+/** GET /api/v1/households/search?q=: the viewer's own households by name, note, kind of home or area (staff: everyone's). */
+export const householdSearchSchema = z.object({
+  query: z.object({ q: z.string().trim().min(2, "Type at least 2 characters").max(60, "Keep the search under 60 characters") }),
+});
+
 export const householdIdSchema = z.object({ params: z.object({ id: z.uuid("Not a valid id") }) });
 
 export const householdGeoJsonSchema = z.object({ query: z.object({ bbox: bboxQuerySchema }) });

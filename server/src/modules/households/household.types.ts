@@ -28,6 +28,19 @@ export interface HouseholdDto {
   createdAt: string;
 }
 
+/** A household that matched a search: enough to list it and to point the map at it. */
+export interface HouseholdHitDto {
+  id: string;
+  label: string;
+  homeType: HomeType | null;
+  mine: boolean;
+  /** The owner's name: only staff with households.view see someone else's. */
+  ownerName: string | null;
+  /** The ward and LGA it is in. */
+  area: string | null;
+  point: [number, number];
+}
+
 export interface HouseholdFeatureProperties {
   id: string;
   label: string;
@@ -85,6 +98,8 @@ export interface IHouseholdRepository {
   findMine(ownerId: string): Promise<HouseholdDto[]>;
   /** Households in the box: everyone's when `all`, otherwise only the viewer's own. */
   findGeoJson(bbox: [number, number, number, number], viewerId: string, all: boolean): Promise<HouseholdFeatureCollection>;
+  /** Households matching every word of `q`: everyone's when `all`, otherwise only the viewer's own. */
+  search(q: string, viewerId: string, all: boolean, limit: number): Promise<HouseholdHitDto[]>;
   /** The owners of households within `metres` of a flood (for "a flood was recorded near your home"). */
   ownersNearFlood(floodId: string, metres: number): Promise<{ ownerId: string; label: string; distanceM: number }[]>;
 }

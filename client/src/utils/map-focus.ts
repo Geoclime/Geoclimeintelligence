@@ -1,6 +1,6 @@
 import type { BBox, LonLat } from "../types/admin-unit.types";
 import { boundsAround } from "./geo-distance";
-import { MAP_PATH, writeMapView, writePin } from "./map-url";
+import { MAP_PATH, readLayers, writeLayers, writeMapView, writePin } from "./map-url";
 
 /**
  * Pointing the map at a place someone picked, e.g. from the top bar's search. The address says what
@@ -46,9 +46,12 @@ export function areaFocusLink(area: { id: string; level: number; parentId: strin
 }
 
 /** A named spot: zoom to it and pin it, so the map says which LGA and ward it is in. */
-function pinnedLink(place: { name: string; point: LonLat }, { zoom, span }: typeof COMMUNITY_VIEW, current?: URLSearchParams): MapFocusLink {
+function pinnedLink(place: { name: string; point: LonLat }, { zoom, span }: typeof COMMUNITY_VIEW, current?: URLSearchParams, showLayer?: "households"): MapFocusLink {
   const { point, name } = place;
-  const params = writePin(writeMapView(freshParams(current), { longitude: point[0], latitude: point[1], zoom }), point, name);
+  let base = freshParams(current);
+  // A layer the thing sits on is switched on, so it can be seen where the map has taken you.
+  if (showLayer) base = writeLayers(base, { ...readLayers(base), [showLayer]: true });
+  const params = writePin(writeMapView(base, { longitude: point[0], latitude: point[1], zoom }), point, name);
   return { to: withQuery(params), state: { mapFocus: { bounds: boundsAround([point], span), pin: { point, label: name } } } };
 }
 
@@ -60,6 +63,11 @@ export function communityFocusLink(community: { name: string; point: LonLat }, c
 /** A named facility (a hospital, a school, a place an administrator saved), pinned, close in. */
 export function facilityFocusLink(facility: { name: string; point: LonLat }, current?: URLSearchParams): MapFocusLink {
   return pinnedLink(facility, FACILITY_VIEW, current);
+}
+
+/** A household (your own, or anyone's for staff), pinned, close in, with the Households layer on so its house shows. */
+export function householdFocusLink(household: { name: string; point: LonLat }, current?: URLSearchParams): MapFocusLink {
+  return pinnedLink(household, FACILITY_VIEW, current, "households");
 }
 
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
