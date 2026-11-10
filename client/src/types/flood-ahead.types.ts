@@ -27,6 +27,8 @@ export interface FloodAheadAck {
   nearestM?: number | null;
 }
 
-/** How far ahead to warn, in metres. The server accepts 500 to 10 000. */
+/** Preset distances in metres, plus bounds for any custom distance (0.5 km to 500 km). */
 export const WARN_DISTANCES_M = [1_000, 2_000, 3_000, 5_000, 10_000] as const;
 export const DEFAULT_WARN_DISTANCE_M = 3_000;
+export const WARN_RADIUS_M = { min: 500, max: 500_000 } as const;
+export const MAX_WARN_DISTANCE_KM = WARN_RADIUS_M.max / 1_000;

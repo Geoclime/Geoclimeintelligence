@@ -790,7 +790,13 @@ export function ImportNewPage() {
                   />
                 )}
                 {batch.items.length > 0 && (
-                  <SatelliteBatchList items={batch.items} running={batch.running} onRetryOne={(index) => void batch.retryOne(index)} />
+                  <SatelliteBatchList
+                    items={batch.items}
+                    running={batch.running}
+                    failedCount={failedBatchCount}
+                    onRetryOne={(index) => void batch.retryOne(index)}
+                    onRetryAll={() => void handleRetryFailedBatch()}
+                  />
                 )}
                 <div className="form-actions">
                   {batch.running ? (
@@ -804,7 +810,7 @@ export function ImportNewPage() {
                   )}
                   {!batch.running && failedBatchCount > 0 && (
                     <Button variant="secondary" icon={<Icon name="refresh" size={16} />} onClick={() => void handleRetryFailedBatch()} data-cy="satellite-flood-retry-failed">
-                      Retry {failedBatchCount} failed {failedBatchCount === 1 ? "month" : "months"}
+                      Retry all {failedBatchCount} failed {failedBatchCount === 1 ? "month" : "months"}
                     </Button>
                   )}
                   {batch.items.some((item) => item.state === "checked") ? (
@@ -950,7 +956,19 @@ function TileSetSummary({ tiles, alreadyImported = 0 }: { tiles: MonthlyTiles; a
 }
 
 /** The months of a satellite flood batch: each file, its month, what happened to it, and a link to review or retry it. */
-function SatelliteBatchList({ items, running, onRetryOne }: { items: BatchItem[]; running: boolean; onRetryOne: (index: number) => void }) {
+function SatelliteBatchList({
+  items,
+  running,
+  failedCount,
+  onRetryOne,
+  onRetryAll,
+}: {
+  items: BatchItem[];
+  running: boolean;
+  failedCount: number;
+  onRetryOne: (index: number) => void;
+  onRetryAll: () => void;
+}) {
   return (
     <div className="data-table__scroll">
       <table className="data-table" data-cy="satellite-flood-batch">
@@ -960,7 +978,16 @@ function SatelliteBatchList({ items, running, onRetryOne }: { items: BatchItem[]
             <th scope="col">File</th>
             <th scope="col">Month</th>
             <th scope="col">Result</th>
-            <th scope="col">Details</th>
+            <th scope="col">
+              <div className="batch-row__details">
+                <span>Details</span>
+                {!running && failedCount > 0 && (
+                  <Button variant="secondary" size="sm" icon={<Icon name="refresh" size={14} />} onClick={onRetryAll} data-cy="satellite-flood-retry-all-top">
+                    Retry all ({failedCount})
+                  </Button>
+                )}
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody>

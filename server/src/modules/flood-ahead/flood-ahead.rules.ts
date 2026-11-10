@@ -1,14 +1,14 @@
 import type { FloodAheadWarning, NearbyFlood } from "./flood-ahead.types";
 
-/** The smallest and largest distance a person may ask to be warned at. */
-export const WARN_RADIUS_M = { min: 500, max: 10_000 } as const;
+/** The smallest and largest distance a person may ask to be warned at (0.5 km to 500 km). */
+export const WARN_RADIUS_M = { min: 500, max: 500_000 } as const;
 
 /**
  * The distance bands a warning is given at as someone comes closer, widest first. A flood within the
  * chosen distance is warned about when the person first comes within it, and again at each smaller band
  * below it: "3 km ahead", then "2 km", then "1 km". Bands wider than the chosen distance are not used.
  */
-export const WARN_TIERS_M = [5_000, 3_000, 2_000, 1_000, 500, 250, 100] as const;
+export const WARN_TIERS_M = [100_000, 50_000, 25_000, 15_000, 10_000, 5_000, 3_000, 2_000, 1_000, 500, 250, 100] as const;
 
 /** A position less sure than this is not used: a laptop's guess from its network can be kilometres out, and a false warning is worse than none. */
 export const MAX_ACCURACY_M = 1_000;

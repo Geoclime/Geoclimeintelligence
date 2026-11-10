@@ -1,4 +1,4 @@
-import { DEFAULT_WARN_DISTANCE_M, WARN_DISTANCES_M, type FloodAheadWarning } from "../types/flood-ahead.types";
+import { DEFAULT_WARN_DISTANCE_M, WARN_RADIUS_M, type FloodAheadWarning } from "../types/flood-ahead.types";
 
 /** What the person chose, kept on this device only (a per-device convenience, so localStorage, not the API). */
 export interface FloodAheadPreference {
@@ -11,8 +11,9 @@ export const FLOOD_AHEAD_STORAGE_KEY = "geoclime:flood-ahead";
 export function readFloodAheadPreference(): FloodAheadPreference {
   try {
     const stored = JSON.parse(window.localStorage.getItem(FLOOD_AHEAD_STORAGE_KEY) ?? "null") as Partial<FloodAheadPreference> | null;
-    const known = (WARN_DISTANCES_M as readonly number[]).includes(stored?.radiusM ?? 0);
-    return { enabled: stored?.enabled === true, radiusM: known ? stored!.radiusM! : DEFAULT_WARN_DISTANCE_M };
+    const raw = typeof stored?.radiusM === "number" && Number.isFinite(stored.radiusM) ? Math.round(stored.radiusM) : 0;
+    const valid = raw >= WARN_RADIUS_M.min && raw <= WARN_RADIUS_M.max;
+    return { enabled: stored?.enabled === true, radiusM: valid ? raw : DEFAULT_WARN_DISTANCE_M };
   } catch {
     // Storage can be blocked (private mode), or hold something else. Start off.
     return { enabled: false, radiusM: DEFAULT_WARN_DISTANCE_M };

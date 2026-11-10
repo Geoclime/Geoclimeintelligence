@@ -1,10 +1,23 @@
+import { useState, type ChangeEvent } from "react";
 import { useFloodAhead } from "../../hooks/useFloodAhead";
-import { WARN_DISTANCES_M } from "../../types/flood-ahead.types";
+import { MAX_WARN_DISTANCE_KM, WARN_DISTANCES_M, WARN_RADIUS_M } from "../../types/flood-ahead.types";
 import { formatDistance } from "../../utils/flood-ahead";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { SelectField } from "../shared/SelectField";
+import { TextField } from "../shared/TextField";
 import "./flood-ahead.css";
+
+const CUSTOM_DISTANCE = "custom";
+
+function isPresetDistance(metres: number): boolean {
+  return (WARN_DISTANCES_M as readonly number[]).includes(metres);
+}
+
+function metresToKmText(metres: number): string {
+  const km = Math.round((metres / 1_000) * 10) / 10;
+  return String(km);
+}
 
 /**
  * Turning on warnings for floods near you as you walk or drive, choosing how far ahead, and what it is
@@ -13,6 +26,11 @@ import "./flood-ahead.css";
  */
 export function FloodAheadControl() {
   const { supported, enabled, radiusM, problem, issue, accuracyM, lastCheck, turnOn, turnOff, setRadius } = useFloodAhead();
+  const [customPicked, setCustomPicked] = useState(() => !isPresetDistance(radiusM));
+  const [customKm, setCustomKm] = useState(() => metresToKmText(radiusM));
+  const [customError, setCustomError] = useState<string | null>(null);
+
+  const showCustom = customPicked || !isPresetDistance(radiusM);
 
   if (!supported) {
     return (
@@ -21,6 +39,38 @@ export function FloodAheadControl() {
       </p>
     );
   }
+
+  const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value;
+    setCustomError(null);
+    if (value === CUSTOM_DISTANCE) {
+      setCustomPicked(true);
+      setCustomKm(metresToKmText(radiusM));
+      return;
+    }
+    const metres = Number(value);
+    setCustomPicked(false);
+    setCustomKm(metresToKmText(metres));
+    setRadius(metres);
+  };
+
+  const handleCustomKmChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const raw = event.target.value;
+    setCustomKm(raw);
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      setCustomError(`Enter a distance from 1 to ${MAX_WARN_DISTANCE_KM} km.`);
+      return;
+    }
+    const km = Number(trimmed);
+    const metres = Math.round(km * 1_000);
+    if (!Number.isFinite(km) || metres < WARN_RADIUS_M.min || metres > WARN_RADIUS_M.max) {
+      setCustomError(`Enter a distance from 1 to ${MAX_WARN_DISTANCE_KM} km.`);
+      return;
+    }
+    setCustomError(null);
+    setRadius(metres);
+  };
 
   let status: string | null = null;
   let isProblem = false;
@@ -58,18 +108,36 @@ export function FloodAheadControl() {
       </Button>
 
       {enabled && (
-        <SelectField
-          label="Warn me within"
-          value={radiusM}
-          onChange={(event) => setRadius(Number(event.target.value))}
-          data-cy="flood-ahead-distance"
-        >
-          {WARN_DISTANCES_M.map((metres) => (
-            <option key={metres} value={metres}>
-              {formatDistance(metres)}
-            </option>
-          ))}
-        </SelectField>
+        <>
+          <SelectField
+            label="Warn me within"
+            value={showCustom ? CUSTOM_DISTANCE : radiusM}
+            onChange={handleSelectChange}
+            data-cy="flood-ahead-distance"
+          >
+            {WARN_DISTANCES_M.map((metres) => (
+              <option key={metres} value={metres}>
+                {formatDistance(metres)}
+              </option>
+            ))}
+            <option value={CUSTOM_DISTANCE}>Custom distance (km)…</option>
+          </SelectField>
+          {showCustom && (
+            <TextField
+              label="Distance (km)"
+              type="number"
+              inputMode="decimal"
+              min={1}
+              max={MAX_WARN_DISTANCE_KM}
+              step={1}
+              value={customKm}
+              onChange={handleCustomKmChange}
+              hint={`Any distance from 1 to ${MAX_WARN_DISTANCE_KM} km.`}
+              error={customError ?? undefined}
+              data-cy="flood-ahead-custom-km"
+            />
+          )}
+        </>
       )}
 
       {status && (

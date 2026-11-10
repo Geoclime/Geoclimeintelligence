@@ -32,8 +32,12 @@ export interface ExistingSatelliteMonth {
 
 const RUN_PAGE_SIZE = 100;
 const MAX_RUN_PAGES = 5;
+/** Backoff steps when the server briefly drops the connection or restarts under load. */
+const RETRY_DELAYS_MS = [2_000, 4_000, 8_000, 12_000] as const;
+/** Short breather between consecutive files so the server can free the previous month's buffers. */
+const BETWEEN_FILES_MS = 800;
 
-/** True for a dropped connection, a timeout or a 5xx server blip: worth trying again automatically once. */
+/** True for a dropped connection, a timeout or a 5xx server blip: worth trying again automatically. */
 function isTransientFailure(error: unknown): boolean {
   if (IS_E2E) return false;
   const { kind, status } = toApiError(error);
@@ -145,7 +149,8 @@ export function useSatelliteFloodBatch() {
     const file = input.files[index]!;
     update(index, { state: "checking", error: null });
     const singleYearMonth = input.files.length === 1 ? input.yearMonth : undefined;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const maxAttempts = IS_E2E ? 1 : RETRY_DELAYS_MS.length + 1;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const response = await startSatelliteFloodImport({
           file,
@@ -164,8 +169,9 @@ export function useSatelliteFloodBatch() {
         update(index, next);
         return next;
       } catch (error) {
-        if (attempt === 0 && !stopRef.current && isTransientFailure(error)) {
-          await pause(1500);
+        const delayMs = RETRY_DELAYS_MS[attempt];
+        if (delayMs !== undefined && !stopRef.current && isTransientFailure(error)) {
+          await pause(delayMs);
           continue;
         }
         const next: BatchItem = { fileName: file.name, state: "failed", run: null, error: errorMessage(error) };
@@ -204,10 +210,14 @@ export function useSatelliteFloodBatch() {
 
     setBatchItems(queued);
     const done = [...queued];
+    let ranAny = false;
     try {
       for (let index = 0; index < input.files.length; index++) {
         if (stopRef.current) break;
         if (done[index]!.state !== "waiting") continue;
+        if (ranAny && !IS_E2E) await pause(BETWEEN_FILES_MS);
+        if (stopRef.current) break;
+        ranAny = true;
         done[index] = await checkFileAt(index, input);
       }
     } finally {
@@ -230,9 +240,13 @@ export function useSatelliteFloodBatch() {
     for (const index of indices) update(index, { state: "waiting", error: null });
     setRunning(true);
     stopRef.current = false;
+    let ranAny = false;
     try {
       for (const index of indices) {
         if (stopRef.current) break;
+        if (ranAny && !IS_E2E) await pause(BETWEEN_FILES_MS);
+        if (stopRef.current) break;
+        ranAny = true;
         await checkFileAt(index, input);
       }
     } finally {

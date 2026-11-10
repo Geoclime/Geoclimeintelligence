@@ -203,18 +203,20 @@ export async function readFloodTiles(buffer: Buffer, fileName: string): Promise<
     }
 
     // Tile makers soften edges when they build the coarser zooms: a pixel is water when it is at least
-    // half as opaque as the file's water colour.
+    // half as opaque as the file's water colour. Convert `alpha` in place to 0/1 to avoid allocating a second 14-40 MB buffer.
     let maxAlpha = 0;
     for (const a of alpha) if (a > maxAlpha) maxAlpha = a;
     const threshold = Math.max(1, Math.ceil(maxAlpha / 2));
-    const mask = new Uint8Array(width * height);
     let waterPixels = 0;
     for (let i = 0; i < alpha.length; i++) {
       if (alpha[i]! >= threshold) {
-        mask[i] = 1;
+        alpha[i] = 1;
         waterPixels++;
+      } else {
+        alpha[i] = 0;
       }
     }
+    const mask = alpha;
     if (waterPixels === 0) notes.push("No water is shown anywhere in this month's tiles.");
     if (maxZoom > readZoom) notes.push(`The file goes down to zoom ${maxZoom}; it was read at zoom ${readZoom}, which is what the map keeps.`);
 
