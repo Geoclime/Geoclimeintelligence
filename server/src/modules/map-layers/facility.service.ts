@@ -72,6 +72,7 @@ export class FacilityService {
       facilityType: typeOfKind(input.kind),
       osmClass: input.kind,
       note: input.note || null,
+      phone: input.phone || null,
       longitude: input.longitude,
       latitude: input.latitude,
       sourceId,
@@ -89,7 +90,7 @@ export class FacilityService {
     return place;
   }
 
-  /** Changes the name, kind or note. The point stays where it was saved. */
+  /** Changes the name, kind, note or phone number. The point stays where it was saved. */
   async update(id: string, input: UpdateFacilityBody, actor: AuthUser): Promise<FacilityDto> {
     const existing = await this.requireHandSaved(id);
     const kind = input.kind ?? existing.osmClass;
@@ -98,6 +99,7 @@ export class FacilityService {
       facilityType: input.kind ? typeOfKind(input.kind) : existing.facilityType,
       osmClass: kind,
       note: input.note === undefined ? existing.note : input.note || null,
+      phone: input.phone === undefined ? existing.phone : input.phone || null,
     });
     // Deleted by someone else between the read and the write.
     if (!updated) throw new NotFoundError("Place");

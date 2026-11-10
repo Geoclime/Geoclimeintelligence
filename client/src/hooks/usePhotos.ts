@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { QUERY_KEYS, invalidateQueries } from "../cache/queryClient";
 import { deletePhoto, fetchPhotoFile, fetchPhotos, uploadPhoto } from "../endpoints/photo.endpoints";
 import { errorMessage } from "../transport/api-error";
 import type { PendingPhoto, Photo, PhotoSubject } from "../types/photo.types";
+import { useFileUrl } from "./useFileUrl";
 import { useLoader } from "./useLoader";
 import { useToast } from "./useToast";
 
@@ -74,25 +75,5 @@ export function usePhotoUploads() {
  * API client and shown from memory; the URL is released when the component goes away.
  */
 export function usePhotoFile(id: string) {
-  const [result, setResult] = useState<{ id: string; url: string | null; failed: boolean } | null>(null);
-
-  useEffect(() => {
-    let url: string | null = null;
-    let cancelled = false;
-    fetchPhotoFile(id).then(
-      (blob) => {
-        if (cancelled) return;
-        url = URL.createObjectURL(blob);
-        setResult({ id, url, failed: false });
-      },
-      () => !cancelled && setResult({ id, url: null, failed: true }),
-    );
-    return () => {
-      cancelled = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [id]);
-
-  const current = result?.id === id ? result : null;
-  return { url: current?.url ?? null, loading: current === null, failed: current?.failed ?? false };
+  return useFileUrl(id, () => fetchPhotoFile(id));
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ALERTS_POLICY, invalidateQueries, LIVE_POLICY, QUERY_KEYS, SETTINGS_POLICY } from "../cache/queryClient";
 import {
   draftAlertFromForecast,
@@ -47,7 +47,7 @@ export function useFloodPredictions(countryCode: string | null = "NGA", days = D
 }
 
 export function useAreaFloodOutlook(adminUnitId: string | undefined, days = DEFAULT_OUTLOOK_DAYS) {
-  const key = adminUnitId ? [...QUERY_KEYS.floodPrediction, "area", adminUnitId, days] : null;
+  const key = useMemo(() => (adminUnitId ? [...QUERY_KEYS.floodPrediction, "area", adminUnitId, days] : null), [adminUnitId, days]);
   const { data, loading, error, refetch, setData } = useLoader<AreaFloodOutlook>(
     key,
     async () => (await fetchAreaFloodOutlook(adminUnitId!, days)).data!,

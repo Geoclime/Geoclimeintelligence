@@ -1,6 +1,7 @@
 import { Suspense, useEffect } from "react";
 import { Outlet, useLocation } from "react-router";
 import { useAuth } from "../../hooks/useAuth";
+import { FloodAheadBanner } from "../floods/FloodAheadBanner";
 import { LandingFooter } from "../landing/LandingFooter";
 import { LandingHeader } from "../landing/LandingHeader";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
@@ -37,6 +38,7 @@ export function PublicLayout() {
       <LandingHeader session={session} />
       <OfflineBanner />
       <PwaUpdateBanner />
+      <FloodAheadBanner />
       <main id="main">
         <Suspense fallback={<LoadingSpinner />}>
           <Outlet />

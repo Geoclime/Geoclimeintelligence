@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalPhone } from "../../common/validation/phone";
 import { facilityTypeOf, MAX_FACILITY_NAME_LENGTH, MAX_FACILITY_NOTE_LENGTH } from "./layer-rules";
 
 // Bodies arrive as JSON, so numbers are checked as numbers: z.coerce would turn null into 0.
@@ -28,6 +29,8 @@ export const createFacilitySchema = z.object({
       kind,
       /** Optional; blank is the same as none. */
       note: note.optional(),
+      /** Optional; international format, as the form's phone field sends it. */
+      phone: optionalPhone.optional(),
       longitude,
       latitude,
     })
@@ -39,12 +42,12 @@ export const facilityIdSchema = z.object({
   params: z.object({ id: z.uuid("Not a valid facility id") }),
 });
 
-/** PATCH /api/v1/infrastructure/:id. Send only what changes; a blank note clears it. The point itself can't move: delete the place and save it again. */
+/** PATCH /api/v1/infrastructure/:id. Send only what changes; a blank note or phone number clears it. The point itself can't move: delete the place and save it again. */
 export const updateFacilitySchema = z.object({
   params: z.object({ id: z.uuid("Not a valid facility id") }),
   body: z
-    .object({ name: name.optional(), kind: kind.optional(), note: note.optional() })
+    .object({ name: name.optional(), kind: kind.optional(), note: note.optional(), phone: optionalPhone.optional() })
     .strict()
-    .refine((body) => Object.values(body).some((value) => value !== undefined), { message: "Change at least one thing: the name, kind or note" }),
+    .refine((body) => Object.values(body).some((value) => value !== undefined), { message: "Change at least one thing: the name, kind, note or phone number" }),
 });
 export type UpdateFacilityBody = z.infer<typeof updateFacilitySchema>["body"];

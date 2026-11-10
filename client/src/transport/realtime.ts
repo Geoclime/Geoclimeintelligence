@@ -50,6 +50,23 @@ export function disconnectRealtime(): void {
   socket = null;
 }
 
+/** How long to wait for the server's answer to something sent. */
+const ANSWER_TIMEOUT_MS = 6_000;
+
+/**
+ * Sends one event and waits for the server's answer. Resolves null when there is no live connection or
+ * no answer came in time. An event is never queued for later: it is only worth sending if the server
+ * can act on it now (a position that arrives a minute late is a wrong position).
+ */
+export async function sendRealtime<T>(event: string, payload: unknown): Promise<T | null> {
+  if (!socket?.connected) return null;
+  try {
+    return (await socket.timeout(ANSWER_TIMEOUT_MS).emitWithAck(event, payload)) as T;
+  } catch {
+    return null;
+  }
+}
+
 /** Listens for one event, now or once connected; returns the function that stops listening. */
 export function onRealtime<T>(event: string, handler: (payload: T) => void): () => void {
   const listener = handler as Listener;

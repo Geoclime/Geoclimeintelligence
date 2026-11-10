@@ -11,6 +11,16 @@ export const PUBLIC_ROOM = "public";
 export const REVIEWERS_ROOM = "reviewers";
 export const ADMINISTRATORS_ROOM = "administrators";
 
+/** What a handler of a browser's event may do: keep notes for this one connection, and answer on it. */
+export interface RealtimeClient {
+  /** Lives as long as this connection does, and no longer; nothing here is stored. */
+  data: Record<string, unknown>;
+  /** Sends to this one connection only, never to a room. */
+  emit(event: string, payload: unknown): void;
+}
+
+/** Handles one event from a browser. What it returns is sent back to the sender as the acknowledgement. */
+export type ClientEventHandler = (payload: unknown, client: RealtimeClient) => unknown;
 
 /**
  * Live updates to browsers over Socket.IO, attached to the API's own HTTP server.
@@ -24,6 +34,9 @@ export const ADMINISTRATORS_ROOM = "administrators";
  * - Every event is a small "this changed" signal with an id, never the data itself: the browser
  *   asks the REST API, which applies the usual access rules. Nothing is ever sent over a socket
  *   that the REST API wouldn't give the same person.
+ * - The one exception to "the server only talks" is an event the browser sends and a feature has
+ *   registered for (onClientEvent). The answer goes back to the sender alone, and only carries what
+ *   that person already could read (e.g. flood-ahead warnings: public flood data, near their own position).
  * Before attach() (and in tests) every emit is a no-op.
  */
 export class RealtimeGateway {
@@ -33,6 +46,16 @@ export class RealtimeGateway {
   }
 
   private io: Server | null = null;
+  private readonly clientHandlers = new Map<string, ClientEventHandler>();
+
+  /**
+   * Listens for `event` from every connection, signed in or not, and answers the sender with whatever
+   * `handler` returns. Register at startup; a connection picks up the handlers present when it opens.
+   * A handler that throws is logged and the sender is told `{ ok: false }`: it never crashes the server.
+   */
+  onClientEvent(event: string, handler: ClientEventHandler): void {
+    this.clientHandlers.set(event, handler);
+  }
 
   attach(server: HttpServer): void {
     this.io = new Server(server, {
@@ -59,6 +82,18 @@ export class RealtimeGateway {
 
     this.io.on("connection", (socket) => {
       void socket.join(PUBLIC_ROOM);
+      for (const [event, handler] of this.clientHandlers) {
+        socket.on(event, async (payload: unknown, ack?: unknown) => {
+          const reply = typeof ack === "function" ? (ack as (result: unknown) => void) : () => undefined;
+          try {
+            reply(await handler(payload, { data: socket.data, emit: (name, body) => socket.emit(name, body) }));
+          } catch (err) {
+            // Only the error: the payload may be someone's position.
+            logger.error({ err, event }, "A realtime client event failed");
+            reply({ ok: false });
+          }
+        });
+      }
       const userId = socket.data.userId as string | undefined;
       if (!userId) return;
       void socket.join(`user:${userId}`);

@@ -1,12 +1,38 @@
 import type { Point } from "geojson";
 import type { LayerFeatureCollection } from "./map-layer.types";
 
+/** What kind of home it is (utils/household-details.ts has the words for each). */
+export type HomeType = "house" | "compound" | "apartment" | "other";
+
+/** What the household form holds, all as text; the hook turns it into a request. */
+export interface HouseholdFormValues {
+  label: string;
+  note: string;
+  people: string;
+  homeType: HomeType | "";
+  /** International format ("+2348031234567"), or "" for none. */
+  phone: string;
+}
+
+/** A photo of a home. Mirrors HouseholdPhotoDto on the server; the file comes from the API's file route. */
+export interface HouseholdPhoto {
+  id: string;
+  householdId: string;
+  mimeType: string;
+  byteSize: number;
+  createdAt: string;
+}
+
 /** Mirrors server/src/modules/households/household.types.ts. */
 export interface Household {
   id: string;
   label: string;
   note: string | null;
   people: number | null;
+  homeType: HomeType | null;
+  /** A number responders can call, in international format. */
+  phone: string | null;
+  photoCount: number;
   lgaId: string | null;
   wardId: string | null;
   longitude: number;
@@ -22,6 +48,9 @@ export interface HouseholdFeatureProperties {
   id: string;
   label: string;
   people: number | null;
+  homeType: HomeType | null;
+  phone: string | null;
+  photoCount: number;
   note: string | null;
   mine: boolean;
   ownerName: string | null;
@@ -38,6 +67,8 @@ export interface NewHouseholdBody {
   label: string;
   note?: string;
   people?: number;
+  homeType?: HomeType;
+  phone?: string;
   longitude: number;
   latitude: number;
 }
@@ -46,4 +77,7 @@ export interface HouseholdPatch {
   label?: string;
   note?: string;
   people?: number | null;
+  homeType?: HomeType | null;
+  /** A blank number clears it. */
+  phone?: string;
 }

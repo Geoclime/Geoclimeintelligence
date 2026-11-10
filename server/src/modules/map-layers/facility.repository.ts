@@ -12,7 +12,7 @@ import type { FacilityChanges, FacilityDto, IFacilityRepository, ManualFacilityS
 
 /** What every write hands back: the row as the client needs it, with the point as plain numbers. */
 const RETURNING = `
-  id, name, facility_type AS "facilityType", osm_class AS "osmClass", note, origin,
+  id, name, facility_type AS "facilityType", osm_class AS "osmClass", note, phone, origin,
   ST_X(geom) AS longitude, ST_Y(geom) AS latitude, admin_unit_id AS "adminUnitId", created_at AS "createdAt"`;
 
 type FacilityRow = Omit<FacilityDto, "createdAt"> & { createdAt: Date };
@@ -49,13 +49,13 @@ export class FacilityRepository extends BaseRepository<Infrastructure> implement
   async create(input: NewFacility): Promise<FacilityDto> {
     const [row]: FacilityRow[] = await this.repo.query(
       `INSERT INTO infrastructure (country_code, admin_unit_id, osm_id, from_area, name, facility_type, osm_class,
-                                   note, origin, created_by, geom, source_id)
-       VALUES ($1::char(3), $2::uuid, NULL, false, $3, $4, $5, $6, 'manual', $7::uuid,
+                                   note, phone, origin, created_by, geom, source_id)
+       VALUES ($1::char(3), $2::uuid, NULL, false, $3, $4, $5, $6, $11, 'manual', $7::uuid,
                ST_SetSRID(ST_MakePoint($8::float8, $9::float8), 4326), $10::uuid)
        RETURNING ${RETURNING}`,
       [
         input.countryCode, input.adminUnitId, input.name, input.facilityType, input.osmClass,
-        input.note, input.createdBy, input.longitude, input.latitude, input.sourceId,
+        input.note, input.createdBy, input.longitude, input.latitude, input.sourceId, input.phone,
       ],
     );
     if (!row) throw new AppError(500, "The place could not be saved");
@@ -66,11 +66,11 @@ export class FacilityRepository extends BaseRepository<Infrastructure> implement
     const rows: FacilityRow[] = await this.repo.query(
       `WITH changed AS (
          UPDATE infrastructure
-            SET name = $2, facility_type = $3, osm_class = $4, note = $5, updated_at = now()
+            SET name = $2, facility_type = $3, osm_class = $4, note = $5, phone = $6, updated_at = now()
           WHERE id = $1 AND origin = 'manual'
           RETURNING *)
        SELECT ${RETURNING} FROM changed`,
-      [id, changes.name, changes.facilityType, changes.osmClass, changes.note],
+      [id, changes.name, changes.facilityType, changes.osmClass, changes.note, changes.phone],
     );
     return rows[0] ? toDto(rows[0]) : null;
   }

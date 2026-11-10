@@ -1,7 +1,7 @@
 import { httpClient } from "../transport/http";
 import type { ApiResponse } from "../types/api.types";
 import type { BBox } from "../types/admin-unit.types";
-import type { Household, HouseholdFeatureCollection, HouseholdPatch, NewHouseholdBody } from "../types/household.types";
+import type { Household, HouseholdFeatureCollection, HouseholdPatch, HouseholdPhoto, NewHouseholdBody } from "../types/household.types";
 
 // server/src/modules/households/household.routes.ts. Anyone signed in manages their own households; the
 // map shows the viewer's own, or everyone's for staff with households.view. Never public.
@@ -23,6 +23,31 @@ export async function saveHousehold(body: NewHouseholdBody): Promise<ApiResponse
 
 export async function updateHousehold(id: string, patch: HouseholdPatch): Promise<ApiResponse<Household>> {
   const { data } = await httpClient.patch<ApiResponse<Household>>(`/api/v1/households/${encodeURIComponent(id)}`, patch);
+  return data;
+}
+
+// Photos of a home: seen by its owner and by staff with households.view; only the owner adds or removes them.
+export async function fetchHouseholdPhotos(id: string): Promise<ApiResponse<HouseholdPhoto[]>> {
+  const { data } = await httpClient.get<ApiResponse<HouseholdPhoto[]>>(`/api/v1/households/${encodeURIComponent(id)}/photos`);
+  return data;
+}
+
+/** The photo itself, through the API (it needs the sign-in token), as a blob to show from memory. */
+export async function fetchHouseholdPhotoFile(id: string, photoId: string): Promise<Blob> {
+  const { data } = await httpClient.get<Blob>(`/api/v1/households/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoId)}/file`, { responseType: "blob" });
+  return data;
+}
+
+/** Uploads one photo (already shrunk in the browser). A slow connection gets two minutes before it gives up. */
+export async function uploadHouseholdPhoto(id: string, photo: Blob): Promise<ApiResponse<HouseholdPhoto>> {
+  const form = new FormData();
+  form.append("file", photo, "photo.jpg");
+  const { data } = await httpClient.post<ApiResponse<HouseholdPhoto>>(`/api/v1/households/${encodeURIComponent(id)}/photos`, form, { timeout: 120_000 });
+  return data;
+}
+
+export async function deleteHouseholdPhoto(id: string, photoId: string): Promise<ApiResponse<null>> {
+  const { data } = await httpClient.delete<ApiResponse<null>>(`/api/v1/households/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoId)}`);
   return data;
 }
 

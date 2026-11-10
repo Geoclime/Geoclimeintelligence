@@ -9,6 +9,9 @@ The home map (`/`) can now draw roads, waterways and settlements over the State,
 - **A "Data sources" panel** under the legend. For each visible layer it shows the provider (a link to the dataset), the licence and the download date, e.g. "OpenStreetMap contributors via HDX · Open Database License (ODC-ODbL) · downloaded 27 Oct 2026". That provider line is also the attribution OpenStreetMap's licence asks for.
 - **Honest hints** under each toggle: "No data loaded yet", "Too many here to show: zoom in", "Smaller roads appear as you zoom in" or "Creeks and small water appear as you zoom in".
 - **A fix to the layer toggles**, which could be undone by the map's own address update (see section 5).
+- **Seeing only the map.** Two controls on the home map:
+  - **Hide all** (and **Restore**) heads the layer list, with a count such as "9 layers on". It switches every layer off, so only the base map is left, and clears any flood chosen for its impact. **Restore** brings back exactly what was on; if the layers were unticked one by one, it brings back the usual set. The choice is in the link (`layers=`), so a shared link opens bare too.
+  - **Hide the panels** is the eye button under the zoom buttons. It hides the overview card, the layer, legend and sources panels and the Field survey button, leaving only the map. A recording in progress keeps its card. It changes no layer and isn't kept in the link; press it again to bring the panels back. (`MapPage.tsx`, `LayerToggle.tsx`, `MapPage.css`.)
 
 The server side (tables, endpoints, zoom rules and the loader) is in [map-layers.md](../map-layers.md). A fourth toggle, **Facilities**, was added later with its five legend rows; it is covered, server and client, in [infrastructure-layer.md](../infrastructure-layer.md). The **Flood risk** surface drawn under all of these is covered in [flood-risk-overlay.md](flood-risk-overlay.md).
 

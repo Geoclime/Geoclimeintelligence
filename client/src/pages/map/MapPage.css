@@ -54,8 +54,17 @@
   font-size: var(--text-sm);
 }
 
-.map-overview__locate {
+/* "Where am I?", "Follow me" and "Re-centre", side by side and wrapping on a narrow card. */
+.map-overview__locate-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   justify-self: start;
+}
+
+.map-overview__status {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
 }
 
 .map-overview__error {
@@ -142,6 +151,43 @@
   bottom: calc(var(--space-3) + 20px);
   z-index: 6;
   box-shadow: var(--shadow-md);
+}
+
+/* Under the zoom buttons: hides every panel over the map, and brings them back. */
+.map-page__clean-toggle {
+  position: absolute;
+  top: 78px;
+  right: 10px;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+.map-page__clean-toggle:hover,
+.map-page__clean-toggle:focus-visible {
+  color: var(--color-primary);
+}
+
+.map-page__clean-toggle[aria-pressed="true"] {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+/* Panels hidden: only the map stays. A recording in progress keeps its card, so nobody loses it. */
+.map-page.is-clean .map-page__top,
+.map-page.is-clean .map-page__panels,
+.map-page.is-clean .map-page__panels-toggle,
+.map-page.is-clean .field-dock:not(.field-dock--card) {
+  display: none;
 }
 
 .map-page__empty {

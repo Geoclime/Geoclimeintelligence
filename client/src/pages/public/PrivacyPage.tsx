@@ -27,7 +27,10 @@ export function PrivacyPage() {
             <ul>
               <li>You can look up any area without an account, and we don't use advertising or analytics trackers.</li>
               <li>If you create an account, we hold your email address, your name and any profile details you choose to add.</li>
-              <li>Your location is used once, when you ask, to find your area. It is never stored.</li>
+              <li>
+                Your location is used only when you ask: once, to find your area, or for as long as you leave flood warnings on, to look for floods
+                near you. It is never stored.
+              </li>
               <li>We never sell personal data.</li>
             </ul>
           ),
@@ -46,6 +49,18 @@ export function PrivacyPage() {
               <p>
                 Only when you press "Use my location" or "Where am I?". Your browser asks your permission first. The position is sent once to find the
                 LGA and ward that contain it, and it is not saved.
+              </p>
+              <h3>When you use Follow me</h3>
+              <p>
+                "Follow me" on the map shows your position as you move, so it stays on the map while you walk. It only happens when you press it, your
+                browser asks your permission first, and the position stays in your browser: nothing is sent to our server for it. Your screen stays
+                awake while it is on.
+              </p>
+              <h3>When you turn on flood warnings</h3>
+              <p>
+                Flood warnings are off until you press "Warn me about floods nearby", and your browser asks your permission first. While they are on,
+                your device's position is sent to our server every few seconds, only to look for floods near you. It is checked and then discarded:
+                we do not store it, log it or share it. Turn them off at any time and nothing more is sent.
               </p>
               <h3>When you use the site</h3>
               <p>
@@ -75,6 +90,9 @@ export function PrivacyPage() {
               </li>
               <li>
                 <strong>To find your area from your location</strong>: only with your consent, given in your browser each time.
+              </li>
+              <li>
+                <strong>To warn you about floods near you</strong>: only if you turn flood warnings on, with your consent given in your browser.
               </li>
             </ul>
           ),

@@ -99,7 +99,7 @@ export const TARGET_INFO: Record<SurveyTarget, TargetInfo> = {
   },
   "drain-line": {
     title: "Recording a drain",
-    howTo: "Walk along the drain from one end to the other, or tap along it on the map.",
+    howTo: "Walk along the drain or gutter from one end to the other, or tap along it on the map.",
     minPoints: 2,
     maxPoints: Number.POSITIVE_INFINITY,
     closes: false,

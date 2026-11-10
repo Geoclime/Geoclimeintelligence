@@ -5,6 +5,7 @@ import { AdminUnitRepository } from "../admin-units/admin-unit.repository";
 import type { IAdminUnitRepository } from "../admin-units/admin-unit.types";
 import { AuditService } from "../audit/audit.service";
 import { DEFAULT_WARD_LEVEL } from "../map-layers/layer-rules";
+import { HouseholdPhotoService } from "./household-photo.service";
 import { HouseholdRepository } from "./household.repository";
 import type { HouseholdDto, HouseholdFeatureCollection, IHouseholdRepository } from "./household.types";
 import type { CreateHouseholdBody, UpdateHouseholdBody } from "./household.validation";
@@ -23,7 +24,7 @@ import type { CreateHouseholdBody, UpdateHouseholdBody } from "./household.valid
 export class HouseholdService {
   private static _instance?: HouseholdService;
   static get Instance(): HouseholdService {
-    return (this._instance ??= new HouseholdService(HouseholdRepository.Instance, AdminUnitRepository.Instance, PermissionResolver.Instance, AuditService.Instance));
+    return (this._instance ??= new HouseholdService(HouseholdRepository.Instance, AdminUnitRepository.Instance, PermissionResolver.Instance, AuditService.Instance, HouseholdPhotoService.Instance));
   }
 
   // Public so tests can inject fakes; application code always uses .Instance.
@@ -32,6 +33,7 @@ export class HouseholdService {
     private readonly units: Pick<IAdminUnitRepository, "findContaining">,
     private readonly permissions: Pick<PermissionResolver, "has">,
     private readonly audit: Pick<AuditService, "record">,
+    private readonly photos: Pick<HouseholdPhotoService, "removeAllFor">,
   ) {}
 
   async create(input: CreateHouseholdBody, actor: AuthUser): Promise<HouseholdDto> {
@@ -51,6 +53,8 @@ export class HouseholdService {
         label: input.label,
         note: input.note || null,
         people: input.people ?? null,
+        homeType: input.homeType ?? null,
+        phone: input.phone || null,
         longitude: input.longitude,
         latitude: input.latitude,
       },
@@ -75,6 +79,8 @@ export class HouseholdService {
         label: input.label ?? existing.label,
         note: input.note === undefined ? existing.note : input.note || null,
         people: input.people === undefined ? existing.people : input.people,
+        homeType: input.homeType === undefined ? existing.homeType : input.homeType,
+        phone: input.phone === undefined ? existing.phone : input.phone || null,
       },
       actor.id,
     );
@@ -84,6 +90,8 @@ export class HouseholdService {
 
   async remove(id: string, actor: AuthUser): Promise<void> {
     const existing = await this.ownOrAdmin(id, actor);
+    // Its photos' files go first: the rows go with the household.
+    await this.photos.removeAllFor(id);
     if (!(await this.households.delete(id))) throw new NotFoundError("Household");
     await this.audit.record(actor, {
       action: "household.deleted",

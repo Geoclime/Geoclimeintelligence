@@ -38,6 +38,8 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   "place.deleted": "Place deleted",
   "household.saved": "Household added",
   "household.deleted": "Household removed",
+  "household.photo_added": "Household photo added",
+  "household.photo_deleted": "Household photo removed",
   "photo.added": "Photo added",
   "photo.deleted": "Photo deleted",
   "role.created": "Role created",

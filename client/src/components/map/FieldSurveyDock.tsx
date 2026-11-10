@@ -2,22 +2,40 @@ import { useState } from "react";
 import type { useFieldSurvey } from "../../hooks/useFieldSurvey";
 import type { SurveyAbilities } from "../../utils/permissions";
 import { DrainageImportDialog } from "./DrainageImportDialog";
+import { DrainageKindGuide } from "./DrainageKindGuide";
 import type { SurveyTarget } from "../../types/field-survey.types";
 import { TARGET_INFO } from "../../utils/field-survey";
 import { formatDistance } from "../../utils/geo-distance";
 import { formatArea, gpsQuality } from "../../utils/survey-geometry";
 import { Button } from "../shared/Button";
-import { Icon } from "../shared/Icon";
+import { Icon, type IconName } from "../shared/Icon";
 import { Modal } from "../shared/Modal";
 import "./field-survey.css";
 
 type Survey = ReturnType<typeof useFieldSurvey>;
 
-const CHOICES: { target: SurveyTarget; title: string; text: string; cy: string; allowed: (a: SurveyAbilities) => boolean }[] = [
-  { target: "flood", title: "Record a flood", text: "Walk around the edge of the water, or trace it on the map. You get its area and what it reaches.", cy: "survey-start-flood", allowed: (a) => a.recordFlood },
-  { target: "drain-line", title: "Record a drain", text: "Walk along a drain or channel, say what shape it is in and which way the water goes.", cy: "survey-start-drain", allowed: (a) => a.recordDrain },
-  { target: "drain-spot", title: "Mark a culvert, outfall or inlet", text: "One spot: stand at it, or tap it on the map.", cy: "survey-start-spot", allowed: (a) => a.recordDrain },
+// One short line each: what the long definitions say is in "What do these mean?" (DrainageKindGuide).
+const CHOICES: { target: SurveyTarget; icon: IconName; title: string; text: string; cy: string; allowed: (a: SurveyAbilities) => boolean }[] = [
+  { target: "flood", icon: "droplet", title: "Record a flood", text: "Walk the edge of the water, or trace it on the map.", cy: "survey-start-flood", allowed: (a) => a.recordFlood },
+  { target: "drain-line", icon: "waves", title: "Record a drain", text: "Walk along a drain, channel or gutter and note its condition.", cy: "survey-start-drain", allowed: (a) => a.recordDrain },
+  { target: "drain-spot", icon: "pin", title: "Mark a culvert, outfall or inlet", text: "One spot: stand at it, or tap it on the map.", cy: "survey-start-spot", allowed: (a) => a.recordDrain },
 ];
+
+/** One row of the start menu: an icon, what it does in a line, and an arrow. */
+function ChoiceRow({ icon, title, text, onClick, cy }: { icon: IconName; title: string; text: string; onClick: () => void; cy: string }) {
+  return (
+    <button type="button" className="field-dock__choice" onClick={onClick} data-cy={cy}>
+      <span className="field-dock__choice-icon">
+        <Icon name={icon} size={18} />
+      </span>
+      <span className="field-dock__choice-body">
+        <span className="field-dock__choice-title">{title}</span>
+        <span className="field-dock__choice-text">{text}</span>
+      </span>
+      <Icon name="chevronRight" size={16} className="field-dock__choice-go" />
+    </button>
+  );
+}
 
 interface DockProps {
   survey: Survey;
@@ -47,19 +65,20 @@ function StartMenu({ survey, abilities, countryCode, onImported }: DockProps) {
     <div className="field-dock" data-cy="field-survey-dock">
       {open && (
         <section className="map-panel field-dock__menu" aria-label="Field survey">
-          <h2 className="map-panel__title">Field survey</h2>
-          <p className="field-dock__howto">Record what you see on the ground. It shows on the map for everyone as soon as you save it.</p>
-          {choices.map((choice) => (
-            <button key={choice.target} type="button" className="field-dock__choice" onClick={() => survey.startRecording(choice.target)} data-cy={choice.cy}>
-              <span className="field-dock__choice-title">{choice.title}</span>
-              <span className="field-dock__choice-text">{choice.text}</span>
-            </button>
-          ))}
+          <header className="field-dock__intro">
+            <h2 className="map-panel__title">Field survey</h2>
+            <p className="field-dock__howto">What you record shows on the map for everyone as soon as you save it.</p>
+          </header>
+          <div className="field-dock__choices">
+            {choices.map((choice) => (
+              <ChoiceRow key={choice.target} icon={choice.icon} title={choice.title} text={choice.text} cy={choice.cy} onClick={() => survey.startRecording(choice.target)} />
+            ))}
+          </div>
+          {abilities.recordDrain && <DrainageKindGuide />}
           {abilities.importDrainage && (
-            <button type="button" className="field-dock__choice" onClick={() => setImporting(true)} data-cy="survey-import-plan">
-              <span className="field-dock__choice-title">Import a drainage plan</span>
-              <span className="field-dock__choice-text">Load drains and culverts from a GeoJSON file from a ministry or consultant survey.</span>
-            </button>
+            <div className="field-dock__more">
+              <ChoiceRow icon="upload" title="Import a drainage plan" text="Drains and culverts from a GeoJSON survey file." cy="survey-import-plan" onClick={() => setImporting(true)} />
+            </div>
           )}
         </section>
       )}

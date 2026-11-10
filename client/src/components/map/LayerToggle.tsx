@@ -18,6 +18,9 @@ interface LayerToggleProps {
   /** With these, a Map / Satellite switch heads the list. */
   base?: MapBase;
   onBaseChange?: (base: MapBase) => void;
+  /** With these, a line under the heading says how many layers are on, with "Hide all" (or "Restore" when none are). */
+  onHideAll?: () => void;
+  onRestore?: () => void;
 }
 
 /**
@@ -26,7 +29,8 @@ interface LayerToggleProps {
  * places and services on the ground, water, what responders recorded, and the flood risk surface.
  * Rainfall and the rest join once their datasets and endpoints exist, never as placeholder checkboxes.
  */
-export function LayerToggle({ layers, onChange, base, onBaseChange }: LayerToggleProps) {
+export function LayerToggle({ layers, onChange, base, onBaseChange, onHideAll, onRestore }: LayerToggleProps) {
+  const on = layers.filter((layer) => layer.checked).length;
   const groups: { name: string; layers: LayerOption[] }[] = [];
   for (const layer of layers) {
     const name = layer.group ?? "";
@@ -46,6 +50,22 @@ export function LayerToggle({ layers, onChange, base, onBaseChange }: LayerToggl
           <button type="button" aria-pressed={base === "satellite"} onClick={() => onBaseChange("satellite")} data-cy="base-satellite">
             Satellite
           </button>
+        </div>
+      )}
+      {onHideAll && onRestore && (
+        <div className="layer-toggle__bulk" data-cy="layer-bulk">
+          <span className="layer-toggle__count" aria-live="polite">
+            {on === 0 ? "All layers off" : on === 1 ? "1 layer on" : `${on} layers on`}
+          </span>
+          {on > 0 ? (
+            <button type="button" className="layer-toggle__bulk-button" onClick={onHideAll} data-cy="layers-hide-all">
+              Hide all
+            </button>
+          ) : (
+            <button type="button" className="layer-toggle__bulk-button" onClick={onRestore} data-cy="layers-restore">
+              Restore
+            </button>
+          )}
         </div>
       )}
       {groups.map((group) => (

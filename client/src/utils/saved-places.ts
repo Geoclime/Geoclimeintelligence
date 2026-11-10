@@ -22,12 +22,14 @@ export function handSavedPlaceIn(features: readonly ClickedFeature[]): PlaceOnMa
     const { properties, coordinates } = feature;
     if (feature.layerId !== FACILITY_DOTS_LAYER || properties.origin !== "manual" || !coordinates) continue;
     if (typeof properties.id !== "string" || typeof properties.facilityType !== "string" || typeof properties.osmClass !== "string") continue;
+    const phone = typeof properties.phone === "string" && properties.phone ? properties.phone : null;
     return {
       id: properties.id,
       name: typeof properties.name === "string" ? properties.name : null,
       facilityType: properties.facilityType as FacilityType,
       osmClass: properties.osmClass,
       note: typeof properties.note === "string" && properties.note ? properties.note : null,
+      ...(phone ? { phone } : {}),
       point: coordinates,
       origin: "manual",
     };
@@ -43,6 +45,7 @@ export function placeOnMapFrom(place: SavedPlace): PlaceOnMap {
     facilityType: place.facilityType,
     osmClass: place.osmClass,
     note: place.note,
+    phone: place.phone,
     point: [place.longitude, place.latitude],
     origin: place.origin,
   };

@@ -16,6 +16,8 @@ interface PhotoPickerProps {
   max: number;
   /** What the photos are of, for screen readers: "the drain". */
   of: string;
+  /** The privacy line above the photos; the map photos' own (staff only) unless a form says otherwise. */
+  privacyNote?: string;
   disabled?: boolean;
 }
 
@@ -25,7 +27,7 @@ interface PhotoPickerProps {
  * tag; where the phone was when the photo was added is asked separately, and only kept if it says within
  * a few seconds. Each photo can have a short caption.
  */
-export function PhotoPicker({ photos, onChange, max, of, disabled = false }: PhotoPickerProps) {
+export function PhotoPicker({ photos, onChange, max, of, privacyNote = PHOTO_PRIVACY_NOTE, disabled = false }: PhotoPickerProps) {
   const inputId = useId();
   const [busy, setBusy] = useState(false);
   const previews = useMemo(() => photos.map((photo) => URL.createObjectURL(photo.blob)), [photos]);
@@ -45,7 +47,7 @@ export function PhotoPicker({ photos, onChange, max, of, disabled = false }: Pho
 
   return (
     <div className="photo-picker" data-cy="survey-photo-picker">
-      <p className="photo-picker__note">{PHOTO_PRIVACY_NOTE}</p>
+      <p className="photo-picker__note">{privacyNote}</p>
       <div className="photo-picker__grid">
         {previews.map((url, index) => (
           <figure key={url} className="photo-picker__item">

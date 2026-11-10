@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useId, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import type { PlaceFormTarget } from "../../hooks/useSavedPlaces";
 import type { PlaceOnMap } from "../../types/map-layer.types";
 import type { PendingPhoto } from "../../types/photo.types";
@@ -12,6 +12,7 @@ import { describeKind, FACILITY_KIND_GROUPS, isPickableKind } from "../../utils/
 import { Button } from "../shared/Button";
 import { Callout } from "../shared/Callout";
 import { Modal } from "../shared/Modal";
+import { PhoneField } from "../shared/PhoneField";
 import { SelectField } from "../shared/SelectField";
 import { TextAreaField } from "../shared/TextAreaField";
 import { TextField } from "../shared/TextField";
@@ -30,12 +31,12 @@ interface PlaceFormDialogProps {
 
 const defaultsFor = (target: PlaceFormTarget): PlaceFormValues =>
   target.mode === "edit"
-    ? { name: target.place.name ?? "", kind: target.place.osmClass, note: target.place.note ?? "" }
-    : { name: "", kind: "", note: "" };
+    ? { name: target.place.name ?? "", kind: target.place.osmClass, note: target.place.note ?? "", phone: target.place.phone ?? "" }
+    : { name: "", kind: "", note: "", phone: "" };
 
 /**
  * An administrator saving a place the import missed, or editing one saved before: its name, what
- * kind of place it is, and an optional note. The point is the spot they tapped and can't be moved
+ * kind of place it is, an optional phone number and an optional note. The point is the spot they tapped and can't be moved
  * here. Render it with a fresh `key` each time it opens.
  */
 export function PlaceFormDialog({ target, onClose, onSubmit, onDone, canAddPhotos = false }: PlaceFormDialogProps) {
@@ -44,6 +45,7 @@ export function PlaceFormDialog({ target, onClose, onSubmit, onDone, canAddPhoto
   const editing = target.mode === "edit";
   const {
     register,
+    control,
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
@@ -53,7 +55,7 @@ export function PlaceFormDialog({ target, onClose, onSubmit, onDone, canAddPhoto
     try {
       onDone(await onSubmit(values, photos));
     } catch (error) {
-      applySubmitError(error, setError, ["name", "kind", "note"]);
+      applySubmitError(error, setError, ["name", "kind", "note", "phone"]);
     }
   });
 
@@ -109,6 +111,22 @@ export function PlaceFormDialog({ target, onClose, onSubmit, onDone, canAddPhoto
             </optgroup>
           ))}
         </SelectField>
+        <Controller
+          control={control}
+          name="phone"
+          render={({ field, fieldState }) => (
+            <PhoneField
+              label="Phone number (optional)"
+              hint="A number to call this place on. Shown to everyone who uses the map."
+              value={field.value ?? ""}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+              error={fieldState.error?.message}
+              data-cy="place-phone"
+            />
+          )}
+        />
         <TextAreaField
           label="Note (optional)"
           rows={3}

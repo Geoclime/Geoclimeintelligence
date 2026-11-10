@@ -6,6 +6,8 @@ import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useSubmitPendingRoleRequest } from "../../hooks/useSubmitPendingRoleRequest";
 import { useToast } from "../../hooks/useToast";
 import { MAP_PATH } from "../../utils/map-url";
+import { FloodAheadBanner } from "../floods/FloodAheadBanner";
+import { FloodAheadIndicator } from "../floods/FloodAheadIndicator";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { BrandMark } from "../shared/BrandMark";
 import { Icon } from "../shared/Icon";
@@ -97,6 +99,7 @@ export function AppShell() {
             </div>
             <div className="app-topbar__actions">
               <QuickSearch role={user.role} />
+              <FloodAheadIndicator />
               <NotificationBell />
               <NavLink to="/help" className="app-topbar__help" aria-label="Help and guides" title="Help and guides">
                 <Icon name="info" size={18} />
@@ -106,6 +109,7 @@ export function AppShell() {
           </header>
           <OfflineBanner />
           <PwaUpdateBanner />
+          <FloodAheadBanner />
           <main id="main" className={`app-main${fullBleed ? " app-main--full" : ""}`} tabIndex={-1}>
             <Suspense fallback={<LoadingSpinner />}>
               <Outlet />

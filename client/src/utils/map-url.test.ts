@@ -69,6 +69,13 @@ describe("map URL state", () => {
     expect(writeLayers(params, everything).has("layers")).toBe(false);
   });
 
+  it("keeps Hide all in the link: every layer off is an empty list, not the default", () => {
+    const hidden = writeLayers(new URLSearchParams(""), nothing);
+    expect(hidden.get("layers")).toBe("");
+    expect(readLayers(hidden)).toEqual(nothing);
+    expect(writeLayers(hidden, everything).has("layers")).toBe(false);
+  });
+
   it("carries the roads, waterways, settlements and infrastructure layers in the link", () => {
     expect(readLayers(new URLSearchParams("layers=roads,settlements"))).toEqual({ ...nothing, roads: true, settlements: true });
     expect(readLayers(new URLSearchParams("layers=infrastructure"))).toEqual({ ...nothing, infrastructure: true });

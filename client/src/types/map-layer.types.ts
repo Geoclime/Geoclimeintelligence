@@ -16,7 +16,9 @@ export type FacilityType =
   | "community"
   | "worship"
   | "water"
-  | "telecom";
+  | "telecom"
+  | "residence"
+  | "business";
 
 export type WaterClass = "river" | "creek" | "other";
 
@@ -66,6 +68,8 @@ export interface InfrastructureFeatureProperties {
   origin: FacilityOrigin;
   /** What the administrator wrote about a place saved by hand; always null for an imported one. */
   note: string | null;
+  /** A phone number for a place saved by hand ("+2348031234567"). */
+  phone?: string | null;
 }
 
 export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
@@ -87,6 +91,7 @@ export interface SavedPlace {
   facilityType: FacilityType;
   osmClass: string;
   note: string | null;
+  phone?: string | null;
   origin: FacilityOrigin;
   longitude: number;
   latitude: number;
@@ -100,6 +105,8 @@ export interface NewPlaceBody {
   name: string;
   kind: string;
   note?: string;
+  /** International format, "+2348031234567". */
+  phone?: string;
   longitude: number;
   latitude: number;
 }
@@ -109,6 +116,8 @@ export interface UpdatePlaceBody {
   name?: string;
   kind?: string;
   note?: string;
+  /** A blank number clears it. */
+  phone?: string;
 }
 
 /** A facility on the map: what its popup and (for a place saved by hand) the edit form need. */
@@ -118,6 +127,8 @@ export interface PlaceOnMap {
   facilityType: FacilityType;
   osmClass: string;
   note: string | null;
+  /** A number to call, for a place saved by hand. */
+  phone?: string | null;
   /** [longitude, latitude] */
   point: [number, number];
   /** Where it came from. Left out means saved by hand, as everything built before imported facilities could be opened. */

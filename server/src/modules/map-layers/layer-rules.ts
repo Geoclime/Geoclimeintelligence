@@ -81,6 +81,8 @@ export const FACILITY_TYPES = [
   "worship",
   "water",
   "telecom",
+  "residence",
+  "business",
 ] as const;
 export type FacilityType = (typeof FACILITY_TYPES)[number];
 
@@ -118,6 +120,13 @@ const FACILITY_CLASSES: Readonly<Record<string, FacilityType>> = {
   water_works: "water",
   wastewater_plant: "water",
   comms_tower: "telecom",
+  // Not Geofabrik classes: places an administrator saves by hand (the picker's "Residence" and
+  // "Private firms and offices" groups). Named so a class in a later extract can never match them.
+  residence: "residence",
+  apartments: "residence",
+  private_firm: "business",
+  private_office: "business",
+  business_establishment: "business",
 };
 
 /** Places of worship come from Geofabrik's pofw layer, named by religion: christian, christian_anglican, muslim... */

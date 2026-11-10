@@ -1,9 +1,22 @@
 import { Link } from "react-router";
 import type { AdminUnitSummary } from "../../types/admin-unit.types";
 import type { Country } from "../../types/country.types";
+import { FloodAheadControl } from "../floods/FloodAheadControl";
 import { Button, buttonClassName } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { areaTitle as formatAreaTitle } from "../../utils/area-title";
+
+/** What the "Follow me" button needs: see hooks/useFollowMe.ts. */
+interface FollowMeControl {
+  supported: boolean;
+  following: boolean;
+  centring: boolean;
+  /** On, but no position has arrived yet. */
+  waiting: boolean;
+  error: string | null;
+  onToggle: () => void;
+  onRecentre: () => void;
+}
 
 interface MapOverviewPanelProps {
   country: Country | null;
@@ -13,6 +26,7 @@ interface MapOverviewPanelProps {
   onWhereAmI: () => void;
   locating: boolean;
   geoError: string | null;
+  follow: FollowMeControl;
 }
 
 /** "Rivers" at level "State" reads as "Rivers State". */
@@ -33,6 +47,7 @@ export function MapOverviewPanel({
   onWhereAmI,
   locating,
   geoError,
+  follow,
 }: MapOverviewPanelProps) {
   const counts = country?.levels.filter((level) => level.level > 1) ?? [];
 
@@ -50,23 +65,47 @@ export function MapOverviewPanel({
         </p>
       )}
 
-      <Button
-        variant="secondary"
-        size="sm"
-        icon={<Icon name="crosshair" size={16} />}
-        loading={locating}
-        loadingLabel="Finding you…"
-        onClick={onWhereAmI}
-        className="map-overview__locate"
-        data-cy="where-am-i"
-      >
-        Where am I?
-      </Button>
-      {geoError && (
-        <p className="map-overview__error" role="alert" data-cy="geo-error">
-          {geoError}
+      <div className="map-overview__locate-row">
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Icon name="crosshair" size={16} />}
+          loading={locating}
+          loadingLabel="Finding you…"
+          onClick={onWhereAmI}
+          data-cy="where-am-i"
+        >
+          Where am I?
+        </Button>
+        {follow.supported && (
+          <Button
+            variant={follow.following ? "primary" : "secondary"}
+            size="sm"
+            icon={<Icon name="pin" size={16} />}
+            aria-pressed={follow.following}
+            onClick={follow.onToggle}
+            data-cy="follow-me"
+          >
+            {follow.following ? "Following you: stop" : "Follow me"}
+          </Button>
+        )}
+        {follow.following && !follow.centring && (
+          <Button variant="ghost" size="sm" onClick={follow.onRecentre} data-cy="follow-recentre">
+            Re-centre
+          </Button>
+        )}
+      </div>
+      {follow.waiting && (
+        <p className="map-overview__status" role="status" data-cy="follow-waiting">
+          Waiting for your location…
         </p>
       )}
+      {(geoError || follow.error) && (
+        <p className="map-overview__error" role="alert" data-cy="geo-error">
+          {geoError ?? follow.error}
+        </p>
+      )}
+      <FloodAheadControl />
       <p className="map-overview__hint">Tap or click anywhere on the map to see the state, LGA and ward there.</p>
 
       {selectedLga && (

@@ -47,6 +47,8 @@ export interface InfrastructureFeatureProperties {
   origin: FacilityOrigin;
   /** What the administrator wrote about a place saved by hand; always null for an imported one. */
   note: string | null;
+  /** A phone number for a place saved by hand; always null for an imported one. */
+  phone: string | null;
 }
 
 export type InfrastructureFeatureCollection = LayerFeatureCollection<Point, InfrastructureFeatureProperties>;
@@ -68,6 +70,7 @@ export interface FacilityDto {
   facilityType: FacilityType;
   osmClass: string;
   note: string | null;
+  phone: string | null;
   origin: FacilityOrigin;
   longitude: number;
   latitude: number;
@@ -83,6 +86,7 @@ export interface NewFacility {
   facilityType: FacilityType;
   osmClass: string;
   note: string | null;
+  phone: string | null;
   longitude: number;
   latitude: number;
   sourceId: string;
@@ -94,6 +98,7 @@ export interface FacilityChanges {
   facilityType: FacilityType;
   osmClass: string;
   note: string | null;
+  phone: string | null;
 }
 
 /** The standing data source every place saved by hand points at. */
@@ -113,6 +118,7 @@ export interface FacilityRecord {
   facilityType: FacilityType;
   osmClass: string;
   note: string | null;
+  phone: string | null;
   origin: FacilityOrigin;
 }
 

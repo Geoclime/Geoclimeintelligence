@@ -33,6 +33,21 @@ For drainage, **Record a drain** or **Mark a culvert, outfall or inlet**. The fo
 
 Paths are relative to `server/` unless they start with `client/`. The module is [`src/modules/field-survey/`](../server/src/modules/field-survey/).
 
+### What each kind of drainage is
+
+The app tells people what they are recording. The form shows the meaning of the kind chosen, under the choice, and a fold-away **What do these mean?** lists them all. The Field survey menu has the same guide. The wording is in [`client/src/utils/drainage-kinds.ts`](../client/src/utils/drainage-kinds.ts).
+
+| Kind | What it is | Recorded as |
+|---|---|---|
+| Open drain or channel | A channel carrying water along the ground, open to the sky: a **roadside gutter**, a drainage channel, a ditch or a canal | A line: walk along it |
+| Covered drain | The same, roofed over with slabs or a lid so the water can't be seen | A line |
+| Culvert | A pipe or small tunnel carrying water **under** a road, railway or bank | One spot |
+| Outfall | Where a drain empties into a river, creek, lagoon or larger drain | One spot |
+| Inlet or gully | The grate or opening where street water first enters a drain | One spot |
+| Retention pond or basin | A pond or basin that holds storm water and lets it out slowly | One spot |
+
+Roof gutters on buildings are **not** recorded: only drainage that serves a street, road or area.
+
 ### 1. The tables
 
 [`1792400000000-CreateFieldSurveyTables.ts`](../server/src/migrations/1792400000000-CreateFieldSurveyTables.ts). Apply it with `npm run migration:run`.

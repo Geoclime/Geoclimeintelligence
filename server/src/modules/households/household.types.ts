@@ -1,6 +1,10 @@
 import type { Point } from "geojson";
 import type { LayerFeatureCollection } from "../map-layers/map-layer.types";
 
+/** What kind of home it is, as the form offers it. Mirrors ck_households_home_type and the client's utils/household-kinds.ts. */
+export const HOME_TYPES = ["house", "compound", "apartment", "other"] as const;
+export type HomeType = (typeof HOME_TYPES)[number];
+
 /** A household as its owner, or a staff member, sees it. */
 export interface HouseholdDto {
   id: string;
@@ -8,6 +12,11 @@ export interface HouseholdDto {
   note: string | null;
   /** How many people live there, if the owner said: what a rescue plans for. */
   people: number | null;
+  homeType: HomeType | null;
+  /** A number responders can call, in international format. Seen by the owner and staff, like everything here. */
+  phone: string | null;
+  /** How many photos of the home there are (the photos themselves come from /households/:id/photos). */
+  photoCount: number;
   lgaId: string | null;
   wardId: string | null;
   longitude: number;
@@ -23,6 +32,9 @@ export interface HouseholdFeatureProperties {
   id: string;
   label: string;
   people: number | null;
+  homeType: HomeType | null;
+  phone: string | null;
+  photoCount: number;
   mine: boolean;
   ownerName: string | null;
   note: string | null;
@@ -38,6 +50,8 @@ export interface NewHousehold {
   label: string;
   note: string | null;
   people: number | null;
+  homeType: HomeType | null;
+  phone: string | null;
   longitude: number;
   latitude: number;
 }
@@ -46,6 +60,8 @@ export interface HouseholdChanges {
   label: string;
   note: string | null;
   people: number | null;
+  homeType: HomeType | null;
+  phone: string | null;
 }
 
 export interface HouseholdRecord {
@@ -54,6 +70,8 @@ export interface HouseholdRecord {
   label: string;
   note: string | null;
   people: number | null;
+  homeType: HomeType | null;
+  phone: string | null;
   lgaId: string | null;
   wardId: string | null;
 }

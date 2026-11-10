@@ -11,7 +11,9 @@ type Row = Omit<HouseholdDto, "createdAt"> & { createdAt: Date };
  * returned to someone who may not see it: the owner's name is only selected for the staff query.
  */
 const SELECT = (viewerParam: string, withOwner: boolean) => `
-  SELECT h.id, h.label, h.note, h.people, h.lga_id AS "lgaId", h.ward_id AS "wardId",
+  SELECT h.id, h.label, h.note, h.people, h.home_type AS "homeType", h.phone,
+         (SELECT count(*)::int FROM household_photos hp WHERE hp.household_id = h.id) AS "photoCount",
+         h.lga_id AS "lgaId", h.ward_id AS "wardId",
          ST_X(h.geom) AS longitude, ST_Y(h.geom) AS latitude,
          (h.owner_id = ${viewerParam}::uuid) AS mine,
          ${withOwner ? `u.display_name` : `NULL::varchar`} AS "ownerName",
@@ -29,7 +31,7 @@ export class HouseholdRepository implements IHouseholdRepository {
 
   async findById(id: string): Promise<HouseholdRecord | null> {
     const rows: HouseholdRecord[] = await AppDataSource.query(
-      `SELECT id, owner_id AS "ownerId", label, note, people, lga_id AS "lgaId", ward_id AS "wardId" FROM households WHERE id = $1`,
+      `SELECT id, owner_id AS "ownerId", label, note, people, home_type AS "homeType", phone, lga_id AS "lgaId", ward_id AS "wardId" FROM households WHERE id = $1`,
       [id],
     );
     return rows[0] ?? null;
@@ -37,10 +39,10 @@ export class HouseholdRepository implements IHouseholdRepository {
 
   async create(input: NewHousehold, viewerId: string): Promise<HouseholdDto> {
     const [inserted]: { id: string }[] = await AppDataSource.query(
-      `INSERT INTO households (owner_id, country_code, lga_id, ward_id, label, note, people, geom)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, ST_SetSRID(ST_MakePoint($8::float8, $9::float8), 4326))
+      `INSERT INTO households (owner_id, country_code, lga_id, ward_id, label, note, people, home_type, phone, geom)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $10, $11, ST_SetSRID(ST_MakePoint($8::float8, $9::float8), 4326))
        RETURNING id`,
-      [input.ownerId, input.countryCode, input.lgaId, input.wardId, input.label, input.note, input.people, input.longitude, input.latitude],
+      [input.ownerId, input.countryCode, input.lgaId, input.wardId, input.label, input.note, input.people, input.longitude, input.latitude, input.homeType, input.phone],
     );
     const rows: Row[] = await AppDataSource.query(`${SELECT("$2", false)} WHERE h.id = $1`, [inserted!.id, viewerId]);
     return toDto(rows[0]!);
@@ -48,9 +50,9 @@ export class HouseholdRepository implements IHouseholdRepository {
 
   async update(id: string, changes: HouseholdChanges, viewerId: string): Promise<HouseholdDto | null> {
     const [row]: { n: number }[] = await AppDataSource.query(
-      `WITH changed AS (UPDATE households SET label = $2, note = $3, people = $4, updated_at = now() WHERE id = $1 RETURNING 1)
+      `WITH changed AS (UPDATE households SET label = $2, note = $3, people = $4, home_type = $5, phone = $6, updated_at = now() WHERE id = $1 RETURNING 1)
        SELECT count(*)::int AS n FROM changed`,
-      [id, changes.label, changes.note, changes.people],
+      [id, changes.label, changes.note, changes.people, changes.homeType, changes.phone],
     );
     if (!row?.n) return null;
     const rows: Row[] = await AppDataSource.query(`${SELECT("$2", false)} WHERE h.id = $1`, [id, viewerId]);
@@ -71,7 +73,9 @@ export class HouseholdRepository implements IHouseholdRepository {
     // Staff (all = true) see everyone's, with the owner's name; anyone else only their own. The viewer's own come first.
     const rows: { fc: HouseholdFeatureCollection }[] = await AppDataSource.query(
       `WITH picked AS (
-         SELECT h.id, h.geom, h.label, h.people, h.note, (h.owner_id = $5::uuid) AS mine,
+         SELECT h.id, h.geom, h.label, h.people, h.note, h.home_type, h.phone,
+                (SELECT count(*)::int FROM household_photos hp WHERE hp.household_id = h.id) AS photo_count,
+                (h.owner_id = $5::uuid) AS mine,
                 ${all ? "u.display_name" : "NULL::varchar"} AS owner_name,
                 row_number() OVER (ORDER BY (h.owner_id = $5::uuid) DESC, h.id) AS n
            FROM households h ${all ? "LEFT JOIN users u ON u.id = h.owner_id" : ""}
@@ -85,7 +89,8 @@ export class HouseholdRepository implements IHouseholdRepository {
          'features', COALESCE(json_agg(json_build_object(
            'type', 'Feature', 'id', id,
            'geometry', ST_AsGeoJSON(geom, 6)::json,
-           'properties', json_build_object('id', id, 'label', label, 'people', people, 'note', note, 'mine', mine, 'ownerName', owner_name)
+           'properties', json_build_object('id', id, 'label', label, 'people', people, 'note', note,
+             'homeType', home_type, 'phone', phone, 'photoCount', photo_count, 'mine', mine, 'ownerName', owner_name)
          ) ORDER BY n) FILTER (WHERE n <= $7::int), '[]'::json)) AS fc
        FROM picked`,
       [minLon, minLat, maxLon, maxLat, viewerId, all, HOUSEHOLD_FEATURE_CAP],

@@ -59,16 +59,23 @@ export function AlertsPage() {
 
   const { predictions } = useFloodPredictions("NGA", DEFAULT_OUTLOOK_DAYS, canIssue);
 
-  // Open the issue modal automatically if arrived via ?draftArea=<lgaId> from an LGA profile page
+  // Arriving from an LGA profile with ?draftArea=<lgaId> opens the issue form for that area. The request
+  // is noticed while rendering (an effect would render twice), and the parameter is then taken out of the
+  // address so a reload doesn't open the form again. `openedFor` lets the same area be asked for again later.
+  const draftArea = searchParams.get("draftArea");
+  const [openedFor, setOpenedFor] = useState<string | null>(null);
+  if (draftArea === null && openedFor !== null) {
+    setOpenedFor(null);
+  } else if (canIssue && draftArea && draftArea !== openedFor) {
+    setOpenedFor(draftArea);
+    setDraftAreaIds([draftArea]);
+    setIssuing((n) => n + 1);
+  }
   useEffect(() => {
-    const draftArea = searchParams.get("draftArea");
-    if (canIssue && draftArea) {
-      setDraftAreaIds([draftArea]);
-      setIssuing((n) => n + 1);
-      const next = new URLSearchParams(searchParams);
-      next.delete("draftArea");
-      setSearchParams(next, { replace: true });
-    }
+    if (!canIssue || !searchParams.get("draftArea")) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("draftArea");
+    setSearchParams(next, { replace: true });
   }, [canIssue, searchParams, setSearchParams]);
 
   const sorted = useMemo(() => sortAlerts(alerts), [alerts]);

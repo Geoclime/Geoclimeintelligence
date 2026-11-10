@@ -1,4 +1,5 @@
 import type { HouseholdOnMap } from "../types/household.types";
+import { HOME_TYPE_OPTIONS } from "./household-details";
 import type { ClickedFeature, FacilityOrigin, FacilityType, PlaceOnMap } from "../types/map-layer.types";
 import { FACILITY_DOTS_LAYER } from "./saved-places";
 
@@ -23,7 +24,8 @@ export function facilityIn(features: readonly ClickedFeature[]): PlaceOnMap | nu
     const osmClass = text(p.osmClass);
     if (!id || !facilityType || !osmClass) continue;
     const origin: FacilityOrigin = p.origin === "manual" ? "manual" : "import";
-    return { id, name: text(p.name), facilityType: facilityType as FacilityType, osmClass, note: text(p.note), point: coordinates, origin };
+    const phone = text(p.phone);
+    return { id, name: text(p.name), facilityType: facilityType as FacilityType, osmClass, note: text(p.note), ...(phone ? { phone } : {}), point: coordinates, origin };
   }
   return null;
 }
@@ -40,6 +42,9 @@ export function householdIn(features: readonly ClickedFeature[]): HouseholdOnMap
       id,
       label,
       people: typeof p.people === "number" ? p.people : null,
+      homeType: HOME_TYPE_OPTIONS.find((option) => option.value === p.homeType)?.value ?? null,
+      phone: text(p.phone),
+      photoCount: typeof p.photoCount === "number" ? p.photoCount : 0,
       note: text(p.note),
       mine: p.mine === true,
       ownerName: text(p.ownerName),

@@ -52,6 +52,10 @@ export class Infrastructure {
   @Column({ type: "varchar", length: 500, nullable: true })
   note!: string | null;
 
+  /** A phone number for a place saved by hand, in international format ("+2348031234567"). Always null for an imported row. */
+  @Column({ type: "varchar", length: 16, nullable: true })
+  phone!: string | null;
+
   /** The administrator who saved the place. Null for an imported row, or once that user is deleted. */
   @Column({ name: "created_by", type: "uuid", nullable: true })
   createdBy!: string | null;

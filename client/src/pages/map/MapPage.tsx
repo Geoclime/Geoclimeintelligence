@@ -6,6 +6,7 @@ import { ClimateMap, type MapView } from "../../components/map/ClimateMap";
 import { DeletePlaceDialog } from "../../components/map/DeletePlaceDialog";
 import { FieldSurveyDock } from "../../components/map/FieldSurveyDock";
 import { FieldSurveyForms, SurveyOnMap } from "../../components/map/FieldSurveyParts";
+import { FollowCamera } from "../../components/map/FollowCamera";
 import { FLOOD_PREDICTION_LEGEND, FLOOD_PREDICTION_NOTE, FloodPredictionLayer } from "../../components/map/FloodPredictionLayer";
 import { LayerToggle, type LayerOption } from "../../components/map/LayerToggle";
 import { LocationTrace } from "../../components/map/LocationTrace";
@@ -39,6 +40,7 @@ import { useCountries } from "../../hooks/useCountries";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useFieldSurvey } from "../../hooks/useFieldSurvey";
 import { useFloodPredictions } from "../../hooks/useFloodPrediction";
+import { useFollowMe } from "../../hooks/useFollowMe";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useLocatePoint } from "../../hooks/useLocatePoint";
 import { useFloodRisk } from "../../hooks/useFloodRisk";
@@ -122,6 +124,10 @@ export function MapPage() {
   const [initialView] = useState(() => readMapView(searchParams));
   const [view, setView] = useState<MapView | null>(null);
   const [panelsOpen, setPanelsOpen] = useState(false);
+  // "Hide panels": only the map, for looking at it without the cards over it. Nothing else changes.
+  const [clean, setClean] = useState(false);
+  // What was on when "Hide all" was pressed, so "Restore" brings the same view back.
+  const [hiddenLayers, setHiddenLayers] = useState<Record<MapLayerId, boolean> | null>(null);
   const [focus, setFocus] = useState<BBox | null>(null);
   const [focusNonce, setFocusNonce] = useState(0);
   // Bumped when an administrator saves, edits or deletes a place, so the facilities are fetched again.
@@ -151,6 +157,7 @@ export function MapPage() {
   const { catalog } = useMapLayerCatalog();
   const located = useLocatePoint();
   const geolocation = useGeolocation();
+  const follow = useFollowMe();
 
   const stateUnit = states[0] ?? null;
   const country = countries.find((c) => c.countryCode === stateUnit?.countryCode) ?? countries[0] ?? null;
@@ -321,6 +328,18 @@ export function MapPage() {
 
   const toggleLayer = (id: MapLayerId, checked: boolean) =>
     updateParams((params) => writeLayers(params, { ...layers, [id]: checked }));
+  const hideAllLayers = () => {
+    setHiddenLayers(layers);
+    setImpactFloodId(null);
+    const allOff = Object.fromEntries(Object.keys(layers).map((id) => [id, false])) as Record<MapLayerId, boolean>;
+    updateParams((params) => writeLayers(params, allOff));
+  };
+  // With nothing remembered (the layers were unticked one by one), the usual set comes back.
+  const restoreLayers = () => {
+    const back = hiddenLayers ?? readLayers(new URLSearchParams());
+    setHiddenLayers(null);
+    updateParams((params) => writeLayers(params, back));
+  };
   const chooseBase = (next: MapBase) => updateParams((params) => writeBase(params, next));
 
   // Empty until the layer list has loaded, so a layer is never called empty before we know.
@@ -435,7 +454,8 @@ export function MapPage() {
         ]
       : []),
   ];
-  const fix = geolocation.fix;
+  // While following, the dot is where you are now, moving as you walk; otherwise it is where "Where am I?" last found you.
+  const fix = follow.fix ?? geolocation.fix;
   const layerProblem =
     layerError ??
     surveyData.floodExtents.error ??
@@ -480,7 +500,7 @@ export function MapPage() {
   const noCountry = !countriesLoading && countries.length === 0;
 
   return (
-    <div className="map-page" data-cy="map-page">
+    <div className={`map-page${clean ? " is-clean" : ""}`} data-cy="map-page">
       <ClimateMap
         label="Map of the states on the platform, their local government areas and wards"
         theme={theme}
@@ -534,6 +554,7 @@ export function MapPage() {
         {pin && fix && <TraceLineLayer key={`line-${markerKey}`} from={fix.point} to={pin} palette={palette} />}
         {pin && <PinLayer key={`pin-${markerKey}`} point={pin} palette={palette} label={pinLabel} />}
         {fix && <MyLocationLayer key={`me-${markerKey}`} fix={fix} palette={palette} />}
+        {follow.following && follow.centring && follow.fix && <FollowCamera point={follow.fix.point} onRelease={follow.release} />}
         {located.point && (
           <AdminUnitPopup
             point={located.point}
@@ -573,6 +594,18 @@ export function MapPage() {
         </Fragment>
       </ClimateMap>
 
+      <button
+        type="button"
+        className="map-page__clean-toggle"
+        aria-pressed={clean}
+        aria-label={clean ? "Show the panels" : "Hide the panels"}
+        title={clean ? "Show the panels" : "Hide the panels, to see only the map"}
+        onClick={() => setClean((value) => !value)}
+        data-cy="toggle-clean-map"
+      >
+        <Icon name={clean ? "eye" : "eyeOff"} size={16} />
+      </button>
+
       <div className="map-page__top">
         <MapOverviewPanel
           country={country}
@@ -582,6 +615,15 @@ export function MapPage() {
           onWhereAmI={() => void whereAmI()}
           locating={geolocation.locating || located.loading}
           geoError={geolocation.error}
+          follow={{
+            supported: follow.supported,
+            following: follow.following,
+            centring: follow.centring,
+            waiting: follow.waiting,
+            error: follow.error,
+            onToggle: follow.toggle,
+            onRecentre: follow.recentre,
+          }}
         />
         {pin && (
           <LocationTrace
@@ -600,7 +642,7 @@ export function MapPage() {
       </div>
 
       <div className={`map-page__panels${panelsOpen ? " is-open" : ""}`} id="map-panels">
-        <LayerToggle layers={layerOptions} onChange={toggleLayer} base={base} onBaseChange={chooseBase} />
+        <LayerToggle layers={layerOptions} onChange={toggleLayer} base={base} onBaseChange={chooseBase} onHideAll={hideAllLayers} onRestore={restoreLayers} />
         {satelliteOn && (
           <SatelliteFloodPanel months={satellite.months} layer={satelliteLayer} onChoose={chooseFloodMonth} loading={satellite.loading} />
         )}

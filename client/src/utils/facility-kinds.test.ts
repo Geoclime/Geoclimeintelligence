@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { describeKind, FACILITY_KIND_GROUPS, isPickableKind } from "./facility-kinds";
 
 describe("FACILITY_KIND_GROUPS", () => {
-  it("covers each of the ten facility types once, in the server's order", () => {
+  it("covers each of the twelve facility types once, in the server's order", () => {
     expect(FACILITY_KIND_GROUPS.map((group) => group.type)).toEqual([
       "health",
       "emergency",
@@ -14,6 +14,8 @@ describe("FACILITY_KIND_GROUPS", () => {
       "worship",
       "water",
       "telecom",
+      "residence",
+      "business",
     ]);
   });
 
@@ -22,6 +24,13 @@ describe("FACILITY_KIND_GROUPS", () => {
     expect(new Set(values).size).toBe(values.length);
     expect(FACILITY_KIND_GROUPS.every((group) => group.kinds.length > 0)).toBe(true);
     expect(values).toContain("hospital");
+  });
+
+  it("offers residences and private firms, which only places saved by hand use", () => {
+    const values = FACILITY_KIND_GROUPS.flatMap((group) => group.kinds.map((kind) => kind.value));
+    expect(values).toEqual(expect.arrayContaining(["residence", "apartments", "private_firm", "private_office", "business_establishment"]));
+    expect(describeKind("private_office")).toBe("Office");
+    expect(isPickableKind("residence")).toBe(true);
   });
 });
 

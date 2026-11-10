@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { ok } from "../../common/response/api-response";
 import { validate } from "../../middleware/validate.middleware";
+import { householdPhotosRouter } from "./household-photo.routes";
 import { HouseholdService } from "./household.service";
 import { createHouseholdSchema, householdGeoJsonSchema, householdIdSchema, updateHouseholdSchema, type CreateHouseholdBody, type UpdateHouseholdBody } from "./household.validation";
 
@@ -15,6 +16,9 @@ const handle =
   };
 
 export const householdsRouter = Router();
+
+/** /:id/photos: photos of a home, as private as the household (household-photo.routes.ts). */
+householdsRouter.use("/:id/photos", householdPhotosRouter);
 
 /** GET /mine: the signed-in person's households. */
 householdsRouter.get("/mine", handle(async (req, res) => res.json(ok(await HouseholdService.Instance.mine(req.user!)))));

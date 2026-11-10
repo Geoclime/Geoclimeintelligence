@@ -141,9 +141,9 @@ The extract can miss a place: a hospital that is real but not in OpenStreetMap. 
 **Using it** (Administrator only, on the home map):
 
 1. Click the spot. The usual popup shows its state, LGA and ward, and an administrator also sees **Save this place**. It appears only inside a mapped area, because every facility needs a country.
-2. Give it a name, pick what it is (a grouped list of the classes the import understands: hospital, clinic, school, ferry terminal...), and optionally add a note.
+2. Give it a name, pick what it is (a grouped list: hospital, clinic, school, ferry terminal, a residence, a private firm...), and optionally add a phone number (with its country code, from the same phone field as the profile page) and a note. The number shows in the place's popup as a tap-to-call link, to everyone who uses the map. The phone column comes from migration `1793710000000-AddPhonesHomeTypeAndHouseholdPhotos`.
 3. It is saved, the Facilities layer switches on if it was off, and the new dot appears. Saved places have a darker ring.
-4. Click a ringed dot to see its name, kind and note, with **Edit** and **Delete**. Edit changes the name, kind or note. To move a place, delete it and save it again.
+4. Click a ringed dot to see its name, kind and note, with **Edit** and **Delete**. Edit changes the name, kind, phone number or note. To move a place, delete it and save it again.
 
 **How it works.** Places go in the same `infrastructure` table as imported facilities, so the map draws them the same way and ward counts include them. Four things set them apart:
 
@@ -156,11 +156,11 @@ The extract can miss a place: a hospital that is real but not in OpenStreetMap. 
 
 | Route | Body | Does |
 |---|---|---|
-| `POST /api/v1/infrastructure` | `name`, `kind`, `longitude`, `latitude`, optional `note` | Saves a place. `400` outside every mapped area or for an unknown kind |
-| `PATCH /api/v1/infrastructure/:id` | any of `name`, `kind`, `note` (blank `note` clears it) | Edits one. `403` for an imported facility |
+| `POST /api/v1/infrastructure` | `name`, `kind`, `longitude`, `latitude`, optional `note` and `phone` (`+` and the full number) | Saves a place. `400` outside every mapped area or for an unknown kind |
+| `PATCH /api/v1/infrastructure/:id` | any of `name`, `kind`, `note`, `phone` (a blank `note` or `phone` clears it) | Edits one. `403` for an imported facility |
 | `DELETE /api/v1/infrastructure/:id` | none | Deletes one. `403` for an imported facility |
 
-`kind` is a Geofabrik class (`hospital`, `clinic`...). The server files it under the right facility type with the same `facilityTypeOf` the import uses. `GET /api/v1/infrastructure/geojson` now also returns `origin` and `note` on each feature.
+`kind` is a Geofabrik class (`hospital`, `clinic`...). The server files it under the right facility type with the same `facilityTypeOf` the import uses. The one exception is **residences**: the picker's *Residence* group (*House or compound*, `residence`; *Apartment block*, `apartments`) files under an eleventh type, `residence`, which the extract never produces, so it only ever holds places saved by hand. The *Private firms and offices* group works the same way, under a twelfth type, `business` (*Private firm or company*, `private_firm`; *Office*, `private_office`; *Other business establishment*, `business_establishment`). Their class names are deliberately not Geofabrik's, so a later import can never put extract rows under them. Both need migration `1793700000000-AddResidenceFacilityType`, which adds `residence` and `business` to the `ck_infrastructure_type` check. Until that runs, saving one is refused by the database. Both are drawn in the grey "other" colour, with an **R** (residence) or **B** (business) close up, and are listed with the other facilities when a flood reaches them. `GET /api/v1/infrastructure/geojson` now also returns `origin` and `note` on each feature.
 
 **Code.** Server: [`facility.service.ts`](../server/src/modules/map-layers/facility.service.ts), [`facility.repository.ts`](../server/src/modules/map-layers/facility.repository.ts), [`facility.validation.ts`](../server/src/modules/map-layers/facility.validation.ts), [`facility.controller.ts`](../server/src/modules/map-layers/facility.controller.ts). Client: [`useSavedPlaces.ts`](../client/src/hooks/useSavedPlaces.ts), [`PlaceFormDialog.tsx`](../client/src/components/map/PlaceFormDialog.tsx), [`SavedPlacePopup.tsx`](../client/src/components/map/SavedPlacePopup.tsx), [`DeletePlaceDialog.tsx`](../client/src/components/map/DeletePlaceDialog.tsx), and the kind list in [`facility-kinds.ts`](../client/src/utils/facility-kinds.ts).
 

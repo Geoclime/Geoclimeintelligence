@@ -51,6 +51,12 @@ export function formatNational(digits: string): string {
   return groups ? groups.slice(1).filter(Boolean).join(" ") : "";
 }
 
+/** "+234 803 123 4567" for "+2348031234567", for reading; a number whose country isn't in the list is shown as it is. */
+export function formatPhone(value: string): string {
+  const { country, national } = splitPhone(value);
+  return country ? `+${country.dial} ${formatNational(national)}` : value;
+}
+
 /** A calling code and 7 to 14 more digits: the most international format allows is 15 in all. */
 export function isValidPhone(value: string): boolean {
   return /^\+[1-9]\d{7,14}$/.test(value);

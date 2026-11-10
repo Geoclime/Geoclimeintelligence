@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 import { deleteHousehold, fetchHouseholdGeoJson, saveHousehold, updateHousehold } from "../endpoints/household.endpoints";
 import { errorMessage } from "../transport/api-error";
 import type { BBox, LonLat } from "../types/admin-unit.types";
-import type { Household, HouseholdOnMap, HouseholdPatch } from "../types/household.types";
+import type { Household, HouseholdFormValues, HouseholdOnMap, HouseholdPatch } from "../types/household.types";
+import type { PendingPhoto } from "../types/photo.types";
 import { useDebounce } from "./useDebounce";
+import { useHouseholdPhotoUploads } from "./useHouseholdPhotos";
 import { useLoader } from "./useLoader";
 import { useToast } from "./useToast";
 
@@ -27,6 +29,7 @@ export type HouseholdFormTarget = { mode: "create"; point: LonLat; where: string
  */
 export function useHouseholds(onChanged: () => void) {
   const { showToast } = useToast();
+  const photoUploads = useHouseholdPhotoUploads();
   const [selected, setSelected] = useState<HouseholdOnMap | null>(null);
   const [form, setForm] = useState<HouseholdFormTarget | null>(null);
   const [formKey, setFormKey] = useState(0);
@@ -42,13 +45,29 @@ export function useHouseholds(onChanged: () => void) {
 
   /** Saves the form. Rejects with an ApiError so the form can show why. */
   const submit = useCallback(
-    async (values: { label: string; note: string; people: string }): Promise<Household | null> => {
+    async (values: HouseholdFormValues, photos: PendingPhoto[] = []): Promise<Household | null> => {
       if (!form) return null;
       const people = values.people.trim() ? Number(values.people) : undefined;
       const { data } =
         form.mode === "create"
-          ? await saveHousehold({ label: values.label.trim(), note: values.note.trim() || undefined, people, longitude: form.point[0], latitude: form.point[1] })
-          : await updateHousehold(form.household.id, { label: values.label.trim(), note: values.note.trim(), people: people ?? null } satisfies HouseholdPatch);
+          ? await saveHousehold({
+              label: values.label.trim(),
+              note: values.note.trim() || undefined,
+              people,
+              homeType: values.homeType || undefined,
+              phone: values.phone || undefined,
+              longitude: form.point[0],
+              latitude: form.point[1],
+            })
+          : await updateHousehold(form.household.id, {
+              label: values.label.trim(),
+              note: values.note.trim(),
+              people: people ?? null,
+              homeType: values.homeType || null,
+              phone: values.phone,
+            } satisfies HouseholdPatch);
+      // The household is saved first; its photos follow, so a weak signal never costs the household.
+      if (form.mode === "create" && data) void photoUploads.upload(data.id, photos);
       setForm(null);
       setSelected(null);
       onChanged();
@@ -58,7 +77,7 @@ export function useHouseholds(onChanged: () => void) {
       });
       return data ?? null;
     },
-    [form, onChanged, showToast],
+    [form, onChanged, photoUploads, showToast],
   );
 
   const remove = useCallback(

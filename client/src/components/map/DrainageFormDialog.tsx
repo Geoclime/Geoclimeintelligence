@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useId, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { DRAIN_MATERIALS, DRAINAGE_CONDITIONS, FLOW_DIRECTIONS, type SurveyTarget } from "../../types/field-survey.types";
 import type { PendingPhoto } from "../../types/photo.types";
 import { CONDITION_INFO, DRAINAGE_KIND_LABEL, FLOW_LABEL, MATERIAL_LABEL } from "../../utils/field-survey";
@@ -14,6 +14,7 @@ import { Modal } from "../shared/Modal";
 import { SelectField } from "../shared/SelectField";
 import { TextAreaField } from "../shared/TextAreaField";
 import { TextField } from "../shared/TextField";
+import { DrainageKindGuide, KindDefinition } from "./DrainageKindGuide";
 import { drainFormSchema, kindsFor, MAX_SURVEY_NOTE_LENGTH, type DrainFormValues } from "./survey-form.schema";
 import "../users/users.css";
 
@@ -43,12 +44,15 @@ export function DrainageFormDialog({ target, distanceM, canAddPhotos, onClose, o
     register,
     handleSubmit,
     setError,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<DrainFormValues>({
     resolver: zodResolver(drainFormSchema),
     // The condition has no default: guessing "clear" for a drain nobody looked at closely would be a false record.
     defaultValues: { kind: kinds[0], condition: "" as DrainFormValues["condition"], name: "", widthM: "", depthM: "", flowDirection: "", diameterM: "", material: "", barrels: "", note: "" },
   });
+
+  const kind = useWatch({ control, name: "kind" });
 
   const onFormSubmit = handleSubmit(async (values) => {
     try {
@@ -90,6 +94,8 @@ export function DrainageFormDialog({ target, distanceM, canAddPhotos, onClose, o
             </option>
           ))}
         </SelectField>
+        {kind && <KindDefinition kind={kind} />}
+        <DrainageKindGuide kinds={kinds} />
         <fieldset className="role-picker">
           <legend className="role-picker__legend">What shape is it in?</legend>
           {DRAINAGE_CONDITIONS.map((condition) => (

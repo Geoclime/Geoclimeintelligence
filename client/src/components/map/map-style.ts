@@ -43,7 +43,7 @@ export const PERSONAL_LAYER_IDS: PersonalLayerId[] = ["households"];
 export const BUILDING_MIN_ZOOM = 15;
 
 /**
- * The ten facility types are drawn in five colour groups, so the legend stays short: health,
+ * The twelve facility types are drawn in five colour groups, so the legend stays short: health,
  * schools, police and government, places that can shelter people, and everything else.
  */
 export const FACILITY_GROUPS = ["health", "education", "civic", "community", "other"] as const;
@@ -60,6 +60,8 @@ export const FACILITY_GROUP_OF: Readonly<Record<FacilityType, FacilityGroup>> = 
   transport: "other",
   water: "other",
   telecom: "other",
+  residence: "other",
+  business: "other",
 };
 
 export interface MapPalette {
@@ -269,7 +271,7 @@ const isUnderground: ExpressionSpecification = ["!", ["in", ["coalesce", ["get",
 
 /**
  * A letter inside each facility dot from street level, so the kind can be read without the colour:
- * H health, P police and fire, G government, S schools, M markets, T transport, C community and worship, W water.
+ * H health, P police and fire, G government, S schools, M markets, T transport, C community and worship, W water, R residence, B business.
  */
 export const FACILITY_LETTER: Readonly<Record<FacilityType, string>> = {
   health: "H",
@@ -282,6 +284,8 @@ export const FACILITY_LETTER: Readonly<Record<FacilityType, string>> = {
   worship: "C",
   water: "W",
   telecom: "",
+  residence: "R",
+  business: "B",
 };
 
 /**

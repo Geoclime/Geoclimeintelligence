@@ -16,6 +16,8 @@ export const AUDIT_ACTIONS = [
   "place.deleted",
   "household.saved",
   "household.deleted",
+  "household.photo_added",
+  "household.photo_deleted",
   "photo.added",
   "photo.deleted",
   "role.created",

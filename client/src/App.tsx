@@ -3,6 +3,8 @@ import { RouterProvider } from "react-router/dom";
 import { queryClient } from "./cache/queryClient";
 import { LiveUpdates } from "./components/layout/LiveUpdates";
 import { AuthProvider } from "./contexts/AuthContext";
+import { FloodAheadProvider } from "./contexts/FloodAheadContext";
+import { LiveLocationProvider } from "./contexts/LiveLocationContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { router } from "./routes";
@@ -14,8 +16,12 @@ export function App() {
       <ThemeProvider>
         <ToastProvider>
           <AuthProvider>
-            <LiveUpdates />
-            <RouterProvider router={router} />
+            <LiveLocationProvider>
+              <FloodAheadProvider>
+                <LiveUpdates />
+                <RouterProvider router={router} />
+              </FloodAheadProvider>
+            </LiveLocationProvider>
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>

@@ -23,9 +23,9 @@ export const OVERLAY_LEGEND: readonly LayerLegendItem[] = [
   { key: "facility-education", label: "Schools and colleges", swatch: "facility-education", layer: "infrastructure" },
   { key: "facility-civic", label: "Police and government", swatch: "facility-civic", layer: "infrastructure" },
   { key: "facility-community", label: "Community centres and worship", swatch: "facility-community", layer: "infrastructure" },
-  { key: "facility-other", label: "Markets, transport, water, telecom", swatch: "facility-other", layer: "infrastructure" },
+  { key: "facility-other", label: "Markets, transport, water, telecom, residences, businesses", swatch: "facility-other", layer: "infrastructure" },
   { key: "household-mine", label: "Your household (only you and staff see it)", swatch: "household-mine", layer: "households" },
-  { key: "facility-letters", label: "Letters close up: H health, P police, S school, G government, M market, T transport, C community, W water", swatch: "facility-letter", layer: "infrastructure" },
+  { key: "facility-letters", label: "Letters close up: H health, P police, S school, G government, M market, T transport, C community, W water, R residence, B business", swatch: "facility-letter", layer: "infrastructure" },
 ];
 
 export const SURVEY_LEGEND: readonly LayerLegendItem[] = [

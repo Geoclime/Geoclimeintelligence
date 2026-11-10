@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { Popup } from "react-map-gl/mapbox";
 import type { HouseholdOnMap } from "../../types/household.types";
+import { describeHomeType } from "../../utils/household-details";
+import { formatPhone } from "../../utils/phone";
 import { Badge } from "../shared/Badge";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
+import { HouseholdPhotos } from "./HouseholdPhotos";
 import { CoordinatesLink } from "./LocationSummary";
 
 interface HouseholdPopupProps {
@@ -27,11 +30,18 @@ export function HouseholdPopup({ household, onEdit, onDelete, onClose }: Househo
           {household.label} {household.mine ? <Badge tone="primary">Yours</Badge> : <Badge tone="neutral">Household</Badge>}
         </p>
         <p className="saved-place__kind">
+          {describeHomeType(household.homeType) ? `${describeHomeType(household.homeType)}. ` : ""}
           {household.mine ? "Only you and staff can see it." : `Added by ${household.ownerName ?? "someone"}. Visible to staff only.`}
           {household.people ? ` ${household.people} ${household.people === 1 ? "person lives" : "people live"} here.` : ""}
         </p>
         <CoordinatesLink point={household.point} />
+        {household.phone && (
+          <p className="saved-place__phone" data-cy="household-phone-link">
+            <Icon name="phone" size={14} /> <a href={`tel:${household.phone}`}>{formatPhone(household.phone)}</a>
+          </p>
+        )}
         {household.note && <p className="saved-place__note">{household.note}</p>}
+        <HouseholdPhotos household={household} />
         {household.mine && !confirming && (
           <div className="saved-place__actions">
             <Button variant="secondary" size="sm" icon={<Icon name="edit" size={14} />} onClick={onEdit} data-cy="edit-household">

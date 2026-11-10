@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Popup } from "react-map-gl/mapbox";
 import type { PlaceOnMap } from "../../types/map-layer.types";
 import { describeKind } from "../../utils/facility-kinds";
+import { formatPhone } from "../../utils/phone";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { CoordinatesLink } from "./LocationSummary";
@@ -33,6 +34,11 @@ export function SavedPlacePopup({ place, onEdit, onDelete, onClose, children }: 
           {describeKind(place.osmClass)} · {savedByHand ? "saved by an administrator" : "from OpenStreetMap"}
         </p>
         <CoordinatesLink point={place.point} />
+        {place.phone && (
+          <p className="saved-place__phone" data-cy="saved-place-phone">
+            <Icon name="phone" size={14} /> <a href={`tel:${place.phone}`}>{formatPhone(place.phone)}</a>
+          </p>
+        )}
         {place.note && (
           <p className="saved-place__note" data-cy="saved-place-note">
             {place.note}

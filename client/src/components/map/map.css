@@ -88,6 +88,38 @@
 
 /* Layer switcher */
 
+/* "3 layers on" and the one button that turns them all off (or brings them back). */
+.layer-toggle__bulk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-xs);
+}
+
+.layer-toggle__count {
+  color: var(--color-text-subtle);
+}
+
+.layer-toggle__bulk-button {
+  padding: 2px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.layer-toggle__bulk-button:hover,
+.layer-toggle__bulk-button:focus-visible {
+  background: var(--color-primary-soft);
+}
+
 .layer-toggle__option {
   display: flex;
   align-items: center;
@@ -957,6 +989,19 @@ details.map-legend[open] > summary {
 
 .area-map__context {
   margin-top: var(--space-2);
+}
+
+/* A phone number in a popup: tap to call. */
+.saved-place__phone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.saved-place__phone a {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 /* Households: a house shape, teal for your own, slate for other people's (staff only). */

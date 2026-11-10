@@ -14,8 +14,9 @@ export interface FacilityKindGroup {
 
 /**
  * What an administrator can pick when saving a place by hand, grouped by the facility type the
- * server files it under. Every value is a Geofabrik class the import already understands, so a
- * place saved by hand is stored exactly like an imported one. Mirrors FACILITY_CLASSES in
+ * server files it under. Every value is one the server's facility rules know (most are Geofabrik
+ * classes the import understands, so a place saved by hand is stored exactly like an imported one;
+ * the Residence and Private firms kinds exist only for places saved by hand). Mirrors FACILITY_CLASSES in
  * server/src/modules/map-layers/layer-rules.ts; the server refuses any class it doesn't know.
  */
 export const FACILITY_KIND_GROUPS: readonly FacilityKindGroup[] = [
@@ -109,6 +110,23 @@ export const FACILITY_KIND_GROUPS: readonly FacilityKindGroup[] = [
     type: "telecom",
     label: "Telecoms",
     kinds: [{ value: "comms_tower", label: "Communications tower" }],
+  },
+  {
+    type: "residence",
+    label: "Residence",
+    kinds: [
+      { value: "residence", label: "House or compound" },
+      { value: "apartments", label: "Apartment block" },
+    ],
+  },
+  {
+    type: "business",
+    label: "Private firms and offices",
+    kinds: [
+      { value: "private_firm", label: "Private firm or company" },
+      { value: "private_office", label: "Office" },
+      { value: "business_establishment", label: "Other business establishment" },
+    ],
   },
 ];
 
