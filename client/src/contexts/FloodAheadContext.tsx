@@ -56,7 +56,7 @@ const SEND_CHECK_MS = 2_000;
 /** Moving faster than this, in metres a second, counts as travelling (a slow walk is about 1.4). */
 const MOVING_SPEED_MS = 1;
 /** Mirrors the server's limit: a position less sure than this is not used, so it is not sent. */
-const MAX_ACCURACY_M = 1_000;
+const MAX_ACCURACY_M = 50_000;
 
 /**
  * Warns when you are near a place that is flooded now, while the app is open.
@@ -88,6 +88,7 @@ export function FloodAheadProvider({ children }: { children: ReactNode }) {
   const fixRef = useRef(fix);
   const radiusRef = useRef(radiusM);
   const lastSentRef = useRef(0);
+  const freshRef = useRef(true);
   /** One send at a time: a slow answer never has later positions piling up behind it. */
   const sendingRef = useRef(false);
   useEffect(() => {
@@ -103,34 +104,64 @@ export function FloodAheadProvider({ children }: { children: ReactNode }) {
     }
   }, [preference]);
 
-  // Send the latest position whenever a send is due. A timer decides when, not the position updates: a
+  const sendIfDue = useCallback(() => {
+    const current = fixRef.current;
+    if (!current || sendingRef.current || current.accuracy > MAX_ACCURACY_M) return;
+    const gap = current.speed !== null && current.speed > MOVING_SPEED_MS ? MOVING_GAP_MS : STILL_GAP_MS;
+    if (Date.now() - lastSentRef.current < gap) return;
+    const isFresh = freshRef.current;
+    freshRef.current = false;
+    lastSentRef.current = Date.now();
+    sendingRef.current = true;
+    const update = {
+      lat: current.point[1],
+      lon: current.point[0],
+      radiusM: radiusRef.current,
+      accuracy: current.accuracy,
+      ...(isFresh ? { fresh: true } : {}),
+    };
+    void sendRealtime<FloodAheadAck>("location:update", update).then((ack) => {
+      sendingRef.current = false;
+      if (!ack) {
+        // Not connected yet, or no answer: try again on the next tick, not after the full gap.
+        if (isFresh) freshRef.current = true;
+        lastSentRef.current = 0;
+        setSendIssue("offline");
+      } else if (ack.ok) {
+        setSendIssue(null);
+        setLastCheck({ at: Date.now(), floodsNearby: ack.floodsNearby ?? 0, nearestM: ack.nearestM ?? null });
+      } else if (ack.reason === "inaccurate") {
+        setSendIssue("inaccurate");
+      } else if (ack.reason === "too-fast") {
+        if (isFresh) freshRef.current = true;
+        lastSentRef.current = 0;
+      } else {
+        setSendIssue("unavailable");
+      }
+    });
+  }, []);
+
+  // Send the latest position whenever a send is due. A timer decides when, not only the position updates: a
   // phone standing still reports rarely, and a send skipped for being too soon would otherwise wait for
   // a new position that may not come.
   useEffect(() => {
     if (!enabled) return;
-    const timer = window.setInterval(() => {
-      const current = fixRef.current;
-      if (!current || sendingRef.current || current.accuracy > MAX_ACCURACY_M) return;
-      const gap = current.speed !== null && current.speed > MOVING_SPEED_MS ? MOVING_GAP_MS : STILL_GAP_MS;
-      if (Date.now() - lastSentRef.current < gap) return;
-      lastSentRef.current = Date.now();
-      sendingRef.current = true;
-      const update = { lat: current.point[1], lon: current.point[0], radiusM: radiusRef.current, accuracy: current.accuracy };
-      void sendRealtime<FloodAheadAck>("location:update", update).then((ack) => {
-        sendingRef.current = false;
-        if (!ack) {
-          // Not connected yet, or no answer: try again on the next tick, not after the full gap.
-          lastSentRef.current = 0;
-          setSendIssue("offline");
-        } else if (ack.ok) {
-          setSendIssue(null);
-          setLastCheck({ at: Date.now(), floodsNearby: ack.floodsNearby ?? 0, nearestM: ack.nearestM ?? null });
-        } else if (ack.reason === "inaccurate") setSendIssue("inaccurate");
-        else if (ack.reason !== "too-fast") setSendIssue("unavailable");
-      });
-    }, SEND_CHECK_MS);
+    sendIfDue();
+    const timer = window.setInterval(sendIfDue, SEND_CHECK_MS);
     return () => window.clearInterval(timer);
-  }, [enabled]);
+  }, [enabled, sendIfDue]);
+
+  useEffect(() => {
+    if (enabled && fix) sendIfDue();
+  }, [enabled, fix, radiusM, sendIfDue]);
+
+  // When a flood is recorded, reopened, receded or deleted on the map, check again right away.
+  useRealtimeEvent("alerts:changed", () => {
+    if (!enabled) return;
+    freshRef.current = true;
+    lastSentRef.current = 0;
+    sendIfDue();
+  });
 
   // The server says the person has come within a new distance of a flood.
   useRealtimeEvent<{ warnings?: FloodAheadWarning[] }>("flood:ahead", ({ warnings: incoming }) => {
@@ -145,6 +176,7 @@ export function FloodAheadProvider({ children }: { children: ReactNode }) {
     if (!SUPPORTED) return;
     // Asked here, as the person presses the button, so the browser will show its prompt.
     if (typeof Notification !== "undefined" && Notification.permission === "default") void Notification.requestPermission();
+    freshRef.current = true;
     lastSentRef.current = 0;
     setSendIssue(null);
     setPreference((current) => ({ ...current, enabled: true }));
@@ -158,6 +190,7 @@ export function FloodAheadProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setRadius = useCallback((metres: number) => {
+    freshRef.current = true;
     lastSentRef.current = 0; // check again at once with the new distance
     setPreference((current) => ({ ...current, radiusM: metres }));
   }, []);

@@ -49,7 +49,7 @@ export function LiveLocationProvider({ children }: { children: ReactNode }) {
         setFix({ ...fixOf(position), speed: position.coords.speed });
       },
       (failure) => setErrorCode(failure.code),
-      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 },
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 30_000 },
     );
     return () => {
       navigator.geolocation.clearWatch(watchId);

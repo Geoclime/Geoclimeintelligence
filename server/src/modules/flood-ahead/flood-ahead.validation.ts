@@ -8,5 +8,6 @@ export const floodAheadUpdateSchema = z
     lon: z.number().min(-180).max(180),
     radiusM: z.number().min(WARN_RADIUS_M.min).max(WARN_RADIUS_M.max),
     accuracy: z.number().min(0).max(1_000_000).optional(),
+    fresh: z.boolean().optional(),
   })
   .strict();

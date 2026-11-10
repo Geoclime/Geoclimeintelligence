@@ -31,6 +31,8 @@ export interface FloodAheadUpdate {
   radiusM: number;
   /** How sure the device is of the position, in metres. */
   accuracy?: number;
+  /** True when warnings were just turned on, the distance changed, or the map's floods changed. */
+  fresh?: boolean;
 }
 
 /** The answer to the sender of every update, so the screen can say what was checked. */

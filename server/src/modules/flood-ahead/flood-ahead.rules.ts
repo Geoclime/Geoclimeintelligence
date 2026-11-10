@@ -10,8 +10,8 @@ export const WARN_RADIUS_M = { min: 500, max: 500_000 } as const;
  */
 export const WARN_TIERS_M = [100_000, 50_000, 25_000, 15_000, 10_000, 5_000, 3_000, 2_000, 1_000, 500, 250, 100] as const;
 
-/** A position less sure than this is not used: a laptop's guess from its network can be kilometres out, and a false warning is worse than none. */
-export const MAX_ACCURACY_M = 1_000;
+/** A position less sure than this is not used: only reject city-insensitive IP guesses beyond 50 km. */
+export const MAX_ACCURACY_M = 50_000;
 
 /** Updates from one connection closer together than this are ignored, so a page can't hammer the database. */
 export const MIN_UPDATE_GAP_MS = 3_000;

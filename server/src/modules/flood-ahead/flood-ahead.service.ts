@@ -37,11 +37,12 @@ export class FloodAheadService {
     const parsed = floodAheadUpdateSchema.safeParse(update);
     if (!parsed.success) return { ack: { ok: false, reason: "invalid" }, warnings: [] };
 
+    const { lat, lon, radiusM, accuracy, fresh } = parsed.data;
     const at = this.now();
-    if (at - state.lastAt < MIN_UPDATE_GAP_MS) return { ack: { ok: false, reason: "too-fast" }, warnings: [] };
+    if (!fresh && at - state.lastAt < MIN_UPDATE_GAP_MS) return { ack: { ok: false, reason: "too-fast" }, warnings: [] };
     state.lastAt = at;
+    if (fresh) state.warned.clear();
 
-    const { lat, lon, radiusM, accuracy } = parsed.data;
     if (accuracy !== undefined && accuracy > MAX_ACCURACY_M) return { ack: { ok: false, reason: "inaccurate" }, warnings: [] };
 
     try {
