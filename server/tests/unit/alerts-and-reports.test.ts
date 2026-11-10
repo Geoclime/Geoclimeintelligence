@@ -16,6 +16,8 @@ const rivers = makeUnit({ level: 1, levelName: "State", unitName: "Rivers" });
 const portHarcourt = makeUnit({ level: 2, levelName: "LGA", unitName: "Port Harcourt", parentId: rivers.id });
 const okrika = makeUnit({ level: 2, levelName: "LGA", unitName: "Okrika", parentId: rivers.id });
 const ward = makeUnit({ level: 3, levelName: "Ward", unitName: "Phward 2", parentId: portHarcourt.id });
+/** Below a ward: alerts stop at wards, so this one is refused. */
+const settlement = makeUnit({ level: 4, levelName: "Settlement", unitName: "Rumuola", parentId: ward.id });
 
 const user = (role: AuthUser["role"], scopeAdminUnitId: string | null = null, id = `u-${role}`): AuthUser => ({
   id,
@@ -93,7 +95,7 @@ class FakeAlerts implements IAlertRepository {
 }
 
 function alertSetup() {
-  const units = new InMemoryAdminUnitRepository([rivers, portHarcourt, okrika, ward]);
+  const units = new InMemoryAdminUnitRepository([rivers, portHarcourt, okrika, ward, settlement]);
   const repo = new FakeAlerts();
   return { repo, service: new AlertService(repo, units, regions(units), () => NOW) };
 }
@@ -113,10 +115,13 @@ describe("AlertService", () => {
     expect(alert).toMatchObject({ status: "active", severity: "warning", actions: ["Move valuables to higher ground.", "Avoid crossing flooded roads."] });
   });
 
-  it("refuses a ward, and an area outside the issuer's region", async () => {
+  it("accepts a ward, but refuses anything below one, and an area outside the issuer's region", async () => {
     const { service } = alertSetup();
-    await expect(service.create(alertBody([ward.id]), user("government_official"))).rejects.toBeInstanceOf(ValidationError);
+    const alert = await service.create(alertBody([ward.id]), user("government_official", portHarcourt.id));
+    expect(alert.areas.map((area) => area.id)).toEqual([ward.id]);
+    await expect(service.create(alertBody([settlement.id]), user("government_official"))).rejects.toBeInstanceOf(ValidationError);
     await expect(service.create(alertBody([okrika.id]), user("government_official", portHarcourt.id))).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(service.create(alertBody([ward.id]), user("government_official", okrika.id))).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("edits an alert in force: only what is sent changes", async () => {
@@ -133,7 +138,8 @@ describe("AlertService", () => {
     const official = user("government_official", rivers.id);
     const alert = await service.create(alertBody([portHarcourt.id]), official);
     expect((await service.update(alert.id, { areaIds: [okrika.id, portHarcourt.id], notify: false }, official)).areas).toHaveLength(2);
-    await expect(service.update(alert.id, { areaIds: [ward.id], notify: false }, official)).rejects.toBeInstanceOf(ValidationError);
+    expect((await service.update(alert.id, { areaIds: [ward.id], notify: false }, official)).areas.map((area) => area.id)).toEqual([ward.id]);
+    await expect(service.update(alert.id, { areaIds: [settlement.id], notify: false }, official)).rejects.toBeInstanceOf(ValidationError);
 
     const local = user("government_official", portHarcourt.id);
     const own = await service.create(alertBody([portHarcourt.id]), local);
