@@ -68,7 +68,7 @@ export function LgaProfilePage() {
       label: "Overview",
       dataCy: "lga-tab-overview",
       content: (
-        <div className="split">
+        <div className="split split--map-first">
           <div className="stack">
             <section className="card card__body" aria-label="About this area">
               <dl className="detail-list" data-cy="lga-details">

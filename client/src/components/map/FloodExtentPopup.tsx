@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Popup } from "react-map-gl/mapbox";
 import { useFloodPeople } from "../../hooks/useSurveyDetails";
 import type { SelectedSurvey } from "../../types/field-survey.types";
 import { formatDateTime } from "../../utils/formatDate";
@@ -12,6 +11,7 @@ import { Badge } from "../shared/Badge";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { FloodImpactSummary } from "./FloodImpactSummary";
+import { MapPopup } from "./MapPopup";
 
 type Flood = Extract<SelectedSurvey, { type: "flood" }>;
 
@@ -50,7 +50,7 @@ export function FloodExtentPopup({ flood, abilities, onRecede, onReopen, onDelet
   const mayDelete = abilities.deleteAny || (abilities.deleteOwn && (!people || people.recordedBy?.id === abilities.userId));
 
   return (
-    <Popup longitude={point[0]} latitude={point[1]} offset={8} maxWidth="min(320px, calc(100vw - 2rem))" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
+    <MapPopup point={point} offset={8} maxWidth="320px" onClose={onClose}>
       <div className="survey-popup" data-cy="flood-popup">
         <p className="location-summary__title">
           Flood {properties.receded ? <Badge tone="neutral">Receded</Badge> : <Badge tone="info">Active</Badge>}
@@ -104,6 +104,6 @@ export function FloodExtentPopup({ flood, abilities, onRecede, onReopen, onDelet
           </div>
         )}
       </div>
-    </Popup>
+    </MapPopup>
   );
 }

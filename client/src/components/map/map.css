@@ -587,6 +587,39 @@
   border-left-color: var(--color-surface);
 }
 
+/* On a phone a popup is a card along the bottom of the map, not a bubble at its point (MapPopup.tsx): a bubble
+   is wider than the room beside a point near the edge, and it hides the map it describes. Mapbox positions a
+   popup with an inline transform and a max-width, so those are overridden here. The popup's box spans the
+   map but lets touches through to it (Mapbox gives only the card pointer events), so the map can still be
+   dragged above the card, and a tall card scrolls inside itself. */
+@media (max-width: 639px) {
+  .map-popup.mapboxgl-popup {
+    inset: var(--space-3) var(--space-3) max(var(--space-3), env(safe-area-inset-bottom)) var(--space-3) !important;
+    transform: none !important;
+    max-width: none !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-end !important;
+  }
+
+  .map-popup .mapboxgl-popup-tip {
+    display: none;
+  }
+
+  .map-popup .mapboxgl-popup-content {
+    max-height: min(100%, 28rem);
+    padding: var(--space-4) calc(var(--space-4) + 28px) var(--space-4) var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+
+  /* A close button a thumb can hit. */
+  .map-popup .mapboxgl-popup-close-button {
+    padding: 6px 12px;
+    font-size: 24px;
+    line-height: 1;
+  }
+}
+
 /* ---------- Source badge ---------- */
 
 .source-badge {
@@ -647,6 +680,17 @@
 @media (min-width: 900px) {
   .detail-map {
     height: 420px;
+  }
+}
+
+/* The map of an LGA or ward is what its Overview tab is for: taller than the import review's, up to about half the screen. */
+.area-map.detail-map {
+  height: clamp(300px, 52dvh, 480px);
+}
+
+@media (min-width: 900px) {
+  .area-map.detail-map {
+    height: clamp(420px, 62dvh, 620px);
   }
 }
 

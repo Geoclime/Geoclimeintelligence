@@ -116,7 +116,7 @@ export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGe
       }}
       onMapClick={onSelect ? (point, clicked) => onSelect(surveyFeatureIn(clicked, point)) : undefined}
       interactiveLayerIds={onSelect ? SURVEY_INTERACTIVE_LAYERS : undefined}
-      className="detail-map"
+      className="detail-map area-map"
       dataCy={dataCy}
       overlay={
         <div className={`area-map__legend${popupOpen ? " is-hidden" : ""}`} data-cy="area-flood-risk-legend">

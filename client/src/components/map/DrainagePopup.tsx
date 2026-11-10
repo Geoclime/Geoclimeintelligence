@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Popup } from "react-map-gl/mapbox";
 import { useDrainInspections, useDrainPeople } from "../../hooks/useSurveyDetails";
 import { DRAINAGE_CONDITIONS, type DrainageCondition, type SelectedSurvey, type UpdateDrainageBody } from "../../types/field-survey.types";
 import type { PendingPhoto } from "../../types/photo.types";
@@ -18,6 +17,7 @@ import { Icon } from "../shared/Icon";
 import { SelectField } from "../shared/SelectField";
 import { TextAreaField } from "../shared/TextAreaField";
 import { toInspection } from "./survey-form.schema";
+import { MapPopup } from "./MapPopup";
 
 type Drain = Extract<SelectedSurvey, { type: "drain" }>;
 const TONE = { good: "success", warn: "warning", bad: "danger" } as const;
@@ -74,7 +74,7 @@ export function DrainagePopup({ drain, abilities, onInspect, onDelete, onClose }
   const mayDelete = abilities.deleteAny || (abilities.deleteOwn && (!people || people.recordedBy?.id === abilities.userId));
 
   return (
-    <Popup longitude={point[0]} latitude={point[1]} offset={8} maxWidth="min(320px, calc(100vw - 2rem))" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
+    <MapPopup point={point} offset={8} maxWidth="320px" onClose={onClose}>
       <div className="survey-popup" data-cy="drain-popup">
         <p className="location-summary__title" data-cy="drain-title">
           {drainTitle(properties)}
@@ -173,6 +173,6 @@ export function DrainagePopup({ drain, abilities, onInspect, onDelete, onClose }
           </div>
         )}
       </div>
-    </Popup>
+    </MapPopup>
   );
 }

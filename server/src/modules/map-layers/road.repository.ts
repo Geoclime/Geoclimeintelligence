@@ -1,5 +1,5 @@
 import { BaseRepository } from "../../common/repository/base.repository";
-import { areaCte, lineInArea, reachesArea } from "./area-clip";
+import { areaCte, shapeInArea, reachesArea } from "./area-clip";
 import { LAYER_FEATURE_LIMIT, maxRoadRank, simplifyTolerance } from "./layer-rules";
 import type { IRoadRepository, LayerGeoJsonQuery, LayerSummary, RoadFeatureCollection } from "./map-layer.types";
 import { Road } from "./road.entity";
@@ -37,7 +37,7 @@ export class RoadRepository extends BaseRepository<Road> implements IRoadReposit
          'features', COALESCE(json_agg(json_build_object(
            'type', 'Feature',
            'id', id,
-           'geometry', ST_AsGeoJSON(${lineInArea("drawn.shape", 8)}, 5)::json,
+           'geometry', ST_AsGeoJSON(${shapeInArea("drawn.shape", 8)}, 5)::json,
            'properties', json_build_object('id', id, 'name', name, 'roadClass', road_class,
              'surface', surface, 'oneway', oneway, 'isBridge', is_bridge)
          ) ORDER BY n) FILTER (WHERE n <= $6::int), '[]'::json)

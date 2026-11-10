@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
-import { Popup } from "react-map-gl/mapbox";
 import type { PlaceOnMap } from "../../types/map-layer.types";
 import { describeKind } from "../../utils/facility-kinds";
 import { formatPhone } from "../../utils/phone";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { CoordinatesLink } from "./LocationSummary";
+import { MapPopup } from "./MapPopup";
 
 interface SavedPlacePopupProps {
   place: PlaceOnMap;
@@ -25,7 +25,7 @@ interface SavedPlacePopupProps {
 export function SavedPlacePopup({ place, onEdit, onDelete, onClose, children }: SavedPlacePopupProps) {
   const savedByHand = (place.origin ?? "manual") === "manual";
   return (
-    <Popup longitude={place.point[0]} latitude={place.point[1]} offset={12} maxWidth="min(300px, calc(100vw - 2rem))" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
+    <MapPopup point={place.point} offset={12} maxWidth="300px" onClose={onClose}>
       <div className="saved-place" data-cy={savedByHand ? "saved-place" : "facility-popup"}>
         <p className="location-summary__title" data-cy="saved-place-name">
           {place.name ?? describeKind(place.osmClass)}
@@ -60,6 +60,6 @@ export function SavedPlacePopup({ place, onEdit, onDelete, onClose, children }: 
           </div>
         )}
       </div>
-    </Popup>
+    </MapPopup>
   );
 }

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Popup } from "react-map-gl/mapbox";
 import type { HouseholdOnMap } from "../../types/household.types";
 import { describeHomeType } from "../../utils/household-details";
 import { formatPhone } from "../../utils/phone";
@@ -8,6 +7,7 @@ import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { HouseholdPhotos } from "./HouseholdPhotos";
 import { CoordinatesLink } from "./LocationSummary";
+import { MapPopup } from "./MapPopup";
 
 interface HouseholdPopupProps {
   household: HouseholdOnMap;
@@ -24,7 +24,7 @@ export function HouseholdPopup({ household, onEdit, onDelete, onClose }: Househo
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   return (
-    <Popup longitude={household.point[0]} latitude={household.point[1]} offset={14} maxWidth="min(280px, calc(100vw - 2rem))" closeOnClick={false} onClose={onClose} className="admin-unit-popup">
+    <MapPopup point={household.point} offset={14} maxWidth="280px" onClose={onClose}>
       <div className="saved-place" data-cy="household-popup">
         <p className="location-summary__title">
           {household.label} {household.mine ? <Badge tone="primary">Yours</Badge> : <Badge tone="neutral">Household</Badge>}
@@ -74,6 +74,6 @@ export function HouseholdPopup({ household, onEdit, onDelete, onClose }: Househo
           </div>
         )}
       </div>
-    </Popup>
+    </MapPopup>
   );
 }

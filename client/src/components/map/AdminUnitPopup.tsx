@@ -1,10 +1,10 @@
-import { Popup } from "react-map-gl/mapbox";
 import type { LocateResult, LonLat } from "../../types/admin-unit.types";
 import type { FloodRiskPoint } from "../../types/flood-risk.types";
 import type { FeatureHere } from "../../utils/map-features";
 import { Button } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { LocationSummary } from "./LocationSummary";
+import { MapPopup } from "./MapPopup";
 
 interface AdminUnitPopupProps {
   point: LonLat;
@@ -29,15 +29,7 @@ export function AdminUnitPopup({ point, result, loading, error, onClose, title, 
   const canSave = onSavePlace && !loading && result !== null && result.units.length > 0;
   const risk = floodRisk?.risk?.class ?? null;
   return (
-    <Popup
-      longitude={point[0]}
-      latitude={point[1]}
-      offset={8}
-      maxWidth="min(280px, calc(100vw - 2rem))"
-      closeOnClick={false}
-      onClose={onClose}
-      className="admin-unit-popup"
-    >
+    <MapPopup point={point} offset={8} maxWidth="280px" onClose={onClose}>
       <LocationSummary point={point} result={result} loading={loading} error={error} title={title} />
       {here.length > 0 && (
         <ul className="admin-unit-popup__here" aria-label="What is here" data-cy="popup-here">
@@ -76,6 +68,6 @@ export function AdminUnitPopup({ point, result, loading, error, onClose, title, 
           Save this place
         </Button>
       )}
-    </Popup>
+    </MapPopup>
   );
 }

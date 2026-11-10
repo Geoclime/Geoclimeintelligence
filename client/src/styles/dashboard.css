@@ -131,6 +131,13 @@
   }
 }
 
+/* On a phone the map comes before the details beside it: it is what the page is about. */
+@media (max-width: 959px) {
+  .split--map-first > .detail-map {
+    order: -1;
+  }
+}
+
 .detail-list {
   display: grid;
   gap: var(--space-3);

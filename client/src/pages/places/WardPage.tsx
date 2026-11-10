@@ -65,7 +65,7 @@ export function WardPage() {
       label: "Overview",
       dataCy: "ward-tab-overview",
       content: (
-        <div className="split">
+        <div className="split split--map-first">
           <div className="stack">
             <section className="card card__body" aria-label="About this ward">
               <dl className="detail-list" data-cy="ward-details">
@@ -94,7 +94,7 @@ export function WardPage() {
             theme={theme}
             geometry={ward.geometry}
             areaId={ward.id}
-            bbox={lga?.bbox ?? ward.bbox}
+            bbox={ward.bbox}
             contextGeometry={lga?.geometry ?? null}
             countryCode={ward.countryCode}
             floods={area.floods}

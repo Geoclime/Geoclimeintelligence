@@ -1,5 +1,5 @@
 import { BaseRepository } from "../../common/repository/base.repository";
-import { areaCte, lineInArea, reachesArea } from "./area-clip";
+import { areaCte, shapeInArea, reachesArea } from "./area-clip";
 import { LAYER_FEATURE_LIMIT, simplifyTolerance, waterClassesAtZoom, waterwayGeometryColumn } from "./layer-rules";
 import type { IWaterwayRepository, LayerGeoJsonQuery, LayerSummary, WaterwayFeatureCollection } from "./map-layer.types";
 import { Waterway } from "./waterway.entity";
@@ -43,7 +43,7 @@ export class WaterwayRepository extends BaseRepository<Waterway> implements IWat
          'features', COALESCE(json_agg(json_build_object(
            'type', 'Feature',
            'id', id,
-           'geometry', ST_AsGeoJSON(${lineInArea("drawn.shape", 8)}, 5)::json,
+           'geometry', ST_AsGeoJSON(${shapeInArea("drawn.shape", 8)}, 5)::json,
            'properties', json_build_object('id', id, 'name', name, 'waterClass', water_class,
              'waterwayType', waterway_type, 'tunnel', tunnel)
          ) ORDER BY n) FILTER (WHERE n <= $6::int), '[]'::json)
