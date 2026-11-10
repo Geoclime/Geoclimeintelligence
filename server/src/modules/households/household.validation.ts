@@ -41,4 +41,10 @@ export const householdSearchSchema = z.object({
 
 export const householdIdSchema = z.object({ params: z.object({ id: z.uuid("Not a valid id") }) });
 
-export const householdGeoJsonSchema = z.object({ query: z.object({ bbox: bboxQuerySchema }) });
+export const householdGeoJsonSchema = z.object({
+  query: z.object({
+    bbox: bboxQuerySchema,
+    /** An LGA or ward id: only households inside that area, for the map on its page. */
+    within: z.uuid("within must be a valid admin unit id").optional(),
+  }),
+});

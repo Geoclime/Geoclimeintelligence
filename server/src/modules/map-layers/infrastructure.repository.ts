@@ -19,19 +19,20 @@ export class InfrastructureRepository extends BaseRepository<Infrastructure> imp
   async findGeoJson(query: LayerGeoJsonQuery): Promise<InfrastructureFeatureCollection> {
     const [minLon, minLat, maxLon, maxLat] = query.bbox;
     const limit = LAYER_FEATURE_LIMIT.infrastructure;
-    // Points are never simplified. Types come in FACILITY_TYPES order (health first), so the cap,
-    // if it bites, drops the least important. One extra row is read only to learn whether it did.
+    // Points are never simplified. Places saved by hand (origin = 'manual') and requests cut to a single
+    // LGA or ward ($8) are always included at every zoom; imported facilities come in FACILITY_TYPES order
+    // (health first), so the cap, if it bites, drops the least important. One extra row is read only to learn whether it did.
     const rows: { fc: InfrastructureFeatureCollection }[] = await this.repo.query(
       `WITH view AS (SELECT ST_MakeEnvelope($1, $2, $3, $4, 4326) AS box),
             ${areaCte(8)},
             picked AS (
               SELECT f.id, f.name, f.facility_type, f.osm_class, f.origin, f.note, f.phone, f.geom,
-                     row_number() OVER (ORDER BY array_position($6::text[], f.facility_type::text), f.name, f.id) AS n
+                     row_number() OVER (ORDER BY (f.origin = 'manual') DESC, array_position($6::text[], f.facility_type::text), f.name, f.id) AS n
                 FROM infrastructure f, view
                WHERE f.geom && view.box AND ST_Intersects(f.geom, view.box)
-                 AND f.facility_type = ANY($5::text[])
+                 AND (f.origin = 'manual' OR $8::uuid IS NOT NULL OR f.facility_type = ANY($5::text[]))
                  AND ${reachesArea("f.geom", 8)}
-               ORDER BY array_position($6::text[], f.facility_type::text), f.name, f.id
+               ORDER BY (f.origin = 'manual') DESC, array_position($6::text[], f.facility_type::text), f.name, f.id
                LIMIT $7::int + 1)
        SELECT json_build_object(
          'type', 'FeatureCollection',

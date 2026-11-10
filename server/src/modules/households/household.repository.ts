@@ -1,4 +1,5 @@
 import { AppDataSource } from "../../config/data-source";
+import { areaCte, reachesArea } from "../map-layers/area-clip";
 import { householdSearchQuery } from "./household-search";
 import type { HouseholdChanges, HouseholdDto, HouseholdFeatureCollection, HouseholdHitDto, HouseholdRecord, IHouseholdRepository, NewHousehold } from "./household.types";
 
@@ -70,10 +71,11 @@ export class HouseholdRepository implements IHouseholdRepository {
     return rows.map(toDto);
   }
 
-  async findGeoJson([minLon, minLat, maxLon, maxLat]: [number, number, number, number], viewerId: string, all: boolean): Promise<HouseholdFeatureCollection> {
+  async findGeoJson([minLon, minLat, maxLon, maxLat]: [number, number, number, number], viewerId: string, all: boolean, within?: string): Promise<HouseholdFeatureCollection> {
     // Staff (all = true) see everyone's, with the owner's name; anyone else only their own. The viewer's own come first.
     const rows: { fc: HouseholdFeatureCollection }[] = await AppDataSource.query(
-      `WITH picked AS (
+      `WITH ${areaCte(8)},
+            picked AS (
          SELECT h.id, h.geom, h.label, h.people, h.note, h.home_type, h.phone,
                 (SELECT count(*)::int FROM household_photos hp WHERE hp.household_id = h.id) AS photo_count,
                 (h.owner_id = $5::uuid) AS mine,
@@ -82,6 +84,7 @@ export class HouseholdRepository implements IHouseholdRepository {
            FROM households h ${all ? "LEFT JOIN users u ON u.id = h.owner_id" : ""}
           WHERE h.geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
             AND ($6::boolean OR h.owner_id = $5::uuid)
+            AND ($8::uuid IS NULL OR h.lga_id = $8::uuid OR h.ward_id = $8::uuid OR ${reachesArea("h.geom", 8)})
           ORDER BY (h.owner_id = $5::uuid) DESC, h.id
           LIMIT $7::int + 1)
        SELECT json_build_object(
@@ -94,7 +97,7 @@ export class HouseholdRepository implements IHouseholdRepository {
              'homeType', home_type, 'phone', phone, 'photoCount', photo_count, 'mine', mine, 'ownerName', owner_name)
          ) ORDER BY n) FILTER (WHERE n <= $7::int), '[]'::json)) AS fc
        FROM picked`,
-      [minLon, minLat, maxLon, maxLat, viewerId, all, HOUSEHOLD_FEATURE_CAP],
+      [minLon, minLat, maxLon, maxLat, viewerId, all, HOUSEHOLD_FEATURE_CAP, within ?? null],
     );
     return rows[0]?.fc ?? { type: "FeatureCollection", features: [], truncated: false };
   }

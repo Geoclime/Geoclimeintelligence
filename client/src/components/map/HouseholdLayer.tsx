@@ -78,7 +78,7 @@ function HouseholdIcons() {
 
 /**
  * Households: the viewer's own homes, and (for staff with households.view) everyone's. A house shape,
- * teal for your own and slate for other people's, with your own labelled from street level. Always
+ * teal for your own and slate for other people's, with your own labelled from town/LGA level. Always
  * mounted, so its place in the draw order never changes.
  */
 export function HouseholdLayer({ palette, data }: { palette: MapPalette; data: HouseholdFeatureCollection | null }) {
@@ -99,7 +99,7 @@ export function HouseholdLayer({ palette, data }: { palette: MapPalette; data: H
         <Layer
           id="households-labels"
           type="symbol"
-          minzoom={15}
+          minzoom={11}
           filter={["get", "mine"]}
           layout={{
             "text-field": ["get", "label"],

@@ -11,8 +11,8 @@ import { MapPopup } from "./MapPopup";
 
 interface HouseholdPopupProps {
   household: HouseholdOnMap;
-  onEdit: () => void;
-  onDelete: () => Promise<void>;
+  onEdit?: () => void;
+  onDelete?: () => Promise<void>;
   onClose: () => void;
 }
 
@@ -42,17 +42,21 @@ export function HouseholdPopup({ household, onEdit, onDelete, onClose }: Househo
         )}
         {household.note && <p className="saved-place__note">{household.note}</p>}
         <HouseholdPhotos household={household} />
-        {household.mine && !confirming && (
+        {household.mine && (onEdit || onDelete) && !confirming && (
           <div className="saved-place__actions">
-            <Button variant="secondary" size="sm" icon={<Icon name="edit" size={14} />} onClick={onEdit} data-cy="edit-household">
-              Edit
-            </Button>
-            <Button variant="danger" size="sm" icon={<Icon name="trash" size={14} />} onClick={() => setConfirming(true)} data-cy="delete-household">
-              Remove
-            </Button>
+            {onEdit && (
+              <Button variant="secondary" size="sm" icon={<Icon name="edit" size={14} />} onClick={onEdit} data-cy="edit-household">
+                Edit
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="danger" size="sm" icon={<Icon name="trash" size={14} />} onClick={() => setConfirming(true)} data-cy="delete-household">
+                Remove
+              </Button>
+            )}
           </div>
         )}
-        {household.mine && confirming && (
+        {household.mine && onDelete && confirming && (
           <div className="saved-place__actions">
             <Button
               variant="danger"

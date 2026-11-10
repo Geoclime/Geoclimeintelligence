@@ -97,7 +97,7 @@ export interface IHouseholdRepository {
   /** The viewer's own households, newest first. */
   findMine(ownerId: string): Promise<HouseholdDto[]>;
   /** Households in the box: everyone's when `all`, otherwise only the viewer's own. */
-  findGeoJson(bbox: [number, number, number, number], viewerId: string, all: boolean): Promise<HouseholdFeatureCollection>;
+  findGeoJson(bbox: [number, number, number, number], viewerId: string, all: boolean, within?: string): Promise<HouseholdFeatureCollection>;
   /** Households matching every word of `q`: everyone's when `all`, otherwise only the viewer's own. */
   search(q: string, viewerId: string, all: boolean, limit: number): Promise<HouseholdHitDto[]>;
   /** The owners of households within `metres` of a flood (for "a flood was recorded near your home"). */

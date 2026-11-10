@@ -2,19 +2,31 @@ import type { Feature, FeatureCollection, MultiPolygon } from "geojson";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Layer, Source } from "react-map-gl/mapbox";
 import type { ResolvedTheme } from "../../contexts/ThemeContext";
+import { useAuth } from "../../hooks/useAuth";
+import { useCan, useSurveyAbilities } from "../../hooks/useCan";
 import { useClippedFloodRisk } from "../../hooks/useClippedFloodRisk";
 import { useFloodRisk } from "../../hooks/useFloodRisk";
+import { useHouseholdLayer } from "../../hooks/useHouseholds";
 import { useMapLayers } from "../../hooks/useMapLayers";
-import type { AdminUnitFeatureCollection, BBox } from "../../types/admin-unit.types";
+import type { AdminUnitFeatureCollection, BBox, LonLat } from "../../types/admin-unit.types";
 import type { DrainageFeatureCollection, FloodExtentFeatureCollection, SelectedSurvey } from "../../types/field-survey.types";
+import type { HouseholdOnMap } from "../../types/household.types";
+import type { ClickedFeature, PlaceOnMap } from "../../types/map-layer.types";
 import { floodRiskLegend } from "../../utils/flood-risk";
+import { facilityIn, householdIn } from "../../utils/map-features";
+import { READ_ONLY } from "../../utils/permissions";
+import { FACILITY_DOTS_LAYER } from "../../utils/saved-places";
 import { surveyFeatureIn } from "../../utils/survey-click";
+import { PhotoSection } from "../photos/PhotoSection";
 import { ClimateMap, type MapView } from "./ClimateMap";
 import { FloodRiskLayer } from "./FloodRiskLayer";
+import { HOUSEHOLD_LAYER, HouseholdLayer } from "./HouseholdLayer";
+import { HouseholdPopup } from "./HouseholdPopup";
 import { legendFor, OVERLAY_LEGEND, SURVEY_LEGEND } from "./legend-items";
 import { MapLegend } from "./MapLegend";
 import { MapOverlayLayers } from "./MapOverlayLayers";
 import { mapPalette, type MapLayerId } from "./map-style";
+import { SavedPlacePopup } from "./SavedPlacePopup";
 import { SURVEY_INTERACTIVE_LAYERS, surveyLayers } from "./survey-style";
 import { DrainageLayers } from "./SurveyLayers";
 import "./flood-risk.css";
@@ -24,7 +36,7 @@ interface AreaOutlineMapProps {
   theme: ResolvedTheme;
   /** The area this page is about, drawn bold and fitted to. */
   geometry: MultiPolygon;
-  /** Its id: the roads, waterways and facilities are cut to it, so only what is inside the place is drawn. */
+  /** Its id: the roads, waterways, facilities and households are cut to it, so only what is inside the place is drawn. */
   areaId?: string;
   bbox: BBox;
   /** A larger area for context (e.g. the ward's LGA), drawn thin. */
@@ -68,24 +80,33 @@ const CONTEXT_LAYERS: Record<MapLayerId, boolean> = {
   floodRisk: false,
   satelliteFlood: false,
   floodPrediction: false,
-  households: false,
+  households: true,
 };
 const NO_LAYERS = Object.fromEntries(Object.keys(CONTEXT_LAYERS).map((id) => [id, false])) as Record<MapLayerId, boolean>;
+const INTERACTIVE_LAYERS = [...SURVEY_INTERACTIVE_LAYERS, FACILITY_DOTS_LAYER, HOUSEHOLD_LAYER];
 
 /**
  * A small map that outlines one area: the LGA profile and ward pages use it. Recorded floods and drains
  * are drawn exactly as on the main map, with a legend that explains them, and a switch adds the roads,
- * waterways and facilities around them, since a drain means little without the road it runs beside.
+ * waterways, facilities and households around them, since a drain means little without the road it runs beside.
  * Given `areaId`, those are cut to the place's outline, as its flood risk is: the page is about what is inside it.
  */
 export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGeometry, innerAreas, floods, drains, onSelect, countryCode, onViewChange, popupOpen = false, dataCy, children }: AreaOutlineMapProps) {
+  const { user } = useAuth();
+  const can = useCan();
+  const mine = useSurveyAbilities();
+  const abilities = useMemo(() => ({ ...READ_ONLY, viewPeople: mine.viewPeople, viewPhotos: mine.viewPhotos, userId: mine.userId }), [mine]);
   const palette = useMemo(() => mapPalette(theme), [theme]);
   // The same cached map as the home screen's: a profile opened after the home map asks nothing again.
   const floodRisk = useFloodRisk(countryCode ?? null);
   const [showFloodRisk, setShowFloodRisk] = useState(true);
   const [showContext, setShowContext] = useState(true);
   const [view, setView] = useState<MapView | null>(null);
-  const context = useMapLayers(view?.bbox ?? null, view?.zoom ?? 11, showContext ? CONTEXT_LAYERS : NO_LAYERS, 0, areaId);
+  const [selectedPlace, setSelectedPlace] = useState<PlaceOnMap | null>(null);
+  const [selectedHousehold, setSelectedHousehold] = useState<HouseholdOnMap | null>(null);
+  const activeBbox = view?.bbox ?? bbox;
+  const context = useMapLayers(activeBbox, view?.zoom ?? 12, showContext ? CONTEXT_LAYERS : NO_LAYERS, 0, areaId);
+  const households = useHouseholdLayer(activeBbox, showContext && Boolean(user), 0, areaId);
   const riskLayer = floodRisk.layer;
   // Only this area's part of the picture: the imported one covers the whole state.
   const areaRisk = useClippedFloodRisk(floodRisk.imageUrl, riskLayer?.coordinates ?? null, geometry);
@@ -103,7 +124,29 @@ export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGe
     ...(riskLayer && showFloodRisk ? floodRiskLegend(riskLayer.classes) : []),
     ...legendFor(SURVEY_LEGEND, { floodExtents: Boolean(floods?.features.length), drainage: Boolean(drains?.features.length) }),
     ...(showContext ? legendFor(OVERLAY_LEGEND, CONTEXT_LAYERS) : []),
+    ...(showContext && can("households.view") ? [{ key: "household-other", label: "Other people's households (staff only)", swatch: "household-other" }] : []),
   ];
+
+  const handleMapClick = (point: LonLat, clicked: ClickedFeature[]) => {
+    const household = householdIn(clicked);
+    if (household) {
+      setSelectedPlace(null);
+      onSelect?.(null);
+      setSelectedHousehold(household);
+      return;
+    }
+    setSelectedHousehold(null);
+    const place = facilityIn(clicked);
+    if (place) {
+      onSelect?.(null);
+      setSelectedPlace(place);
+      return;
+    }
+    setSelectedPlace(null);
+    onSelect?.(surveyFeatureIn(clicked, point));
+  };
+
+  const anyPopupOpen = popupOpen || Boolean(selectedPlace || selectedHousehold);
 
   return (
     <ClimateMap
@@ -114,12 +157,12 @@ export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGe
         setView(next);
         onViewChange?.(next);
       }}
-      onMapClick={onSelect ? (point, clicked) => onSelect(surveyFeatureIn(clicked, point)) : undefined}
-      interactiveLayerIds={onSelect ? SURVEY_INTERACTIVE_LAYERS : undefined}
+      onMapClick={handleMapClick}
+      interactiveLayerIds={INTERACTIVE_LAYERS}
       className="detail-map area-map"
       dataCy={dataCy}
       overlay={
-        <div className={`area-map__legend${popupOpen ? " is-hidden" : ""}`} data-cy="area-flood-risk-legend">
+        <div className={`area-map__legend${anyPopupOpen ? " is-hidden" : ""}`} data-cy="area-flood-risk-legend">
           <div className="map-panel layer-toggle">
             {riskLayer && (
               <label className="layer-toggle__option" data-cy="area-flood-risk-toggle">
@@ -136,7 +179,7 @@ export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGe
               <span className="layer-toggle__swatch layer-toggle__swatch--waterways" aria-hidden="true" />
               <span className="layer-toggle__text">
                 <span>Roads, water and facilities</span>
-                {context.loading && <span className="layer-toggle__hint">Loading…</span>}
+                {(context.loading || households.loading) && <span className="layer-toggle__hint">Loading…</span>}
               </span>
             </label>
           </div>
@@ -174,6 +217,7 @@ export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGe
           <Layer id="area-fill" type="fill" paint={{ "fill-color": palette.selected, "fill-opacity": 0.12 }} />
           <Layer id="area-line" type="line" paint={{ "line-color": palette.selected, "line-width": 2.5 }} />
         </Source>
+        <HouseholdLayer palette={palette} data={households.data} />
         {floods && (
           <Source id="flood-extents" type="geojson" data={floods}>
             <Layer {...survey.floodFill} />
@@ -182,6 +226,14 @@ export function AreaOutlineMap({ label, theme, geometry, areaId, bbox, contextGe
           </Source>
         )}
         {drains && <DrainageLayers palette={palette} drains={drains} />}
+        {selectedHousehold && <HouseholdPopup key={selectedHousehold.id} household={selectedHousehold} onClose={() => setSelectedHousehold(null)} />}
+        {selectedPlace && (
+          <SavedPlacePopup place={selectedPlace} onClose={() => setSelectedPlace(null)}>
+            {(selectedPlace.origin ?? "manual") === "manual" && (
+              <PhotoSection subject={{ type: "place", id: selectedPlace.id }} abilities={abilities} of={selectedPlace.name ?? "the place"} />
+            )}
+          </SavedPlacePopup>
+        )}
         {children}
       </Fragment>
     </ClimateMap>

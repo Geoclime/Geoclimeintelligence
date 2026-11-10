@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { invalidateQueries } from "../cache/queryClient";
 import { deleteHousehold, fetchHouseholdGeoJson, saveHousehold, updateHousehold } from "../endpoints/household.endpoints";
 import { errorMessage } from "../transport/api-error";
 import type { BBox, LonLat } from "../types/admin-unit.types";
@@ -12,11 +13,12 @@ import { useToast } from "./useToast";
 /**
  * The households layer for the visible area: the viewer's own, or everyone's for staff (the server
  * decides). Fetched 300 ms after the map stops moving; never cached, since it changes as people add homes.
+ * `within` (an LGA or ward id) keeps only the households inside that area, for the map on its page.
  */
-export function useHouseholdLayer(bbox: BBox | null, enabled: boolean, refreshKey: number) {
+export function useHouseholdLayer(bbox: BBox | null, enabled: boolean, refreshKey: number, within?: string) {
   const view = useDebounce(enabled ? bbox : null, 300);
-  const key = view ? ["households", view.map((n) => n.toFixed(4)).join(","), refreshKey] : null;
-  const { data, loading, error } = useLoader(key, async () => (await fetchHouseholdGeoJson(view!)).data ?? null);
+  const key = view ? ["households", view.map((n) => n.toFixed(4)).join(","), refreshKey, within ?? ""] : null;
+  const { data, loading, error } = useLoader(key, async () => (await fetchHouseholdGeoJson(view!, within)).data ?? null);
   return { data: enabled ? (data ?? null) : null, loading: enabled && loading, error: enabled ? error : null };
 }
 
@@ -70,6 +72,7 @@ export function useHouseholds(onChanged: () => void) {
       if (form.mode === "create" && data) void photoUploads.upload(data.id, photos);
       setForm(null);
       setSelected(null);
+      invalidateQueries(["households"]);
       onChanged();
       showToast({
         type: "success",
@@ -85,6 +88,7 @@ export function useHouseholds(onChanged: () => void) {
       try {
         await deleteHousehold(household.id);
         setSelected(null);
+        invalidateQueries(["households"]);
         onChanged();
         showToast({ type: "success", message: `Removed “${household.label}”.` });
       } catch (failure) {

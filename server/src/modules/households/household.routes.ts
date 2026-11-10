@@ -30,13 +30,13 @@ householdsRouter.get(
   handle(async (req, res) => res.json(ok(await HouseholdService.Instance.search((req.query as unknown as { q: string }).q, req.user!)))),
 );
 
-/** GET /geojson?bbox=: the households in view that the viewer may see. */
+/** GET /geojson?bbox=&within=: the households in view that the viewer may see. */
 householdsRouter.get(
   "/geojson",
   validate(householdGeoJsonSchema),
   handle(async (req, res) => {
-    const { bbox } = req.query as unknown as { bbox: [number, number, number, number] };
-    return res.json(ok(await HouseholdService.Instance.geoJson(bbox, req.user!)));
+    const { bbox, within } = req.query as unknown as { bbox: [number, number, number, number]; within?: string };
+    return res.json(ok(await HouseholdService.Instance.geoJson(bbox, req.user!, within)));
   }),
 );
 

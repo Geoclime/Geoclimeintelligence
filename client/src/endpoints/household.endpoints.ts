@@ -6,8 +6,10 @@ import type { Household, HouseholdFeatureCollection, HouseholdHit, HouseholdPatc
 // server/src/modules/households/household.routes.ts. Anyone signed in manages their own households; the
 // map shows the viewer's own, or everyone's for staff with households.view. Never public.
 
-export async function fetchHouseholdGeoJson(bbox: BBox): Promise<ApiResponse<HouseholdFeatureCollection>> {
-  const { data } = await httpClient.get<ApiResponse<HouseholdFeatureCollection>>("/api/v1/households/geojson", { params: { bbox: bbox.join(",") } });
+export async function fetchHouseholdGeoJson(bbox: BBox, within?: string): Promise<ApiResponse<HouseholdFeatureCollection>> {
+  const { data } = await httpClient.get<ApiResponse<HouseholdFeatureCollection>>("/api/v1/households/geojson", {
+    params: { bbox: bbox.join(","), ...(within ? { within } : {}) },
+  });
   return data;
 }
 

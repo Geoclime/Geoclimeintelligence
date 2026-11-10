@@ -110,9 +110,9 @@ export class HouseholdService {
     return this.households.findMine(actor.id);
   }
 
-  /** The households in view: everyone's for staff with households.view, otherwise only the viewer's own. */
-  async geoJson(bbox: [number, number, number, number], actor: AuthUser): Promise<HouseholdFeatureCollection> {
-    return this.households.findGeoJson(bbox, actor.id, await this.permissions.has(actor, "households.view"));
+  /** The households in view (and inside `within` when given): everyone's for staff with households.view, otherwise only the viewer's own. */
+  async geoJson(bbox: [number, number, number, number], actor: AuthUser, within?: string): Promise<HouseholdFeatureCollection> {
+    return this.households.findGeoJson(bbox, actor.id, await this.permissions.has(actor, "households.view"), within);
   }
 
   /** Households matching a search: everyone's for staff with households.view, otherwise only the viewer's own. */
