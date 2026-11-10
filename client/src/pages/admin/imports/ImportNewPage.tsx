@@ -272,6 +272,19 @@ export function ImportNewPage() {
     }
   };
 
+  const handleRetryFailedBatch = async () => {
+    const results = await batch.retryFailed();
+    const checked = results.filter((item) => item.state === "checked" || item.state === "promoted");
+    const failed = results.filter((item) => item.state === "failed");
+    showToast({
+      type: failed.length === 0 ? "success" : "error",
+      message:
+        failed.length === 0
+          ? `All ${checked.length} months checked. Review them, or promote them all below.`
+          : `${checked.length} of ${results.length} months checked; ${failed.length} still failed.`,
+    });
+  };
+
   const onSubmit = handleSubmit(async (values) => {
     const chosenLayer = parseLayerChoice(values.level);
     const rainfallFor = parseRainfallChoice(values.level);
@@ -335,6 +348,7 @@ export function ImportNewPage() {
     (sum, id) => sum + (layerCatalog.find((l) => l.id === id)?.featureCount ?? 0),
     0,
   );
+  const failedBatchCount = batch.items.filter((item) => item.state === "failed" || item.state === "waiting").length;
 
   const handleClearLayer = async () => {
     if (!countryCode || targetLayerIds.length === 0) return;
@@ -755,7 +769,13 @@ export function ImportNewPage() {
                     {...register("yearMonth")}
                   />
                 )}
-                {batch.items.length > 0 && <SatelliteBatchList items={batch.items} />}
+                {batch.items.length > 0 && (
+                  <SatelliteBatchList
+                    items={batch.items}
+                    running={batch.running}
+                    onRetryOne={(index) => void batch.retryOne(index)}
+                  />
+                )}
                 <div className="form-actions">
                   {batch.running ? (
                     <Button variant="secondary" onClick={batch.stop} data-cy="satellite-flood-stop">
@@ -764,6 +784,16 @@ export function ImportNewPage() {
                   ) : (
                     <Button variant="secondary" onClick={() => navigate("/admin/imports")}>
                       {batch.items.length > 0 ? "Open the import history" : "Cancel"}
+                    </Button>
+                  )}
+                  {!batch.running && failedBatchCount > 0 && (
+                    <Button
+                      variant="secondary"
+                      icon={<Icon name="refresh" size={16} />}
+                      onClick={() => void handleRetryFailedBatch()}
+                      data-cy="satellite-flood-retry-failed"
+                    >
+                      Retry {failedBatchCount} failed {failedBatchCount === 1 ? "month" : "months"}
                     </Button>
                   )}
                   {batch.items.some((item) => item.state === "checked") ? (
@@ -909,8 +939,16 @@ function TileSetSummary({ tiles }: { tiles: MonthlyTiles }) {
   );
 }
 
-/** The months of a satellite flood batch: each file, its month, what happened to it, and a link to review it. */
-function SatelliteBatchList({ items }: { items: BatchItem[] }) {
+/** The months of a satellite flood batch: each file, its month, what happened to it, and a link to review or retry it. */
+function SatelliteBatchList({
+  items,
+  running,
+  onRetryOne,
+}: {
+  items: BatchItem[];
+  running: boolean;
+  onRetryOne: (index: number) => void;
+}) {
   return (
     <div className="data-table__scroll">
       <table className="data-table" data-cy="satellite-flood-batch">
@@ -924,18 +962,31 @@ function SatelliteBatchList({ items }: { items: BatchItem[] }) {
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
+          {items.map((item, index) => (
             <tr key={item.fileName} data-cy="satellite-flood-batch-row" data-state={item.state}>
               <td className="mono">{item.fileName}</td>
               <td>{item.run?.options.yearMonth ? formatYearMonth(item.run.options.yearMonth) : <span className="muted">Not known yet</span>}</td>
               <td>{BATCH_LABELS[item.state]}</td>
               <td>
-                {item.error && <span className="field__error">{item.error}</span>}
-                {item.run && (
-                  <Link to={`/admin/imports/${item.run.id}`} target="_blank" rel="noreferrer">
-                    Review
-                  </Link>
-                )}
+                <div className="batch-row__details">
+                  {item.error && <span className="field__error">{item.error}</span>}
+                  {item.run && (
+                    <Link to={`/admin/imports/${item.run.id}`} target="_blank" rel="noreferrer">
+                      Review
+                    </Link>
+                  )}
+                  {!running && (item.state === "failed" || item.state === "waiting") && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Icon name="refresh" size={14} />}
+                      onClick={() => onRetryOne(index)}
+                      data-cy="satellite-flood-retry-one"
+                    >
+                      Retry
+                    </Button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
