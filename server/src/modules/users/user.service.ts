@@ -50,6 +50,10 @@ export class UserService {
 
     const target = await this.users.findById(id);
     if (!target) throw new NotFoundError("User");
+    // The founding administrator is the owner of the platform: no other administrator may touch their access.
+    if (target.role === "administrator" && (await this.isFounderAdministrator(target.id))) {
+      throw new ForbiddenError("This is the first administrator account. Its role and region scope can't be changed by other administrators");
+    }
 
     const role = input.role ?? target.role;
     const scopeAdminUnitId = input.scopeAdminUnitId !== undefined ? input.scopeAdminUnitId : target.scopeAdminUnitId;
@@ -83,6 +87,15 @@ export class UserService {
       if (resolved) return toUserDto(resolved);
     }
     return toUserDto(updated);
+  }
+
+  /**
+   * The founding administrator is the oldest account that holds the administrator role (the user list
+   * is ordered oldest first). Derived from existing data, so it needs no extra column or migration.
+   */
+  private async isFounderAdministrator(userId: string): Promise<boolean> {
+    const { items } = await this.users.findPage({ page: 1, pageSize: 1, role: "administrator" });
+    return items[0]?.id === userId;
   }
 
   /** Declines a user's open role request: it closes and their role stays as it is. */
