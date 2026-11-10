@@ -6,47 +6,19 @@ import type { LonLat } from "../../types/admin-unit.types";
 import { MAP_PATH, writeMapView, writePin } from "../../utils/map-url";
 import { AdminBoundaryLayers } from "../map/AdminBoundaryLayers";
 import { ClimateMap, type MapView } from "../map/ClimateMap";
-import { mapPalette, type MapLayerId } from "../map/map-style";
+import { mapPalette } from "../map/map-style";
 import { MapOverlayLayers } from "../map/MapOverlayLayers";
 import { PinLayer } from "../map/PinLayer";
 import { buttonClassName } from "../shared/Button";
 import { Icon } from "../shared/Icon";
 import { googleMapsUrl } from "../../utils/google-maps";
 import "../map/map.css";
+import { LayerSwitches, MapTypeToggle } from "./ReportMapControls";
+import { useReportMapLayers } from "./report-map-layers";
 import "./reports.css";
 
 /** Street level: close enough to tell a road from a river, and which side of it the water is. */
 const ZOOM = 16;
-
-/** The switches under the map: what each one turns on, and the legend swatch that goes with it. */
-const LAYER_SWITCHES: { label: string; swatch: string; layers: MapLayerId[] }[] = [
-  { label: "Boundaries", swatch: "lga", layers: ["state", "lga", "ward"] },
-  { label: "Waterways", swatch: "waterways", layers: ["waterways"] },
-  { label: "Wetlands", swatch: "wetlands", layers: ["wetlands"] },
-  { label: "Roads", swatch: "roads", layers: ["roads"] },
-  { label: "Buildings", swatch: "buildings", layers: ["buildings"] },
-  { label: "Facilities", swatch: "facility-health", layers: ["infrastructure"] },
-  { label: "Settlements", swatch: "settlements", layers: ["settlements"] },
-];
-
-const ALL_LAYERS: Record<MapLayerId, boolean> = {
-  state: true,
-  lga: true,
-  ward: true,
-  roads: true,
-  waterways: true,
-  settlements: true,
-  infrastructure: true,
-  buildings: true,
-  wetlands: true,
-  // Field survey and the flood risk surface are drawn on the full map only.
-  floodExtents: false,
-  drainage: false,
-  floodRisk: false,
-  satelliteFlood: false,
-  floodPrediction: false,
-  households: false,
-};
 
 interface ReportLocationMapProps {
   point: LonLat;
@@ -65,8 +37,7 @@ interface ReportLocationMapProps {
  */
 export function ReportLocationMap({ point, placeName, lgaId = null }: ReportLocationMapProps) {
   const { resolved: theme } = useTheme();
-  const [satellite, setSatellite] = useState(false);
-  const [layers, setLayers] = useState<Record<MapLayerId, boolean>>(ALL_LAYERS);
+  const { satellite, layers, chooseSatellite, toggle } = useReportMapLayers();
   const [view, setView] = useState<MapView | null>(null);
   // The pin's amber reads on imagery in either theme; the light theme's brown does not.
   const palette = useMemo(() => mapPalette(satellite ? "dark" : theme), [satellite, theme]);
@@ -74,12 +45,6 @@ export function ReportLocationMap({ point, placeName, lgaId = null }: ReportLoca
   const [longitude, latitude] = point;
   const platformMap = `${MAP_PATH}?${writePin(writeMapView(new URLSearchParams(), { longitude, latitude, zoom: ZOOM + 1 }), point, "Flood report")}`;
   const googleMaps = googleMapsUrl(point);
-
-  const chooseSatellite = (next: boolean) => {
-    setSatellite(next);
-    setLayers((current) => ({ ...current, buildings: !next }));
-  };
-  const toggle = (ids: MapLayerId[], checked: boolean) => setLayers((current) => ({ ...current, ...Object.fromEntries(ids.map((id) => [id, checked])) }));
 
   return (
     <div className="report-map" data-cy="report-map">
@@ -106,28 +71,10 @@ export function ReportLocationMap({ point, placeName, lgaId = null }: ReportLoca
         <PinLayer key={[data.state.data, data.lga.data, data.ward.data].map(Boolean).join()} point={point} palette={palette} />
       </ClimateMap>
 
-      <div className="report-map__layers" role="group" aria-label="What to show on the map" data-cy="report-map-layers">
-        {LAYER_SWITCHES.map(({ label, swatch, layers: ids }) => (
-          <label key={label} className="report-map__layer">
-            <input type="checkbox" checked={ids.every((id) => layers[id])} onChange={(event) => toggle(ids, event.target.checked)} />
-            <span className={`map-legend__swatch map-legend__swatch--${swatch}`} aria-hidden="true" />
-            {label}
-          </label>
-        ))}
-        <span className="report-map__status" role="status">
-          {data.error ? "Some layers couldn't load." : data.loading ? "Loading layers…" : ""}
-        </span>
-      </div>
+      <LayerSwitches layers={layers} onToggle={toggle} loading={data.loading} failed={Boolean(data.error)} dataCyPrefix="report-map" />
 
       <div className="report-map__bar">
-        <div className="segmented" role="group" aria-label="Map type">
-          <button type="button" aria-pressed={!satellite} onClick={() => chooseSatellite(false)} data-cy="report-map-streets">
-            Map
-          </button>
-          <button type="button" aria-pressed={satellite} onClick={() => chooseSatellite(true)} data-cy="report-map-satellite">
-            Satellite
-          </button>
-        </div>
+        <MapTypeToggle satellite={satellite} onChoose={chooseSatellite} dataCyPrefix="report-map" />
         <div className="report-map__links">
           <Link to={platformMap} target="_blank" rel="noreferrer" className={buttonClassName({ variant: "ghost", size: "sm" })} data-cy="report-map-full">
             <Icon name="map" size={14} />

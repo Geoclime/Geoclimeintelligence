@@ -37,7 +37,7 @@ All paths are relative to `client/src/`. It follows the standard's order: types 
 **4. The map page, `pages/map/MapPage.tsx`.**
 - `useFloodRisk(country)` supplies the layer. The toggle, legend rows and credit line appear only when a map is live, and the layer is on by default. `components/map/AdminUnitPopup.tsx` takes an optional `floodRisk` and shows "Flood risk here: **High**" with the class colour, or "No flood risk data here" outside the map's data.
 - `components/map/map-style.ts` adds `HazardLayerId = "floodRisk"` to `MapLayerId`. `utils/map-url.ts` appends it **last** in `ALL_LAYERS`, so a link that lists layers (and so predates this one) still reads exactly as before, and existing link strings don't change.
-- `components/reports/ReportLocationMap.tsx` (the small map under a flood report) keeps it **off**: reviewers are checking a pin, and a tinted map would get in the way.
+- `components/reports/ReportLocationMap.tsx` (the small map under a flood report) keeps it **off**: reviewers are checking a pin, and a tinted map would get in the way. The report form's own map (`LocationPicker.tsx`) keeps it off for the same reason; both are covered in [report-map-layers.md](report-map-layers.md).
 
 **5. The import screen, `pages/admin/imports/ImportNewPage.tsx`.**
 - `components/imports/import-form.schema.ts` adds the `flood-risk` choice (`FLOOD_RISK_CHOICE`, `isFloodRiskChoice`, `toStartFloodRiskImport`): it needs only the country and the source, with no columns to match, and a `.tif`/`.tiff` file name picks it automatically. The generic preview is skipped for it: a GeoTIFF is a grid, not rows.

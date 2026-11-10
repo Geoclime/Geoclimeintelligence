@@ -103,3 +103,4 @@ Every feature, endpoint or migration ships with its own `docs/<feature-name>.md`
 
 47. [flood-prediction.md](flood-prediction.md): predicting 7-day and 30-day seasonal flood likelihood per LGA and ward from Open-Meteo weather, GloFAS river discharge, terrain susceptibility, and drainage records, with AI outlook synthesis and alert drafting.
 48. [features/flood-prediction-ui.md](features/flood-prediction-ui.md): the Flood Forecast card on LGA and ward pages, the 7-day forecast map layer, the early-warning banner and AI alert drafting button on the Alerts screen, and the admin toggle for the public landing page outlook.
+49. [features/report-map-layers.md](features/report-map-layers.md): the map on Report flooding and Edit your report now draws what the home map draws (LGA names, settlements, facilities, roads, waterways, wetlands, buildings, boundaries), with a switch for each and a Map / Satellite toggle, shared with the coordinators' report map.

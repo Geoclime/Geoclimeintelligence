@@ -33,11 +33,19 @@
   gap: var(--space-2);
 }
 
+/* Taller than a bare pin map needs: it also carries place names, roads and facilities. */
 .location-picker__map {
-  height: 260px;
+  height: 320px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+/* Map or Satellite, then the layer switches, directly under the map they change. */
+.location-picker__tools {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
 }
 
 .location-picker__bar {
