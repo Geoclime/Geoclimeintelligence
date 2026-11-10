@@ -92,18 +92,46 @@ export const ollamaProvider: AiProvider = {
     };
   },
 
+  /** A plain-text, multi-turn chat reply, delivered to onText in one piece. A reply cut short is kept, not thrown. */
   async stream(apiKey: string, req: AiChatRequest, onText: (delta: string) => void): Promise<AiGenerateResult> {
-    const result = await this.generate(apiKey, {
-      model: req.model,
-      baseUrl: req.baseUrl,
-      system: req.system,
-      prompt: req.messages.map((m) => `${m.role}: ${m.content}`).join("\n\n"),
-      schemaName: "chat",
-      jsonSchema: { type: "object", properties: { reply: { type: "string" } }, required: ["reply"], additionalProperties: false },
-      maxOutputTokens: req.maxOutputTokens,
-    });
-    onText(result.text);
-    return result;
+    const baseUrl = resolveBaseUrl(req.baseUrl);
+    const length = req.system.length + req.messages.reduce((sum, m) => sum + m.content.length, 0);
+    const estimatedTokens = Math.ceil(length / 3) + req.maxOutputTokens;
+    const numCtx = estimatedTokens > 4096 ? Math.min(32768, Math.ceil(estimatedTokens / 1024) * 1024) : 4096;
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (apiKey.trim()) headers.Authorization = `Bearer ${apiKey.trim()}`;
+
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/api/chat`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: req.model,
+          stream: false,
+          options: { num_predict: req.maxOutputTokens, num_ctx: numCtx },
+          messages: [{ role: "system", content: req.system }, ...req.messages.map((m) => ({ role: m.role, content: m.content }))],
+        }),
+        signal: AbortSignal.timeout(env.AI_REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      throw new AiProviderError("unavailable", err instanceof Error ? err.message : "Network error");
+    }
+
+    const json = (await res.json().catch(() => ({}))) as {
+      message?: { content?: string };
+      prompt_eval_count?: number;
+      eval_count?: number;
+      error?: string;
+    };
+    if (!res.ok) {
+      throw normaliseError(res.status, json.error ?? res.statusText);
+    }
+
+    const text = json.message?.content ?? "";
+    onText(text);
+    return { text, inputTokens: json.prompt_eval_count ?? 0, outputTokens: json.eval_count ?? 0 };
   },
 
   async listModels(apiKey: string, rawBaseUrl?: string): Promise<AiModelInfo[]> {

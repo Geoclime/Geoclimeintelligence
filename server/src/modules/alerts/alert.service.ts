@@ -12,7 +12,7 @@ const LIST_LIMIT = 100;
 
 /**
  * Flood alerts. Anyone may read them (they are public warnings). Issuing, editing, ending and
- * deleting one is for government officials and administrators (the route's authorise()), and only
+ * deleting one needs the alerts.issue permission (the route's requirePermission()), and only
  * for areas inside their region scope (checked here, per area, section 7).
  */
 export class AlertService {

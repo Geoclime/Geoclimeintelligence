@@ -1,0 +1,220 @@
+/* The AI assistant: a panel on the right edge, over the page (and over the map), full width on phones. */
+
+.assistant {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 85;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 100vw);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.assistant__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.assistant__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.assistant__subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.assistant__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.assistant__close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.assistant__close:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.assistant__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.assistant__message {
+  max-width: 88%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+.assistant__message--user {
+  align-self: flex-end;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.assistant__message--assistant {
+  align-self: flex-start;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.assistant__message--thinking {
+  padding: var(--space-1) var(--space-3);
+}
+
+.assistant__welcome p {
+  margin: 0 0 var(--space-2);
+}
+
+.assistant__suggestions {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assistant__suggestion {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.assistant__suggestion:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.assistant__suggestion:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.assistant__notice {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-info-soft);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.assistant__notice p {
+  margin: 0;
+}
+
+.assistant__notice p + p {
+  margin-top: var(--space-2);
+}
+
+.assistant__error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 0.88rem;
+}
+
+.assistant__composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.assistant__input {
+  flex: 1;
+  min-height: 44px;
+  max-height: 160px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.assistant__input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.assistant__send {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  cursor: pointer;
+}
+
+.assistant__send:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.assistant__send:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.assistant__disclaimer {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+  color: var(--color-text-subtle);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 480px) {
+  .assistant {
+    border-left: 0;
+  }
+}

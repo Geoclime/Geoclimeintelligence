@@ -26,10 +26,13 @@ Three things that let the platform be trusted with work done by many people in t
 | Delete anyone's photos (`photos.delete_any`) | Delete any photo (everyone may delete their own) | nobody (administrators only) |
 | Save places by hand (`places.manage`) | Save, edit and delete facilities | nobody (administrators only) |
 | Review flood reports (`reports.review`) | The review queue | Responder, Official |
+| See households (`households.view`) | Everyone's households on the map ([households.md](households.md)) | Responder, Official |
 | Issue flood alerts (`alerts.issue`) | Issue, change, end and delete alerts | Official |
+| Use AI assistance (`ai.use`) | The AI assistant chat, AI flood outlooks, and drafting an alert with AI (that also needs `alerts.issue`) ([ai-assistant.md](ai-assistant.md)) | Responder, Official, Researcher |
+| Use their own AI key (`ai.own_keys`) | Save a personal AI provider key, used instead of the platform's | Responder, Official, Researcher |
 | See the activity log (`audit.view`) | Read and export the log | nobody (administrators only) |
 
-The seed is exactly what each role could do before permissions existed, so introducing them changed nobody's access. Administrators hold every permission, always. Three powers can't be given to any role: managing users and their access, editing roles and permissions, and countries, data sources and imports. Otherwise whoever could edit roles could grant themselves anything.
+The seed is exactly what each role could do before permissions existed, so introducing them changed nobody's access. The AI permissions came later (migration `1793800000000-AddAiPermissions`) and were seeded the same way: to the three roles that could already use AI. Administrators hold every permission, always. Six powers can't be given to any role: managing users and their access, editing roles and permissions, countries, data sources and imports, map layer uploads, the platform's AI keys (they pay for everyone's AI requests), and the flood forecast settings. Otherwise whoever could edit roles could grant themselves anything.
 
 ## How it works
 
@@ -51,7 +54,7 @@ Paths are relative to `server/` unless they start with `client/`.
 
 - [`common/access/permissions.ts`](../server/src/common/access/permissions.ts) is the list of permissions, with their labels and the built-in defaults.
 - [`common/access/permission-resolver.ts`](../server/src/common/access/permission-resolver.ts) answers "may this role do this?". It reads `role_permissions` once and keeps the answer for 30 seconds. Editing a role on this server clears it at once. If the database can't be read, the built-in roles fall back to the seed and any other role holds nothing.
-- [`middleware/require-permission.middleware.ts`](../server/src/middleware/require-permission.middleware.ts): `requirePermission("survey.inspect_drain")` on a route, in place of `authorise(...roles)`. The field survey, flood report, alert and saved-place routes use it. User, country, data-source and import routes stay `authorise("administrator")`, by design.
+- [`middleware/require-permission.middleware.ts`](../server/src/middleware/require-permission.middleware.ts): `requirePermission("survey.inspect_drain")` on a route, in place of `authorise(...roles)`. The field survey, flood report, alert, saved-place, photo, activity-log, flood-forecast and AI routes use it. User, role, country, data-source, import, map-upload, platform AI key and forecast-settings routes stay `authorise("administrator")`, by design. No route checks any other role by name.
 - What used to be a fixed list of reviewer roles now follows `reports.review`: who may review a report, who joins the review room for live updates, who gets the review-queue notification, and which staff an alert reaches.
 - `GET /api/v1/auth/me` (and the other profile replies) now carry `permissions`, so the web app shows only what the person can use ([`client/src/utils/permissions.ts`](../client/src/utils/permissions.ts), `useCan()`). The server checks every request regardless.
 

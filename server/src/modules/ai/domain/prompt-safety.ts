@@ -15,6 +15,9 @@ export const PROMPT_TAGS = [
   "drainage_status",
   "flood_history",
   "seasonal_baseline",
+  "app_context",
+  "active_alerts",
+  "area_in_view",
 ] as const;
 
 const TAG_PATTERN = new RegExp(`<\\/?(${PROMPT_TAGS.join("|")})\\b`, "gi");

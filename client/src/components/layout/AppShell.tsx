@@ -6,6 +6,8 @@ import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useSubmitPendingRoleRequest } from "../../hooks/useSubmitPendingRoleRequest";
 import { useToast } from "../../hooks/useToast";
 import { MAP_PATH } from "../../utils/map-url";
+import { can } from "../../utils/permissions";
+import { AssistantLauncher } from "../assistant/AssistantLauncher";
 import { FloodAheadBanner } from "../floods/FloodAheadBanner";
 import { FloodAheadIndicator } from "../floods/FloodAheadIndicator";
 import { NotificationBell } from "../notifications/NotificationBell";
@@ -101,6 +103,7 @@ export function AppShell() {
               <QuickSearch role={user.role} />
               <FloodAheadIndicator />
               <NotificationBell />
+              {can(user, "ai.use") && <AssistantLauncher user={user} />}
               <NavLink to="/help" className="app-topbar__help" aria-label="Help and guides" title="Help and guides">
                 <Icon name="info" size={18} />
               </NavLink>

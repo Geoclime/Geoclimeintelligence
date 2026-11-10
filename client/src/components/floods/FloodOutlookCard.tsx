@@ -13,7 +13,6 @@ import {
 } from "../../types/flood-prediction.types";
 import { formatDate } from "../../utils/formatDate";
 import { can } from "../../utils/permissions";
-import { hasAnyRole } from "../../utils/roles";
 import { RainfallChart, type RainfallColumn } from "../rainfall/RainfallChart";
 import { Badge } from "../shared/Badge";
 import { Button, buttonClassName } from "../shared/Button";
@@ -27,8 +26,6 @@ interface FloodOutlookCardProps {
   areaName: string;
 }
 
-const AI_ROLES = ["administrator", "government_official", "coordinator", "first_responder", "researcher"] as const;
-
 export function FloodOutlookCard({ areaId, areaName }: FloodOutlookCardProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -36,7 +33,7 @@ export function FloodOutlookCard({ areaId, areaName }: FloodOutlookCardProps) {
   const [days, setDays] = useState(DEFAULT_OUTLOOK_DAYS);
   const { outlook, loading, error, refetch, generateAi, generatingAi } = useAreaFloodOutlook(areaId, days);
 
-  const canUseAi = Boolean(user && hasAnyRole(user.role, [...AI_ROLES]));
+  const canUseAi = can(user, "ai.use");
   const canIssueAlert = can(user, "alerts.issue");
 
   if (loading && !outlook) {

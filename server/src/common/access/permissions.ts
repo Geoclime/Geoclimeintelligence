@@ -15,7 +15,7 @@
 
 export interface PermissionInfo {
   /** The heading it is listed under on the Roles screen. */
-  group: "Field survey" | "Photos" | "Places" | "Reports and alerts" | "Oversight";
+  group: "Field survey" | "Photos" | "Places" | "Reports and alerts" | "AI assistance" | "Oversight";
   label: string;
   description: string;
 }
@@ -44,6 +44,13 @@ export const PERMISSION_INFO = {
   },
   "reports.review": { group: "Reports and alerts", label: "Review flood reports", description: "See the review queue, publish or reject community flood reports." },
   "alerts.issue": { group: "Reports and alerts", label: "Issue flood alerts", description: "Issue, change, end and delete official flood alerts." },
+  "ai.use": {
+    group: "AI assistance",
+    label: "Use AI assistance",
+    description:
+      "Chat with the AI assistant, write AI flood outlooks, and draft alerts with AI (drafting an alert also needs Issue flood alerts). Each request is paid for by the platform's AI key unless they add their own.",
+  },
+  "ai.own_keys": { group: "AI assistance", label: "Use their own AI key", description: "Save, switch and remove a personal AI provider key, which their AI requests then use instead of the platform's." },
   "audit.view": { group: "Oversight", label: "See the activity log", description: "Read and export the log of who recorded, inspected, changed or deleted what." },
 } as const satisfies Record<string, PermissionInfo>;
 
@@ -54,8 +61,19 @@ export function isPermission(value: string): value is Permission {
   return Object.hasOwn(PERMISSION_INFO, value);
 }
 
-/** Never assignable to a role: only administrators manage users, roles, countries, data sources and imports. */
-export const ADMIN_ONLY_POWERS = ["Manage users and their access", "Edit roles and permissions", "Countries, data sources and imports"] as const;
+/**
+ * Never assignable to a role: only administrators manage users, roles, countries, data sources and imports,
+ * the platform's AI keys (whoever holds them decides what everyone's AI requests cost), the flood
+ * prediction settings, and map-layer uploads.
+ */
+export const ADMIN_ONLY_POWERS = [
+  "Manage users and their access",
+  "Edit roles and permissions",
+  "Countries, data sources and imports",
+  "Map layer uploads",
+  "The platform's AI keys",
+  "Flood forecast settings",
+] as const;
 
 /**
  * What each built-in role holds when nothing else is known: the seed of migration CreateRolePermissions,
@@ -64,7 +82,7 @@ export const ADMIN_ONLY_POWERS = ["Manage users and their access", "Edit roles a
  */
 export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<string, readonly Permission[]>> = {
   general_public: [],
-  researcher: [],
+  researcher: ["ai.use", "ai.own_keys"],
   emergency_responder: [
     "survey.record_flood",
     "survey.recede_flood",
@@ -76,6 +94,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<string, readonly Permissi
     "photos.view",
     "reports.review",
     "households.view",
+    "ai.use",
+    "ai.own_keys",
   ],
   government_official: [
     "survey.record_flood",
@@ -89,5 +109,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<string, readonly Permissi
     "reports.review",
     "alerts.issue",
     "households.view",
+    "ai.use",
+    "ai.own_keys",
   ],
 };

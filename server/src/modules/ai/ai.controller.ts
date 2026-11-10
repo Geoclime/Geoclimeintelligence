@@ -1,14 +1,23 @@
 import type { NextFunction, Request, Response } from "express";
 import { ok } from "../../common/response/api-response";
+import { AssistantService } from "./assistant/assistant.service";
 import { AiCredentialService } from "./ai-credential.service";
 import { AiService } from "./ai.service";
-import type { ListModelsBody, SaveAiCredentialBody } from "./ai.validation";
+import type { AssistantChatBody, ListModelsBody, SaveAiCredentialBody } from "./ai.validation";
 import type { AiProviderId } from "./providers/ai-provider";
 
 export class AiController {
   static async status(req: Request, res: Response, next: NextFunction) {
     try {
       return res.json(ok(await AiService.Instance.status(req.user!)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async chat(req: Request, res: Response, next: NextFunction) {
+    try {
+      return res.json(ok(await AssistantService.Instance.chat(req.body as AssistantChatBody, req.user!)));
     } catch (err) {
       next(err);
     }

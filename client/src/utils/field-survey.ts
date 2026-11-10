@@ -1,4 +1,3 @@
-import type { UserRole } from "../types/auth.types";
 import {
   DRAINAGE_CONDITIONS,
   type DrainageCondition,
@@ -7,17 +6,11 @@ import {
   type FlowDirection,
   type SurveyTarget,
 } from "../types/field-survey.types";
-import { hasAnyRole } from "./roles";
-
-/** Words and rules for field survey: what is recorded, what the conditions mean, and who records it. */
 
 /**
- * The built-in roles that record field survey as seeded. Who may record is now a permission the Roles
- * screen sets (utils/permissions.ts); this stays for screens that only know a role.
+ * Words and rules for field survey: what is recorded and what the conditions mean. Who may record is a
+ * permission the Roles screen sets (utils/permissions.ts).
  */
-export function canRecordSurvey(role: UserRole): boolean {
-  return hasAnyRole(role, ["emergency_responder", "government_official"]);
-}
 
 /** Which way the water runs, in the words of someone standing at the drain's first point. */
 export const FLOW_LABEL: Record<FlowDirection, string> = {

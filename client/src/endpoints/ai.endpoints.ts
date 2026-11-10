@@ -1,6 +1,20 @@
 import { httpClient } from "../transport/http";
-import type { AiCredential, AiModelOption, AiProviderId, AiStatus, SaveAiCredentialInput } from "../types/ai.types";
+import type {
+  AiCredential,
+  AiModelOption,
+  AiProviderId,
+  AiStatus,
+  AssistantChatBody,
+  AssistantReply,
+  SaveAiCredentialInput,
+} from "../types/ai.types";
 import type { ApiResponse } from "../types/api.types";
+
+/** Asks the in-app assistant. The whole conversation so far is sent each time; the server keeps none of it. */
+export async function sendAssistantMessage(body: AssistantChatBody): Promise<ApiResponse<AssistantReply>> {
+  const { data } = await httpClient.post<ApiResponse<AssistantReply>>("/api/v1/ai/chat", body);
+  return data;
+}
 
 export async function fetchAiStatus(): Promise<ApiResponse<AiStatus>> {
   const { data } = await httpClient.get<ApiResponse<AiStatus>>("/api/v1/ai/status");

@@ -106,17 +106,53 @@ export const anthropicProvider: AiProvider = {
     return { text, inputTokens, outputTokens };
   },
 
+  /** A plain-text, multi-turn chat reply, delivered to onText in one piece. A reply cut short is kept, not thrown. */
   async stream(apiKey: string, req: AiChatRequest, onText: (delta: string) => void): Promise<AiGenerateResult> {
-    const result = await this.generate(apiKey, {
-      model: req.model,
-      system: req.system,
-      prompt: req.messages.map((m) => `${m.role}: ${m.content}`).join("\n\n"),
-      schemaName: "chat",
-      jsonSchema: { type: "object", properties: { reply: { type: "string" } }, required: ["reply"], additionalProperties: false },
-      maxOutputTokens: req.maxOutputTokens,
-    });
-    onText(result.text);
-    return result;
+    if (!apiKey || apiKey.trim().length < 10) {
+      throw new AiProviderError("auth", "API key is too short", 401);
+    }
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": ANTHROPIC_VERSION,
+        },
+        body: JSON.stringify({
+          model: req.model,
+          system: req.system,
+          messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+          max_tokens: req.maxOutputTokens,
+        }),
+        signal: AbortSignal.timeout(env.AI_REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      throw new AiProviderError("unavailable", err instanceof Error ? err.message : "Network error");
+    }
+
+    const json = (await res.json().catch(() => ({}))) as AnthropicMessageResponse;
+    if (!res.ok) {
+      throw normaliseError(res.status, json.error?.message ?? res.statusText);
+    }
+    if (json.stop_reason === "refusal") {
+      throw new AiProviderError("refused", "Anthropic model refused request");
+    }
+
+    const text = (json.content ?? [])
+      .filter((c) => c.type === "text")
+      .map((c) => c.text ?? "")
+      .join("");
+    onText(text);
+    return {
+      text,
+      inputTokens:
+        (json.usage?.input_tokens ?? 0) +
+        (json.usage?.cache_read_input_tokens ?? 0) +
+        (json.usage?.cache_creation_input_tokens ?? 0),
+      outputTokens: json.usage?.output_tokens ?? 0,
+    };
   },
 
   async listModels(apiKey: string): Promise<AiModelInfo[]> {

@@ -2,7 +2,6 @@ import { Router } from "express";
 import { authorise } from "../../middleware/authorise.middleware";
 import { requirePermission } from "../../middleware/require-permission.middleware";
 import { validate } from "../../middleware/validate.middleware";
-import { AI_ACCESS } from "../ai/ai-access";
 import { aiRateLimiter } from "../ai/ai.routes";
 import { FloodPredictionController } from "./flood-prediction.controller";
 import {
@@ -32,7 +31,9 @@ floodPredictionRouter.post(
 );
 floodPredictionRouter.post(
   "/draft-alert",
+  // Both: issuing alerts is what is being drafted, and the draft is an AI request.
   requirePermission("alerts.issue"),
+  requirePermission("ai.use"),
   aiRateLimiter,
   validate(draftAlertSchema),
   FloodPredictionController.draftAlert,
@@ -40,7 +41,7 @@ floodPredictionRouter.post(
 floodPredictionRouter.get("/areas/:adminUnitId", validate(areaPredictionParamSchema), FloodPredictionController.area);
 floodPredictionRouter.post(
   "/areas/:adminUnitId/ai-outlook",
-  authorise(...AI_ACCESS.use),
+  requirePermission("ai.use"),
   aiRateLimiter,
   validate(generateAiOutlookSchema),
   FloodPredictionController.generateAiOutlook,

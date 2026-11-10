@@ -1,5 +1,7 @@
 # AI Integration (foundation)
 
+> **Since this was written** the four adapters call their providers for real, the tables and routes exist, the AI flood outlook and alert draft use them, and there is an AI assistant chat. Who may use AI is now the `ai.use` and `ai.own_keys` permissions on the Roles screen, not `AI_ACCESS` (removed). See [ai-assistant.md](ai-assistant.md). The table below is the state at the time.
+
 ## What was built
 
 The **skeleton** of a multi-provider AI layer, following [`ai-integration-prompt.md`](../ai-integration-prompt.md). Nothing calls a real AI provider yet, no table exists, and no route is mounted. What exists is the shape every later piece plugs into, plus the small pure building blocks that are fully working and tested:

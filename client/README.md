@@ -10,7 +10,8 @@ Disaster Platform*. Per-feature explanations live in [`../docs/features/`](../do
 (dashboard sidebar, home map, Places, admin Countries and Imports) are done. See
 [`admin-geography.md`](../docs/features/admin-geography.md). The home map also draws the flood risk map once an administrator has imported it (Imports → Flood risk map);
 see [`flood-risk-overlay.md`](../docs/features/flood-risk-overlay.md). The map on Report flooding draws the same places, roads and
-waterways, with a switch for each; see [`report-map-layers.md`](../docs/features/report-map-layers.md).
+waterways, with a switch for each; see [`report-map-layers.md`](../docs/features/report-map-layers.md). The AI assistant
+(the speech bubble in the top bar, for roles with "Use AI assistance") is in [`ai-assistant.md`](../docs/features/ai-assistant.md).
 
 ## Prerequisites
 

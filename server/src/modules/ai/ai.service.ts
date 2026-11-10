@@ -10,6 +10,7 @@ import type {
   IAiCredentialResolver,
   IAiUsageRecorder,
   StreamTextRequest,
+  StreamTextResult,
 } from "./ai.types";
 import { AiRequestError, noKeyError, toRequestError } from "./domain/ai-errors";
 import { describeRejection } from "./domain/lenient";
@@ -188,7 +189,7 @@ export class AiService {
     }
   }
 
-  async streamText(actor: AuthUser, request: StreamTextRequest, onText: (delta: string) => void): Promise<{ text: string }> {
+  async streamText(actor: AuthUser, request: StreamTextRequest, onText: (delta: string) => void): Promise<StreamTextResult> {
     const credential = await this.requireCredential(actor, request.feature);
     const provider = this.providers(credential.provider);
     const providerLabel = AI_PROVIDER_LABELS[credential.provider];
@@ -220,7 +221,7 @@ export class AiService {
         errorKind: null,
         durationMs: Date.now() - startedAt,
       });
-      return { text: result.text };
+      return { text: result.text, provider: credential.provider, model, source: credential.source };
     } catch (err) {
       const providerErr =
         err instanceof AiProviderError

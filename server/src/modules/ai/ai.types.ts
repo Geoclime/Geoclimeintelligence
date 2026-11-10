@@ -131,6 +131,13 @@ export interface StreamTextRequest {
   maxOutputTokens?: number;
 }
 
+export interface StreamTextResult {
+  text: string;
+  provider: AiProviderId;
+  model: string;
+  source: AiKeySource;
+}
+
 /** GET /api/v1/ai/status. Mirrored by AiStatus in client/src/types/ai.types.ts. */
 export interface AiStatusDto {
   available: boolean;

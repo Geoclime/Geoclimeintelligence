@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useId, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useAiStatus } from "../../hooks/useAi";
+import { useAuth } from "../../hooks/useAuth";
 import { useDraftAlertWithAi } from "../../hooks/useFloodPrediction";
 import { useToast } from "../../hooks/useToast";
 import { errorMessage } from "../../transport/api-error";
@@ -9,6 +10,7 @@ import { ALERT_SEVERITIES, type FloodAlert } from "../../types/alert.types";
 import type { AlertDraft } from "../../types/flood-prediction.types";
 import { SEVERITY_INFO } from "../../utils/alert-severity";
 import { applySubmitError } from "../../utils/form-errors";
+import { can } from "../../utils/permissions";
 import { Button } from "../shared/Button";
 import { Callout } from "../shared/Callout";
 import { Modal } from "../shared/Modal";
@@ -64,7 +66,9 @@ export function AlertFormDialog({ open, onClose, alert, initialAreaIds, onSubmit
   const formId = useId();
   const editing = alert !== undefined;
   const { showToast } = useToast();
+  const { user } = useAuth();
   const { status: aiStatus } = useAiStatus();
+  const mayDraftWithAi = can(user, "ai.use") && Boolean(aiStatus?.available);
   const { draftAlert, drafting } = useDraftAlertWithAi();
   const [aiDraftMeta, setAiDraftMeta] = useState<Pick<AlertDraft, "provider" | "model" | "caveats"> | null>(null);
   // Asked before the AI draft replaces what has already been written.
@@ -188,7 +192,7 @@ export function AlertFormDialog({ open, onClose, alert, initialAreaIds, onSubmit
             error={errors.areaIds?.message}
           />
 
-          {areaIds.length > 0 && aiStatus?.available && (
+          {areaIds.length > 0 && mayDraftWithAi && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
               <span className="muted" style={{ fontSize: "0.85rem" }}>
                 Pre-fill this alert from the 7-day forecast, terrain susceptibility, and drainage records for the selected area{areaIds.length === 1 ? "" : "s"}.

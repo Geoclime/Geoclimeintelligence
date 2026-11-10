@@ -26,6 +26,11 @@ export const AI_FEATURES = [
     label: "Alert drafting assistant",
     description: "Drafts official flood alert titles, messages, and resident actions from forecast data for human review.",
   },
+  {
+    id: "assistant_chat",
+    label: "AI assistant chat",
+    description: "Answers questions about flood alerts, forecasts, preparedness and how to use the platform, from the platform's current data.",
+  },
 ] as const satisfies readonly { id: string; label: string; description: string }[];
 export type AiFeature = (typeof AI_FEATURES)[number]["id"];
 
@@ -66,6 +71,33 @@ export interface AiModelOption {
   id: string;
   label: string;
   tier: "fast" | "balanced" | "capable" | null;
+}
+
+/** One turn of a conversation with the assistant. Kept only in the browser. */
+export interface AssistantMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** Body for POST /api/v1/ai/chat. Mirrors assistantChatSchema on the server. */
+export interface AssistantChatBody {
+  /** Takes turns, starting and ending with the person's question; at most MAX_CHAT_MESSAGES. */
+  messages: AssistantMessage[];
+  /** The place on screen, or the person's home area. */
+  areaId?: string;
+  /** The page they have open. */
+  page?: string;
+}
+
+/** Mirrors MAX_CHAT_MESSAGES on the server. */
+export const MAX_CHAT_MESSAGES = 20;
+
+/** Mirrors AssistantReplyDto. */
+export interface AssistantReply {
+  reply: string;
+  provider: AiProviderId;
+  model: string;
+  source: AiKeySource;
 }
 
 /** "1 credit" / "3 credits". */

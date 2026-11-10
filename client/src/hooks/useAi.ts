@@ -7,9 +7,27 @@ import {
   fetchPlatformProviderModels,
   removePlatformAiCredential,
   savePlatformAiCredential,
+  sendAssistantMessage,
 } from "../endpoints/ai.endpoints";
-import type { AiCredential, AiModelOption, AiProviderId, AiStatus, SaveAiCredentialInput } from "../types/ai.types";
+import type {
+  AiCredential,
+  AiModelOption,
+  AiProviderId,
+  AiStatus,
+  AssistantChatBody,
+  AssistantReply,
+  SaveAiCredentialInput,
+} from "../types/ai.types";
 import { useLoader } from "./useLoader";
+
+/** Asks the AI assistant one question (with the conversation so far). Nothing is cached: every answer is fresh. */
+export function useAssistantChat() {
+  const ask = useCallback(async (body: AssistantChatBody): Promise<AssistantReply> => {
+    const res = await sendAssistantMessage(body);
+    return res.data!;
+  }, []);
+  return { ask };
+}
 
 export function useAiStatus() {
   const { data, loading, error, refetch } = useLoader<AiStatus>(

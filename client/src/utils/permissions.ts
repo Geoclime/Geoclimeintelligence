@@ -5,13 +5,16 @@ import type { AuthUser, Permission } from "../types/auth.types";
  * `permissions`). Mirrors DEFAULT_ROLE_PERMISSIONS in server/src/common/access/permissions.ts.
  */
 const DEFAULTS: Readonly<Record<string, readonly Permission[]>> = {
+  researcher: ["ai.use", "ai.own_keys"],
   emergency_responder: [
     "survey.record_flood", "survey.recede_flood", "survey.record_drain", "survey.inspect_drain",
     "survey.delete_own", "survey.view_people", "photos.add", "photos.view", "reports.review", "households.view",
+    "ai.use", "ai.own_keys",
   ],
   government_official: [
     "survey.record_flood", "survey.recede_flood", "survey.record_drain", "survey.inspect_drain",
     "survey.delete_own", "survey.view_people", "photos.add", "photos.view", "reports.review", "alerts.issue", "households.view",
+    "ai.use", "ai.own_keys",
   ],
 };
 

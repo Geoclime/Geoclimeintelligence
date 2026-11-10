@@ -103,17 +103,47 @@ export const geminiProvider: AiProvider = {
     return { text, inputTokens, outputTokens };
   },
 
+  /** A plain-text, multi-turn chat reply, delivered to onText in one piece. A reply cut short is kept, not thrown. */
   async stream(apiKey: string, req: AiChatRequest, onText: (delta: string) => void): Promise<AiGenerateResult> {
-    const result = await this.generate(apiKey, {
-      model: req.model,
-      system: req.system,
-      prompt: req.messages.map((m) => `${m.role}: ${m.content}`).join("\n\n"),
-      schemaName: "chat",
-      jsonSchema: { type: "object", properties: { reply: { type: "string" } }, required: ["reply"], additionalProperties: false },
-      maxOutputTokens: req.maxOutputTokens,
-    });
-    onText(result.text);
-    return result;
+    if (!apiKey || apiKey.trim().length < 10) {
+      throw new AiProviderError("auth", "API key is too short", 401);
+    }
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/models/${encodeURIComponent(req.model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: req.system }] },
+          // Gemini calls the assistant's turns "model".
+          contents: req.messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+          generationConfig: { maxOutputTokens: req.maxOutputTokens },
+        }),
+        signal: AbortSignal.timeout(env.AI_REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      throw new AiProviderError("unavailable", err instanceof Error ? err.message : "Network error");
+    }
+
+    const json = (await res.json().catch(() => ({}))) as GeminiResponse;
+    if (!res.ok) {
+      throw normaliseError(res.status, json.error?.message ?? res.statusText);
+    }
+    if (json.promptFeedback?.blockReason) {
+      throw new AiProviderError("refused", `Blocked: ${json.promptFeedback.blockReason}`);
+    }
+    const candidate = json.candidates?.[0];
+    if (REFUSED_REASONS.has(candidate?.finishReason ?? "")) {
+      throw new AiProviderError("refused", `Finish reason: ${candidate?.finishReason}`);
+    }
+
+    const text = (candidate?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+    onText(text);
+    return {
+      text,
+      inputTokens: json.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: (json.usageMetadata?.candidatesTokenCount ?? 0) + (json.usageMetadata?.thoughtsTokenCount ?? 0),
+    };
   },
 
   async listModels(apiKey: string): Promise<AiModelInfo[]> {
