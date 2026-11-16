@@ -32,7 +32,7 @@ Of the extract's 21 files, this layer reads six: points of interest, places of w
 | `market` | 33 | marketplace, mall |
 | `community` | 31 | community_centre, library |
 | `telecom` | 13 | comms_tower |
-| `emergency` | 10 | police, fire_station |
+| `emergency` | 10 | police, fire_station, police_checkpoint (saved by hand only) |
 | `government` | 9 | town_hall, courthouse, post_office |
 
 The other 1,462 features (kiosks, hairdressers, sports pitches, hotels, shops...) are left out on purpose. The loader counts them under one reason, so the report shows how many.
